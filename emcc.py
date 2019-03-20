@@ -386,6 +386,7 @@ def apply_settings(changes):
       'BINARYEN_MEM_MAX': 'WASM_MEM_MAX',
       # TODO: change most (all?) other BINARYEN* names to WASM*
     }
+    value = value.strip()
     key = settings_aliases.get(key, key)
     # boolean NO_X settings are aliases for X
     # (note that *non*-boolean setting values have special meanings,
@@ -405,15 +406,27 @@ def apply_settings(changes):
                'WASM_MEM_MAX', 'DEFAULT_PTHREAD_STACK_SIZE'):
       value = str(shared.expand_byte_size_suffixes(value))
 
-    if value[0] == '@':
+    if value and value[0] == '@':
       if key not in DEFERRED_RESPONSE_FILES:
         value = open(value[1:]).read()
     else:
       value = value.replace('\\', '\\\\')
-    try:
-      setattr(shared.Settings, key, parse_value(value))
-    except Exception as e:
-      exit_with_error('a problem occured in evaluating the content after a "-s", specifically "%s": %s', change, str(e))
+
+    if key not in shared.Settings:
+      exit_with_error('invalid -s setting: %s' % key)
+
+    if value and value[0] == '[':
+      if shared.Settings.STRICT:
+        exit_with_error('old-style -s command line flag found: %s=%s\nuse the new style (`-s foo,bar`) or disable STRICT' % (key, value))
+      try:
+        value = parse_value_old(value)
+      except Exception as e:
+        exit_with_error('a problem occured in evaluating the content after a "-s", specifically "%s": %s', change, str(e))
+    else:
+      value = parse_value(key, value)
+      #print(value)
+
+    setattr(shared.Settings, key, value)
 
     if shared.Settings.WASM_BACKEND and key == 'BINARYEN_TRAP_MODE':
       exit_with_error('BINARYEN_TRAP_MODE is not supported by the LLVM wasm backend')
@@ -2514,7 +2527,7 @@ def parse_args(newargs):
       newargs[i + 1] = ''
     elif newargs[i].startswith('--llvm-opts'):
       check_bad_eq(newargs[i])
-      options.llvm_opts = parse_value(newargs[i + 1])
+      options.llvm_opts = parse_value_old(newargs[i + 1])
       newargs[i] = ''
       newargs[i + 1] = ''
     elif newargs[i].startswith('--llvm-lto'):
@@ -3512,7 +3525,30 @@ def is_valid_abspath(options, path_name):
   return False
 
 
-def parse_value(text):
+def parse_value(key, value):
+  if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+    if shared.Settings.STRICT:
+      logger.warning('unnecessay quotation around settings argument')
+    value = value[1:-1]
+
+  existing = getattr(shared.Settings, key)
+  #print(key)
+  #print(isinstance(existing, list))
+  if isinstance(existing, list):
+    #print("parsing list")
+    if ',' in value:
+      return value.split(',')
+    if value:
+      return [value]
+    return []
+
+  try:
+    return int(value)
+  except ValueError:
+    return value
+
+
+def parse_value_old(text):
   # Note that using response files can introduce whitespace, if the file
   # has a newline at the end. For that reason, we rstrip() in relevant
   # places here.

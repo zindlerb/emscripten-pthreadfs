@@ -508,7 +508,7 @@ class RunnerCore(RunnerMeta('TestCase', (unittest.TestCase,), {})):
       if value == 1:
         ret += ['-s', key]
       else:
-        ret += ['-s', '{}={}'.format(key, json.dumps(value))]
+        ret += ['-s', '%s=%s' % (key, value)]
     return ret
 
   def get_dir(self):

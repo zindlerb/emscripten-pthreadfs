@@ -128,7 +128,7 @@ parameters to pass to the function:
      from JavaScript:
 
      - Exporting is done at compile time. For example:
-       ``-s EXPORTED_FUNCTIONS='["_main","_other_function"]'`` exports
+       ``-s EXPORTED_FUNCTIONS=_main,_other_function`` exports
        ``main()`` and ``other_function()``.
      - Note that you need ``_`` at the
        beginning of the function names in the ``EXPORTED_FUNCTIONS`` list.

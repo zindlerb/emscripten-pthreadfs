@@ -1641,11 +1641,11 @@ int main() {
     self.do_run_in_out_file_test('tests', 'core', 'test_set_align')
 
   def test_emscripten_api(self):
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_save_me_aimee'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_main,_save_me_aimee')
     self.do_run_in_out_file_test('tests', 'core', 'test_emscripten_api')
 
     # test EXPORT_ALL
-    self.set_setting('EXPORTED_FUNCTIONS', [])
+    self.clear_setting('EXPORTED_FUNCTIONS')
     self.set_setting('EXPORT_ALL', 1)
     self.set_setting('LINKABLE', 1)
     self.do_run_in_out_file_test('tests', 'core', 'test_emscripten_api')
@@ -2517,7 +2517,7 @@ The current type of b is: 9
   @needs_dlfcn
   def test_dlfcn_i64(self):
     self.prep_dlfcn_lib()
-    self.set_setting('EXPORTED_FUNCTIONS', ['_foo'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_foo')
     lib_src = '''
       int foo(int x) {
         return (long long)x / (long long)1234;
@@ -2598,7 +2598,7 @@ The current type of b is: 9
   @needs_dlfcn
   def test_dlfcn_qsort(self):
     self.prep_dlfcn_lib()
-    self.set_setting('EXPORTED_FUNCTIONS', ['_get_cmp'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_get_cmp')
     lib_src = '''
       int lib_cmp(const void* left, const void* right) {
         const int* a = (const int*) left;
@@ -2619,7 +2619,7 @@ The current type of b is: 9
     self.build_dlfcn_lib(lib_src, dirname, filename)
 
     self.prep_dlfcn_main()
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_main,_malloc')
     src = '''
       #include <stdio.h>
       #include <stdlib.h>
@@ -2712,7 +2712,7 @@ The current type of b is: 9
       '''
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.cpp')
-    self.set_setting('EXPORTED_FUNCTIONS', ['_func'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_func')
     self.build_dlfcn_lib(lib_src, dirname, filename)
 
     self.prep_dlfcn_main()
@@ -2769,7 +2769,7 @@ The current type of b is: 9
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_main')
     self.do_run(src, '''\
 In func: 13
 First calling main_fptr from lib.
@@ -2793,7 +2793,7 @@ Var: 42
       '''
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.cpp')
-    self.set_setting('EXPORTED_FUNCTIONS', ['_func'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_func')
     self.build_dlfcn_lib(lib_src, dirname, filename)
 
     self.prep_dlfcn_main()
@@ -2826,7 +2826,7 @@ Var: 42
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_main')
     self.do_run(src, '100\n200\n13\n42\n')
 
   @needs_dlfcn
@@ -2942,7 +2942,7 @@ Var: 42
         return 13;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_myfunc'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_myfunc')
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.c')
     self.build_dlfcn_lib(lib_src, dirname, filename)
@@ -2971,7 +2971,7 @@ Var: 42
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_main,_malloc')
     self.do_run(src, 'success', force_c=True)
 
   @needs_dlfcn
@@ -2985,7 +2985,7 @@ Var: 42
         return 13;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_myfunc'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_myfunc')
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.c')
     self.build_dlfcn_lib(lib_src, dirname, filename)
@@ -3029,7 +3029,7 @@ Var: 42
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_main,_malloc')
     self.do_run(src, 'success', force_c=True)
 
   @needs_dlfcn
@@ -3050,7 +3050,7 @@ Var: 42
         return strlen(bigstack);
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_myfunc'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_myfunc')
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.c')
     self.build_dlfcn_lib(lib_src, dirname, filename)
@@ -3087,7 +3087,7 @@ Var: 42
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc', '_strcmp'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_main,_malloc,_strcmp')
     self.do_run(src, 'success', force_c=True)
 
   @needs_dlfcn
@@ -3124,7 +3124,7 @@ Var: 42
         }
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_callvoid', '_callint', '_getvoid', '_getint'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_callvoid,_callint,_getvoid,_getint')
     dirname = self.get_dir()
     self.build_dlfcn_lib(lib_src, dirname, os.path.join(dirname, 'liblib.c'))
 
@@ -3176,7 +3176,7 @@ Var: 42
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_main,_malloc')
     self.do_run(src, '''go
 void_main.
 int_main 201
@@ -3202,14 +3202,14 @@ ok
       void *mallocproxy(int n) { return malloc(n); }
       void freeproxy(void *p) { free(p); }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_mallocproxy', '_freeproxy'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_mallocproxy,_freeproxy')
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.c')
     self.build_dlfcn_lib(lib_src, dirname, filename)
 
     self.prep_dlfcn_main()
     src = open(path_from_root('tests', 'dlmalloc_proxy.c')).read()
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc', '_free'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_main,_malloc,_free')
     self.do_run(src, '''*294,153*''', force_c=True)
 
   @needs_dlfcn
@@ -3226,7 +3226,7 @@ ok
         printf("pre %d\n", i);
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_jumpy'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_jumpy')
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.c')
     self.build_dlfcn_lib(lib_src, dirname, filename)
@@ -3261,7 +3261,7 @@ ok
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc', '_free'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_main,_malloc,_free')
     self.do_run(src, '''go!
 pre 1
 pre 2
@@ -3290,7 +3290,7 @@ out!
       }
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_ok', '_fail'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_ok,_fail')
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.cpp')
     self.build_dlfcn_lib(lib_src, dirname, filename)
@@ -3335,7 +3335,7 @@ out!
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc', '_free'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_main,_malloc,_free')
     self.do_run(src, '''go!
 ok: 65
 int 123
@@ -3975,7 +3975,7 @@ ok
       void call_side() {
         printf("side: jslib_x is %d.\n", jslib_x);
       }
-    ''', expected=['main: jslib_x is 148.\nside: jslib_x is 148.\n'], main_emcc_args=['--js-library', 'lib.js', '-s', 'EXPORTED_FUNCTIONS=["_main", "_jslib_x"]'])
+    ''', expected=['main: jslib_x is 148.\nside: jslib_x is 148.\n'], main_emcc_args=['--js-library', 'lib.js', '-s', 'EXPORTED_FUNCTIONS=_main,_jslib_x'])
 
   @needs_dlfcn
   def test_dylink_many_postsets(self):
@@ -4906,23 +4906,23 @@ main( int argv, char ** argc ) {
 
   def test_utf(self):
     self.banned_js_engines = [SPIDERMONKEY_ENGINE] # only node handles utf well
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc'])
-    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', ['getValue', 'setValue', 'UTF8ToString', 'stringToUTF8'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_main,_malloc')
+    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', 'getValue,setValue,UTF8ToString,stringToUTF8')
     self.do_run_in_out_file_test('tests', 'core', 'test_utf')
 
   def test_utf32(self):
-    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', ['UTF32ToString', 'stringToUTF32', 'lengthBytesUTF32'])
+    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', 'UTF32ToString,stringToUTF32,lengthBytesUTF32')
     self.do_run(open(path_from_root('tests', 'utf32.cpp')).read(), 'OK.')
     self.do_run(open(path_from_root('tests', 'utf32.cpp')).read(), 'OK.', args=['-fshort-wchar'])
 
   def test_utf8(self):
     self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS',
-                     ['UTF8ToString', 'stringToUTF8', 'AsciiToString', 'stringToAscii'])
+                     'UTF8ToString,stringToUTF8,AsciiToString,stringToAscii')
     self.emcc_args += ['-std=c++11']
     self.do_run(open(path_from_root('tests', 'utf8.cpp')).read(), 'OK.')
 
   def test_utf8_textdecoder(self):
-    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', ['UTF8ToString', 'stringToUTF8'])
+    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', 'UTF8ToString,stringToUTF8')
     self.emcc_args += ['--embed-file', path_from_root('tests/utf8_corpus.txt') + '@/utf8_corpus.txt']
     self.do_run(open(path_from_root('tests', 'benchmark_utf8.cpp')).read(), 'OK.')
 
@@ -4945,7 +4945,7 @@ main( int argv, char ** argc ) {
       self.do_run(open(path_from_root('tests', 'utf8_invalid.cpp')).read(), 'OK.')
 
   def test_utf16_textdecoder(self):
-    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', ['UTF16ToString', 'stringToUTF16', 'lengthBytesUTF16'])
+    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', 'UTF16ToString,stringToUTF16,lengthBytesUTF16')
     self.emcc_args += ['--embed-file', path_from_root('tests/utf16_corpus.txt') + '@/utf16_corpus.txt']
     self.do_run(open(path_from_root('tests', 'benchmark_utf16.cpp')).read(), 'OK.')
 
@@ -5840,7 +5840,7 @@ return malloc(size);
       self.banned_js_engines += [SPIDERMONKEY_ENGINE] # SM bug 1066759
 
     self.set_setting('DISABLE_EXCEPTION_CATCHING', 1)
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_sqlite3_open', '_sqlite3_close', '_sqlite3_exec', '_sqlite3_free'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_main,_sqlite3_open,_sqlite3_close,_sqlite3_exec,_sqlite3_free')
     if self.get_setting('ASM_JS') == 1 and '-g' in self.emcc_args:
       print("disabling inlining") # without registerize (which -g disables), we generate huge amounts of code
       self.set_setting('INLINING_LIMIT', 50)
@@ -6289,7 +6289,7 @@ return malloc(size);
   @sync
   def test_ccall(self):
     self.emcc_args.append('-Wno-return-stack-address')
-    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', ['ccall', 'cwrap'])
+    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', 'ccall,cwrap')
     create_test_file('post.js', '''
       out('*');
       var ret;
@@ -6324,7 +6324,7 @@ return malloc(size);
       ''')
     self.emcc_args += ['--post-js', 'post.js']
 
-    self.set_setting('EXPORTED_FUNCTIONS', ['_get_int', '_get_float', '_get_bool', '_get_string', '_print_int', '_print_float', '_print_bool', '_print_string', '_multi', '_pointer', '_call_ccall_again', '_malloc'])
+    self.set_setting('EXPORTED_FUNCTIONS', '_get_int,_get_float,_get_bool,_get_string,_print_int,_print_float,_print_bool,_print_string,_multi,_pointer,_call_ccall_again,_malloc')
     self.do_run_in_out_file_test('tests', 'core', 'test_ccall')
 
     if '-O2' in self.emcc_args or self.is_emterpreter():
@@ -6336,15 +6336,15 @@ return malloc(size);
     self.do_run_in_out_file_test('tests', 'core', 'EXTRA_EXPORTED_RUNTIME_METHODS')
     # test dyncall (and other runtime methods in support.js) can be exported
     self.emcc_args += ['-DEXPORTED']
-    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', ['dynCall', 'addFunction', 'lengthBytesUTF8', 'getTempRet0', 'setTempRet0'])
+    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', 'dynCall,addFunction,lengthBytesUTF8,getTempRet0,setTempRet0')
     self.do_run_in_out_file_test('tests', 'core', 'EXTRA_EXPORTED_RUNTIME_METHODS')
 
   def test_dyncall_specific(self):
     emcc_args = self.emcc_args[:]
     for which, exported_runtime_methods in [
-        ('DIRECT', []),
-        ('EXPORTED', []),
-        ('FROM_OUTSIDE', ['dynCall_viii'])
+        ('DIRECT', ''),
+        ('EXPORTED', ''),
+        ('FROM_OUTSIDE', 'dynCall_viii')
       ]:
       print(which)
       self.emcc_args = emcc_args + ['-D' + which]
@@ -6363,12 +6363,12 @@ return malloc(size);
     # keeps it alive through JSDCE
     test(args=['-DDIRECT'])
     # see that with assertions, we get a nice error message
-    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', [])
+    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', '')
     self.set_setting('ASSERTIONS', 1)
     test('_assert')
     self.set_setting('ASSERTIONS', 0)
     # see that when we export them, things work on the module
-    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', ['getValue', 'setValue'])
+    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', 'getValue,setValue')
     test()
 
   def test_FS_exports(self):
@@ -6392,12 +6392,12 @@ return malloc(size);
       # keeps it alive through JSDCE
       test(args=['-DDIRECT', '-s', 'FORCE_FILESYSTEM=1'])
       # see that with assertions, we get a nice error message
-      self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', [])
+      self.clear_setting('EXTRA_EXPORTED_RUNTIME_METHODS')
       self.set_setting('ASSERTIONS', 1)
       test('_assert', assert_returncode=None)
       self.set_setting('ASSERTIONS', 0)
       # see that when we export them, things work on the module
-      self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', ['FS_createDataFile'])
+      self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', 'FS_createDataFile')
       test(args=['-s', 'FORCE_FILESYSTEM=1'])
 
   def test_legacy_exported_runtime_numbers(self):
@@ -6414,12 +6414,12 @@ return malloc(size);
     # keeps it alive through JSDCE
     test(args=['-DDIRECT'])
     # see that with assertions, we get a nice error message
-    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', [])
+    self.clear_setting('EXTRA_EXPORTED_RUNTIME_METHODS')
     self.set_setting('ASSERTIONS', 1)
     test('_assert')
     self.set_setting('ASSERTIONS', 0)
     # see that when we export them, things work on the module
-    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', ['ALLOC_DYNAMIC'])
+    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', 'ALLOC_DYNAMIC')
     test()
 
   @no_wasm_backend('DEAD_FUNCTIONS elimination is done by the JSOptimizer')
@@ -6489,7 +6489,7 @@ return malloc(size);
         return 0;
       }
     '''
-    create_test_file('exps', '["_main","_other_function"]')
+    create_test_file('exps', '_main,_other_function')
 
     self.emcc_args += ['-s', 'EXPORTED_FUNCTIONS=@exps']
     self.do_run(src, '''waka 5!''')
@@ -6971,7 +6971,7 @@ someweirdtext
 // test purposes: remove printErr output, whose order is unpredictable when compared to print
 err = err = function(){};
 ''')
-      self.emcc_args += ['-s', 'EXPORTED_FUNCTIONS=["_malloc"]', '--post-js', 'glue.js', '--post-js', 'export.js']
+      self.emcc_args += ['-s', 'EXPORTED_FUNCTIONS=_malloc', '--post-js', 'glue.js', '--post-js', 'export.js']
       if allow_memory_growth:
         self.emcc_args += ['-s', 'ALLOW_MEMORY_GROWTH=1']
       shutil.copyfile(path_from_root('tests', 'webidl', 'test.h'), 'test.h')
@@ -7350,7 +7350,7 @@ Module['onRuntimeInitialized'] = function() {
       self.do_run(src, 'HelloWorld')
 
       print('check ccall promise')
-      self.set_setting('EXPORTED_FUNCTIONS', ['_stringf', '_floatf'])
+      self.set_setting('EXPORTED_FUNCTIONS', '_stringf,_floatf')
       src = r'''
 #include <stdio.h>
 #include <emscripten.h>
@@ -7513,8 +7513,8 @@ int main() {
     # we should just see calls and follow them).
     self.set_setting('EMTERPRETIFY_ASYNC', 1)
     self.set_setting('SAFE_HEAP', 1)
-    self.set_setting('EXPORTED_FUNCTIONS', ['_async_callback_test'])
-    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', ["ccall"])
+    self.set_setting('EXPORTED_FUNCTIONS', '_async_callback_test')
+    self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', 'ccall')
     self.set_setting('DISABLE_EXCEPTION_CATCHING', 0)
     self.set_setting('ALLOW_MEMORY_GROWTH', 1)
     self.set_setting('EMTERPRETIFY', 1)
@@ -8185,6 +8185,9 @@ def make_run(name, emcc_args, settings=None, env=None):
     os.chdir(self.get_dir()) # Ensure the directory exists and go there
 
     self.emcc_args = emcc_args[:]
+
+    # Run tests in strict mode so we are testing the prefered code paths
+    self.set_setting('STRICT')
     for k, v in settings.items():
       self.set_setting(k, v)
 
