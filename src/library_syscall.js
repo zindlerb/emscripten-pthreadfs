@@ -174,9 +174,24 @@ var SyscallsLibrary = {
 
     varargs: 0,
 
+    get: function() {
+      SYSCALLS.varargs += 4;
+      var ret = {{{ makeGetValue('SYSCALLS.varargs', '-4', 'i32') }}};
+#if SYSCALL_DEBUG
+      err('    (raw: "' + ret + '")');
+#endif
+      return ret;
+    },
+    getStr: function() {
+      var ret = UTF8ToString(SYSCALLS.get());
+#if SYSCALL_DEBUG
+      err('    (str: "' + ret + '")');
+#endif
+      return ret;
+    },
 #if FILESYSTEM
-    getStreamFromFD: function(fd) {
-      var stream = FS.getStream(fd);
+    getStreamFromFD: function() {
+      var stream = FS.getStream(SYSCALLS.get());
       if (!stream) throw new FS.ErrnoError(ERRNO_CODES.EBADF);
 #if SYSCALL_DEBUG
       err('    (stream: "' + stream.path + '")');
@@ -184,7 +199,7 @@ var SyscallsLibrary = {
       return stream;
     },
     getSocketFromFD: function() {
-      var socket = SOCKFS.getSocket();
+      var socket = SOCKFS.getSocket(SYSCALLS.get());
       if (!socket) throw new FS.ErrnoError(ERRNO_CODES.EBADF);
 #if SYSCALL_DEBUG
       err('    (socket: "' + socket.path + '")');
@@ -192,7 +207,7 @@ var SyscallsLibrary = {
       return socket;
     },
     getSocketAddress: function(allowNull) {
-      var addrp, addrlen = ;
+      var addrp = SYSCALLS.get(), addrlen = SYSCALLS.get();
       if (allowNull && addrp === 0) return null;
       var info = __read_sockaddr(addrp, addrlen);
       if (info.errno) throw new FS.ErrnoError(info.errno);
@@ -203,6 +218,35 @@ var SyscallsLibrary = {
       return info;
     },
 #endif // FILESYSTEM
+    get64: function() {
+      var low = SYSCALLS.get(), high = SYSCALLS.get();
+#if ASSERTIONS
+      if (low >= 0) assert(high === 0);
+      else assert(high === -1);
+#endif
+#if SYSCALL_DEBUG
+      err('    (i64: "' + low + '")');
+#endif
+      return low;
+    },
+    getZero: function() {
+#if ASSERTIONS
+      assert(SYSCALLS.get() === 0);
+#else
+      SYSCALLS.get();
+#endif
+    },
+
+#if FILESYSTEM
+    convertFDToStream: function(fd) {
+      var stream = FS.getStream(fd);
+      if (!stream) throw new FS.ErrnoError(ERRNO_CODES.EBADF);
+#if SYSCALL_DEBUG
+      err('    (stream: "' + stream.path + '")');
+#endif
+      return stream;
+    }
+#endif // FILESYSTEM
   },
 
   __syscall1: function(status) { // exit
@@ -210,12 +254,12 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall3: function(stream, buf, count) { // read
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
     return FS.read(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count);
   },
   __syscall4: function(stream, buf, count) { // write
 #if FILESYSTEM
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
     return FS.write(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count);
 #else
     // hack to support printf in FILESYSTEM=0
@@ -231,7 +275,7 @@ var SyscallsLibrary = {
     return stream.fd;
   },
   __syscall6: function(stream) { // close
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
     FS.close(stream);
     return 0;
   },
@@ -289,7 +333,7 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall41: function(old) { // dup
-    old = SYSCALLS.getStreamFromFD(old);
+    old = SYSCALLS.convertFDToStream(old);
     return FS.open(old.path, old.flags, 0).fd;
   },
   __syscall42__deps: ['$PIPEFS'],
@@ -308,14 +352,14 @@ var SyscallsLibrary = {
   __syscall51: function(filename) { // acct
     return -ERRNO_CODES.ENOSYS; // unsupported features
   },
-  __syscall54: function(stream, op, _unused) { // ioctl
+  __syscall54: function(stream, op, argp) { // ioctl
 #if FILESYSTEM == 0
 #if SYSCALL_DEBUG
     err('no-op in ioctl syscall due to FILESYSTEM=0');
 #endif
     return 0;
 #else
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
     switch (op) {
       case {{{ cDefine('TCGETA') }}}:
       case {{{ cDefine('TCGETS') }}}: {
@@ -336,7 +380,6 @@ var SyscallsLibrary = {
       }
       case {{{ cDefine('TIOCGPGRP') }}}: {
         if (!stream.tty) return -ERRNO_CODES.ENOTTY;
-        var argp = ;
         {{{ makeSetValue('argp', 0, 0, 'i32') }}};
         return 0;
       }
@@ -345,7 +388,6 @@ var SyscallsLibrary = {
         return -ERRNO_CODES.EINVAL; // not supported
       }
       case {{{ cDefine('FIONREAD') }}}: {
-        var argp = ;
         return FS.ioctl(stream, op, argp);
       }
       case {{{ cDefine('TIOCGWINSZ') }}}: {
@@ -377,7 +419,7 @@ var SyscallsLibrary = {
     return old;
   },
   __syscall63: function(old, suggestFD) { // dup2
-    old = SYSCALLS.getStreamFromFD(old);
+    old = SYSCALLS.convertFDToStream(old);
     if (old.fd === suggestFD) return suggestFD;
     return SYSCALLS.doDup(old.path, old.flags, suggestFD);
   },
@@ -447,7 +489,7 @@ var SyscallsLibrary = {
     SYSCALLS.varargs = socketvararg;
     switch (call) {
       case 1: { // socket
-        var domain, type, protocol = ;
+        var domain = SYSCALLS.get(), type = SYSCALLS.get(), protocol = SYSCALLS.get();
         var sock = SOCKFS.createSocket(domain, type, protocol);
 #if ASSERTIONS
         assert(sock.stream.fd < 64); // XXX ? select() assumes socket fd values are in 0..63
@@ -465,12 +507,12 @@ var SyscallsLibrary = {
         return 0;
       }
       case 4: { // listen
-        var sock = SYSCALLS.getSocketFromFD(), backlog = ;
+        var sock = SYSCALLS.getSocketFromFD(), backlog = SYSCALLS.get();
         sock.sock_ops.listen(sock, backlog);
         return 0;
       }
       case 5: { // accept
-        var sock = SYSCALLS.getSocketFromFD(), addr, addrlen = ;
+        var sock = SYSCALLS.getSocketFromFD(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
         var newsock = sock.sock_ops.accept(sock);
         if (addr) {
           var res = __write_sockaddr(addr, newsock.family, DNS.lookup_name(newsock.daddr), newsock.dport);
@@ -481,7 +523,7 @@ var SyscallsLibrary = {
         return newsock.stream.fd;
       }
       case 6: { // getsockname
-        var sock = SYSCALLS.getSocketFromFD(), addr, addrlen = ;
+        var sock = SYSCALLS.getSocketFromFD(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
         // TODO: sock.saddr should never be undefined, see TODO in websocket_sock_ops.getname
         var res = __write_sockaddr(addr, sock.family, DNS.lookup_name(sock.saddr || '0.0.0.0'), sock.sport);
 #if ASSERTIONS
@@ -490,7 +532,7 @@ var SyscallsLibrary = {
         return 0;
       }
       case 7: { // getpeername
-        var sock = SYSCALLS.getSocketFromFD(), addr, addrlen = ;
+        var sock = SYSCALLS.getSocketFromFD(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
         if (!sock.daddr) {
           return -ERRNO_CODES.ENOTCONN; // The socket is not connected.
         }
@@ -501,7 +543,7 @@ var SyscallsLibrary = {
         return 0;
       }
       case 11: { // sendto
-        var sock = SYSCALLS.getSocketFromFD(), message, length, flags, dest = SYSCALLS.getSocketAddress(true);
+        var sock = SYSCALLS.getSocketFromFD(), message = SYSCALLS.get(), length = SYSCALLS.get(), flags = SYSCALLS.get(), dest = SYSCALLS.getSocketAddress(true);
         if (!dest) {
           // send, no address provided
           return FS.write(sock.stream, {{{ heapAndOffset('HEAP8', 'message') }}}, length);
@@ -511,7 +553,7 @@ var SyscallsLibrary = {
         }
       }
       case 12: { // recvfrom
-        var sock = SYSCALLS.getSocketFromFD(), buf, len, flags, addr, addrlen = ;
+        var sock = SYSCALLS.getSocketFromFD(), buf = SYSCALLS.get(), len = SYSCALLS.get(), flags = SYSCALLS.get(), addr = SYSCALLS.get(), addrlen = SYSCALLS.get();
         var msg = sock.sock_ops.recvmsg(sock, len);
         if (!msg) return 0; // socket is closed
         if (addr) {
@@ -527,7 +569,7 @@ var SyscallsLibrary = {
         return -ERRNO_CODES.ENOPROTOOPT; // The option is unknown at the level indicated.
       }
       case 15: { // getsockopt
-        var sock = SYSCALLS.getSocketFromFD(), level, optname, optval, optlen = ;
+        var sock = SYSCALLS.getSocketFromFD(), level = SYSCALLS.get(), optname = SYSCALLS.get(), optval = SYSCALLS.get(), optlen = SYSCALLS.get();
         // Minimal getsockopt aimed at resolving https://github.com/emscripten-core/emscripten/issues/2211
         // so only supports SOL_SOCKET with SO_ERROR.
         if (level === {{{ cDefine('SOL_SOCKET') }}}) {
@@ -541,7 +583,7 @@ var SyscallsLibrary = {
         return -ERRNO_CODES.ENOPROTOOPT; // The option is unknown at the level indicated.
       }
       case 16: { // sendmsg
-        var sock = SYSCALLS.getSocketFromFD(), message, flags = ;
+        var sock = SYSCALLS.getSocketFromFD(), message = SYSCALLS.get(), flags = SYSCALLS.get();
         var iov = {{{ makeGetValue('message', C_STRUCTS.msghdr.msg_iov, '*') }}};
         var num = {{{ makeGetValue('message', C_STRUCTS.msghdr.msg_iovlen, 'i32') }}};
         // read the address and port to send to
@@ -572,7 +614,7 @@ var SyscallsLibrary = {
         return sock.sock_ops.sendmsg(sock, view, 0, total, addr, port);
       }
       case 17: { // recvmsg
-        var sock = SYSCALLS.getSocketFromFD(), message, flags = ;
+        var sock = SYSCALLS.getSocketFromFD(), message = SYSCALLS.get(), flags = SYSCALLS.get();
         var iov = {{{ makeGetValue('message', C_STRUCTS.msghdr.msg_iov, 'i8*') }}};
         var num = {{{ makeGetValue('message', C_STRUCTS.msghdr.msg_iovlen, 'i32') }}};
         // get the total amount of data we can read across all arrays
@@ -640,7 +682,7 @@ var SyscallsLibrary = {
   __syscall118__deps: ['$EmterpreterAsync'],
 #endif
   __syscall118: function(stream) { // fsync
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
 #if EMTERPRETIFY_ASYNC
     return EmterpreterAsync.handle(function(resume) {
       var mount = stream.node.mount;
@@ -687,12 +729,12 @@ var SyscallsLibrary = {
     return PROCINFO.pgid;
   },
   __syscall133: function(stream) { // fchdir
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
     FS.chdir(stream.path);
     return 0;
   },
   __syscall140: function(stream, offset_h, offset_l, result, whence) { // llseek
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
     // NOTE: offset_high is unused - Emscripten's off_t is 32-bit
 #if ASSERTIONS
     assert(!offset_h);
@@ -792,7 +834,7 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall145: function(stream, iov, iovcnt) { // readv
-    stream = SYSCALLS.getStreamFromFD(stream)
+    stream = SYSCALLS.convertFDToStream(stream)
     return SYSCALLS.doReadv(stream, iov, iovcnt);
   },
 #if FILESYSTEM == 0
@@ -811,7 +853,7 @@ var SyscallsLibrary = {
 #endif
   __syscall146: function(stream, iov, iovcnt) { // writev
 #if FILESYSTEM
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
     return SYSCALLS.doWritev(stream, iov, iovcnt);
 #else
     // hack to support printf in FILESYSTEM=0
@@ -833,7 +875,7 @@ var SyscallsLibrary = {
     return PROCINFO.sid;
   },
   __syscall148: function(stream) { // fdatasync
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
     return 0; // we can't do anything synchronously; the in-memory FS is already synced to
   },
   __syscall150__sig: 'iii',
@@ -875,14 +917,14 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall180: function(stream, buf, count, zero, offset_l, offset_h) { // pread64
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
 #if ASSERTIONS
     assert(!offset_h);
 #endif
     return FS.read(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count, offset_l);
   },
   __syscall181: function(stream, buf, count, zero, offset_l, offset_h) { // pwrite64
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
 #if ASSERTIONS
     assert(!offset_h);
 #endif
@@ -949,7 +991,7 @@ var SyscallsLibrary = {
     return SYSCALLS.doStat(FS.lstat, path, buf);
   },
   __syscall197: function(stream, buf) { // SYS_fstat64
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
     return SYSCALLS.doStat(FS.stat, stream.path, buf);
   },
   __syscall198: function(path, owner, group) { // lchown32
@@ -981,8 +1023,7 @@ var SyscallsLibrary = {
   __syscall204: '__syscall214',     // setregid32
   __syscall213__sig: 'iii',
   __syscall213: '__syscall214',     // setuid32
-  __syscall214: function(varargs) { // setgid32
-    var uid = ;
+  __syscall214: function(uid) { // setgid32
     if (uid !== 0) return -ERRNO_CODES.EPERM;
     return 0;
   },
@@ -993,8 +1034,7 @@ var SyscallsLibrary = {
   },
   __syscall208__sig: 'iii',
   __syscall208: '__syscall210',     // setresuid32
-  __syscall210: function(varargs) { // setresgid32
-    var ruid, euid, suid = ;
+  __syscall210: function(ruid, euid, suid) { // setresgid32
     if (euid !== 0) return -ERRNO_CODES.EPERM;
     return 0;
   },
@@ -1016,7 +1056,7 @@ var SyscallsLibrary = {
     return 0; // advice is welcome, but ignored
   },
   __syscall220: function(stream, dirp, count) { // SYS_getdents64
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
     if (!stream.getdents) {
       stream.getdents = FS.readdir(stream.path);
     }
@@ -1046,17 +1086,16 @@ var SyscallsLibrary = {
     return pos;
   },
   __syscall221__deps: ['__setErrNo'],
-  __syscall221: function(stream, cmd, _unused) { // fcntl64
+  __syscall221: function(stream, cmd, arg) { // fcntl64
 #if FILESYSTEM == 0
 #if SYSCALL_DEBUG
     err('no-op in fcntl64 syscall due to FILESYSTEM=0');
 #endif
     return 0;
 #else
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
     switch (cmd) {
       case {{{ cDefine('F_DUPFD') }}}: {
-        var arg = ;
         if (arg < 0) {
           return -ERRNO_CODES.EINVAL;
         }
@@ -1070,14 +1109,12 @@ var SyscallsLibrary = {
       case {{{ cDefine('F_GETFL') }}}:
         return stream.flags;
       case {{{ cDefine('F_SETFL') }}}: {
-        var arg = ;
         stream.flags |= arg;
         return 0;
       }
       case {{{ cDefine('F_GETLK') }}}:
       /* case {{{ cDefine('F_GETLK64') }}}: Currently in musl F_GETLK64 has same value as F_GETLK, so omitted to avoid duplicate case blocks. If that changes, uncomment this */ {
         {{{ assert(cDefine('F_GETLK') === cDefine('F_GETLK64')), '' }}}
-        var arg = ;
         var offset = {{{ C_STRUCTS.flock.l_type }}};
         // We're always unlocked.
         {{{ makeSetValue('arg', 'offset', cDefine('F_UNLCK'), 'i16') }}};
@@ -1132,7 +1169,7 @@ var SyscallsLibrary = {
     return 0;
   },
   __syscall269: function(stream, size, buf) { // fstatfs64
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
     return ___syscall([268, 0, size, buf], 0);
   },
   __syscall272: function() { // fadvise64_64
@@ -1275,7 +1312,7 @@ var SyscallsLibrary = {
     return 0;  
   },
   __syscall324: function(stream, mode, offset, offset_h, len, len_h) { // fallocate
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
 #if ASSERTIONS
     assert(mode === 0);
     assert(offset_h === 0);
@@ -1288,7 +1325,7 @@ var SyscallsLibrary = {
 #if SYSCALL_DEBUG
     err('warning: untested syscall');
 #endif
-    old = SYSCALLS.getStreamFromFD(old);
+    old = SYSCALLS.convertFDToStream(old);
 #if ASSERTIONS
     assert(!flags);
 #endif
@@ -1302,14 +1339,14 @@ var SyscallsLibrary = {
 #if SYSCALL_DEBUG
     err('warning: untested syscall');
 #endif
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
     return SYSCALLS.doReadv(stream, iov, iovcnt, offset);
   },
   __syscall334: function(stream, iov, iovcnt, offset) { // pwritev
 #if SYSCALL_DEBUG
     err('warning: untested syscall');
 #endif
-    stream = SYSCALLS.getStreamFromFD(stream);
+    stream = SYSCALLS.convertFDToStream(stream);
     return SYSCALLS.doWritev(stream, iov, iovcnt, offset);
   },
   __syscall337: function(fd, msgvec, vlen, flags, timeout) { // recvmmsg
