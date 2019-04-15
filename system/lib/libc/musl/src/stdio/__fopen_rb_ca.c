@@ -6,7 +6,7 @@ FILE *__fopen_rb_ca(const char *filename, FILE *f, unsigned char *buf, size_t le
 {
 	memset(f, 0, sizeof *f);
 
-	f->fd = sys_open(filename, O_RDONLY|O_CLOEXEC);
+	f->fd = sys_open(filename, O_RDONLY|O_CLOEXEC, 0);
 	if (f->fd < 0) return 0;
 	__syscall(SYS_fcntl, f->fd, F_SETFD, FD_CLOEXEC);
 

@@ -45,7 +45,7 @@ long __syscall29(void);
 long __syscall33(int filename, int amode);
 long __syscall34(int inc);
 long __syscall36(void);
-long __syscall38(void);
+long __syscall38(int old_path, int new_path);
 long __syscall39(int path, int mode);
 long __syscall40(int path);
 long __syscall41(int fd);
@@ -66,9 +66,9 @@ long __syscall91(int addr, int len);
 long __syscall94(int fd, int mode);
 long __syscall96(int which, int who);
 long __syscall97(int which, int who, int prio);
-long __syscall102(void);
+long __syscall102(int call, int socketvararg);
 long __syscall104(void);
-long __syscall114(void);
+long __syscall114(int _unused, ...);
 long __syscall118(int fd);
 long __syscall121(int name, int len);
 long __syscall122(int buf);
@@ -141,9 +141,9 @@ long __syscall330(int old, int suggestFD, int flags);
 long __syscall331(int fd, int flag);
 long __syscall333(int stream, int iov, int iovcnt, int offset, int _unused);
 long __syscall334(int stream, int iov, int iovcnt, int offset, int _unused);
-long __syscall337(void);
+long __syscall337(int fd, int msgvec, int vlen, int flags, int timeout);
 long __syscall340(int pid, int resource, int new_limit, int old_limit);
-long __syscall345(void);
+long __syscall345(int fd, int msgvec, int vlen, int flags);
 
 #undef SYS_futimesat
 

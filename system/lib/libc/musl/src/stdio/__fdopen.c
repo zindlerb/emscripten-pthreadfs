@@ -30,7 +30,7 @@ FILE *__fdopen(int fd, const char *mode)
 
 	/* Set append mode on fd if opened for append */
 	if (*mode == 'a') {
-		int flags = __syscall(SYS_fcntl, fd, F_GETFL);
+		int flags = __syscall(SYS_fcntl, fd, F_GETFL, 0);
 		if (!(flags & O_APPEND))
 			__syscall(SYS_fcntl, fd, F_SETFL, flags | O_APPEND);
 		f->flags |= F_APP;

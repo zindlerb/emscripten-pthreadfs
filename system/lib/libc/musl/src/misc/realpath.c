@@ -22,7 +22,7 @@ char *realpath(const char *restrict filename, char *restrict resolved)
 		return 0;
 	}
 
-	fd = sys_open(filename, O_PATH|O_NONBLOCK|O_CLOEXEC);
+	fd = sys_open(filename, O_PATH|O_NONBLOCK|O_CLOEXEC, 0);
 	if (fd < 0) return 0;
 	__procfdname(buf, fd);
 

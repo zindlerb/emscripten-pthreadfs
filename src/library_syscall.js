@@ -219,7 +219,6 @@ var SyscallsLibrary = {
     return FS.write(stream, {{{ heapAndOffset('HEAP8', 'buf') }}}, count);
 #else
     // hack to support printf in FILESYSTEM=0
-    var stream, buf, count = ;
     for (var i = 0; i < count; i++) {
       SYSCALLS.printChar(stream, HEAPU8[buf+i]);
     }
@@ -275,7 +274,7 @@ var SyscallsLibrary = {
   __syscall36: function(varargs) { // sync
     return 0;
   },
-  __syscall38: function(varargs) { // rename
+  __syscall38: function(old_path, new_path) { // rename
     var old_path = UTF8ToString(), new_path = UTF8ToString();
     FS.rename(old_path, new_path);
     return 0;
@@ -443,8 +442,7 @@ var SyscallsLibrary = {
     return -ERRNO_CODES.EPERM;
   },
   __syscall102__deps: ['$SOCKFS', '$DNS', '_read_sockaddr', '_write_sockaddr'],
-  __syscall102: function(varargs) { // socketcall
-    var call, socketvararg = ;
+  __syscall102: function(call, socketvararg) { // socketcall
     // socketcalls pass the rest of the arguments in a struct
     SYSCALLS.varargs = socketvararg;
     switch (call) {
@@ -635,7 +633,7 @@ var SyscallsLibrary = {
   __syscall104: function(varargs) { // setitimer
     return -ERRNO_CODES.ENOSYS; // unsupported feature
   },
-  __syscall114: function(varargs) { // wait4
+  __syscall114: function() { // wait4
     abort('cannot wait on child processes');
   },
 #if EMTERPRETIFY_ASYNC
@@ -1314,7 +1312,7 @@ var SyscallsLibrary = {
     stream = SYSCALLS.getStreamFromFD(stream);
     return SYSCALLS.doWritev(stream, iov, iovcnt, offset);
   },
-  __syscall337: function(varargs) { // recvmmsg
+  __syscall337: function(fd, msgvec, vlen, flags, timeout) { // recvmmsg
 #if SYSCALL_DEBUG
     err('warning: ignoring SYS_recvmmsg');
 #endif
@@ -1329,7 +1327,7 @@ var SyscallsLibrary = {
     }
     return 0;
   },
-  __syscall345: function(varargs) { // sendmmsg
+  __syscall345: function(fd, msgvec, vlen, flags) { // sendmmsg
 #if SYSCALL_DEBUG
     err('warning: ignoring SYS_sendmmsg');
 #endif
