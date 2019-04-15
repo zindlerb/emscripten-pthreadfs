@@ -1733,7 +1733,6 @@ for (var x in SyscallsLibrary) {
   if (typeof t === 'string') continue;
   t = t.toString();
   var pre = '', post = '';
-  pre += 'SYSCALLS.varargs = varargs;\n';
 #if SYSCALL_DEBUG
   pre += "err('syscall! ' + [" + which + ", '" + SYSCALL_CODE_TO_NAME[which] + "']);\n";
   pre += "var canWarn = true;\n";
