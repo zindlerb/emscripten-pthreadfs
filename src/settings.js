@@ -718,6 +718,7 @@ var DEFAULT_LIBRARY_FUNCS_TO_INCLUDE = [
 	'malloc',
 	'free',
 	'emscripten_get_heap_size', // Used by dynamicAlloc() and -s FETCH=1
+  'localtime'
 	];
 
 // This list is also used to determine auto-exporting of library dependencies

@@ -2328,7 +2328,8 @@ def create_asm_consts_wasm(forwarded_json, metadata):
 
   asm_const_funcs = []
   for sig in set(all_sigs):
-    forwarded_json['Functions']['libraryFunctions']['_emscripten_asm_const_' + sig] = 1
+    name = '_emscripten_asm_const_' + sig
+    metadata['declares'].append(name[1:])
     asm_const_funcs.append(r'''
 function _emscripten_asm_const_%s(code, sig_ptr, argbuf) {
   var sig = AsciiToString(sig_ptr);
@@ -2368,7 +2369,8 @@ def create_em_js(forwarded_json, metadata):
     arg_names = [arg.split()[-1].replace("*", "") for arg in args if arg]
     func = 'function {}({}){}'.format(name, ','.join(arg_names), asstr(body))
     em_js_funcs.append(func)
-    forwarded_json['Functions']['libraryFunctions'][name] = 1
+    if not shared.Settings.WASM_BACKEND:
+      forwarded_json['Functions']['libraryFunctions'][name] = 1
 
   return em_js_funcs
 
@@ -2387,9 +2389,10 @@ def create_sending_wasm(invoke_funcs, forwarded_json, metadata):
 
   implemented_functions = set(metadata['implementedFunctions'])
   library_funcs = set(k for k, v in forwarded_json['Functions']['libraryFunctions'].items() if v != 2)
-  global_funcs = list(library_funcs.difference(set(global_vars)).difference(implemented_functions))
-
-  send_items = (basic_funcs + invoke_funcs + global_funcs + basic_vars + global_vars)
+  imported_funcs = set([('_' + imp) if ('$' + imp) not in library_funcs else imp for imp in metadata['declares']])
+  global_funcs = list(imported_funcs.difference(set(global_vars)).difference(implemented_functions))
+  em_js_funcs = metadata['emJsFuncs'].keys()
+  send_items = basic_funcs + invoke_funcs + global_funcs + basic_vars + global_vars + em_js_funcs
 
   def fix_import_name(g):
     if g.startswith('Math_'):
@@ -2455,7 +2458,7 @@ def create_module_wasm(sending, receiving, invoke_funcs, metadata):
   if shared.Settings.USE_PTHREADS and not shared.Settings.WASM:
     module.append("if (typeof SharedArrayBuffer !== 'undefined') asmGlobalArg['Atomics'] = Atomics;\n")
 
-  module.append('var asmLibraryArg = %s;\n' % (sending))
+  module.append('var asmLibraryArg = %s;\n' % sending)
   module.append("var asm = Module['asm'](asmGlobalArg, asmLibraryArg, buffer);\n")
 
   module.append(receiving)
