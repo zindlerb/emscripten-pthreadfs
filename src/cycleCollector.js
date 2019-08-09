@@ -176,7 +176,9 @@ class CycleCollector {
   decIncomingLink(ref, ptr) {
     this.incomingLinks[ref].dec(ptr);
   }
-  // Start a cycle collection.
+  // Start a cycle collection. This restructures links so that the JS GC
+  // can collect cycles on the JS side, with finalizers that notify us of
+  // collection. For algorithm details, see [doclink].
   startCycleCollection() {
   }
   // Internals
