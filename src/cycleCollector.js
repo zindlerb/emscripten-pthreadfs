@@ -152,9 +152,10 @@ class CycleCollector {
     this.outgoingLinks = new Set();
     this.incomingLinks = new WeakMap();
   }
-  // Add a link between an internal object to an external one. Returns the
-  // table index.
-  addOutgoingLink(ptr, ref) {
+  // Increment a link between an internal object to an external one (an
+  // object may have multiple links to the same place, e.g., an array with
+  // the same reference at different indexes). Returns the table index.
+  incOutgoingLink(ptr, ref) {
     var links = this.outgoingLinks[ptr];
     if (!links) {
       links = this.outGoingLinks[ptr] = new RefCountedSet(IterableWeakSet);
@@ -162,15 +163,22 @@ class CycleCollector {
     links.inc(ref);
     return this.tableManager.inc(ref);
   }
-  deleteOutgoi
-  // Add a link between an external object to an internal one.
-  addIncomingLink(ref, ptr) {
+  decOutgoingLink(ptr, ref) {
+    this.outgoingLinks[ptr].dec(ref);
+    this.tableManager.dec(ref);
+  }
+  incIncomingLink(ref, ptr) {
     if (!this.incomingLinks.has(ref)) {
       this.incomingLinks[ref] = new RefCountedSet(Set);
     }
     this.incomingLinks[ref].inc(ptr);
   }
+  decIncomingLink(ref, ptr) {
+    this.incomingLinks[ref].dec(ptr);
+  }
   // Start a cycle collection.
+  startCycleCollection() {
+  }
   // Internals
   //...
 }
