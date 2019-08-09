@@ -102,33 +102,27 @@ class TableManager {
   }
   // Increments the refcount for an item. Returns the index in the table.
   inc(x) {
+    const allocIndex = () => {
+      if (this.freeList.length > 0) {
+        return this.freeList.pop();
+      }
+      const index = this.tableTop++;
+      if (this.table.length <= index) {
+        this.table.grow(index - this.table.length + 1);
+      }
+      return index;
+    };
     if (this.tracked.inc(x)) {
-      this.indexes[x] = this._allocIndex(),
+      this.indexes[x] = allocIndex();
     }
     return this.indexes[x];
   }
   // Decrements the refcount for an item.
   dec(x) {
     if (this.tracked.dec(x)) {
-      this._freeIndex(this.indexes[x]);
+      this.freeList.push(this.indexes[x]);
       this.indexes.delete(x);
     }
-  }
-
-  // Internals.
-
-  _allocIndex() {
-    if (this.freeList.length > 0) {
-      return this.freeList.pop();
-    }
-    const index = this.tableTop++;
-    if (this.table.length <= index) {
-      this.table.grow(index - this.table.length + 1);
-    }
-    return index;
-  }
-  _freeIndex(i) {
-    this.freeList.push(i);
   }
 }
 
@@ -155,22 +149,28 @@ class CycleCollector {
   constructor(table, tableStartIndex) {
     this.tableManager = new TableManager(table, tableStartIndex);
     // We must track all cross-VM links. This internal bookkeeping is weak.
-    this.outgoingLinks = new IterableWeakSet();
+    this.outgoingLinks = new Set();
     this.incomingLinks = new WeakMap();
   }
-  // Add a link between an internal object to an external one.
+  // Add a link between an internal object to an external one. Returns the
+  // table index.
   addOutgoingLink(ptr, ref) {
-    var index = this._allocTableIndex();
-    this.table.set(index, ref);
-    var links = this.outGoingLinks[ptr];
+    var links = this.outgoingLinks[ptr];
     if (!links) {
-      links = this.outGoingLinks[ptr] = new WeakSet();
-      // We do need to i
-      links.iterable = new Set();
+      links = this.outGoingLinks[ptr] = new RefCountedSet(IterableWeakSet);
     }
-    this.outGoingLinks[ptr] = 
+    links.inc(ref);
+    return this.tableManager.inc(ref);
   }
-
+  deleteOutgoi
+  // Add a link between an external object to an internal one.
+  addIncomingLink(ref, ptr) {
+    if (!this.incomingLinks.has(ref)) {
+      this.incomingLinks[ref] = new RefCountedSet(Set);
+    }
+    this.incomingLinks[ref].inc(ptr);
+  }
+  // Start a cycle collection.
   // Internals
-
+  //...
 }
