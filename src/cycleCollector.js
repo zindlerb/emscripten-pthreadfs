@@ -188,12 +188,16 @@ class WeakRefManager {
 class CycleCollector {
   // When constructing a CycleCollector a wasm Table must be passed in, and
   // the start index from which we can manage it.
-  constructor(table, tableStartIndex) {
+  constructor(table, tableStartIndex, innerVM) {
     // For simplicity our table will always store WeakRefs to objects. We
     // will also store a strong ref on the side, which may be removed when
     // cycle collecting.
     this.tableManager = new WeakTableManager(table, tableStartIndex);
-    this.strongRefs = new RefCountedSet(Set);
+    this.outsideRoots = new RefCountedSet(Set);
+    // We also have hooks to the inner VM, and create roots there as
+    // needed.
+    this.innerVM = innerVM;
+    this.insideRoots = new RefCountedSet(Set);
     // We must track all cross-VM links. This internal bookkeeping is weak.
     this.outgoingLinks = new Set();
     this.incomingLinks = new WeakMap();
@@ -212,7 +216,7 @@ class CycleCollector {
       links = this.outGoingLinks[ptr] = new RefCountedSet(Set);
     }
     // Begin with holding a strong reference to the target object.
-    this.strongRefs.inc(ref);
+    this.outsideRoots.inc(ref);
     // Store a (unique) WeakRef in the table.
     var index = this.tableManager.inc(ref);
     links.inc(index);
@@ -221,7 +225,7 @@ class CycleCollector {
   decOutgoingLink(ptr, ref) {
     this.outgoingLinks[ptr].dec(ref);
     this.tableManager.dec(ref);
-    this.strongRefs.dec(ref);
+    this.outsideRoots.dec(ref);
   }
   incIncomingLink(ref, ptr) {
     if (!this.incomingLinks.has(ref)) {
@@ -229,26 +233,86 @@ class CycleCollector {
     }
     this.incomingLinks[ref].inc(ptr);
     this.incomingOrigins.inc(ref);
+    if (this.insideRoots.inc(ptr)) {
+      this.innerVM.addRoot(ptr);
+    }
   }
   decIncomingLink(ref, ptr) {
     this.incomingLinks[ref].dec(ptr);
     this.incomingOrigins.dec(ref);
+    if (this.insideRoots.dec(ptr)) {
+      this.innerVM.deleteRoot(ptr);
+    }
   }
   // Gets the object at an index in the table.
   getFromTable(index) {
     return this.tableManager.getOriginal(index);
   }
   // Start a cycle collection. For the algorithm details, see [doclink].
-  // @param maybeDeadInside Objects in the inner VM that may be dead - they are
-  //                        only kept alive by incoming links.
-  startCycleCollection(maybeDeadInside) {
+  // @param relevantInnerGraph - a serialization of the relevant part of the
+  //          objects in the inner VM. The relevant part is objects that
+  //          may be collectible, but may participate in a cycle with the
+  //          outside, so the inside can't tell. Concretely, that means
+  //          objects that:
+  //            * are reachable from a root added by innerVM.addRoot, that
+  //              is, are kept alive by an incoming link.
+  //            * are not reachable by any normal inner VM roots, that is,
+  //              the inner VM doesn't see anything keeping it alive aside
+  //              from those incoming links.
+  //            * reaches an outgoing link, so it may be part of a cycle
+  //              (if not, then the outside will clean it up eventually).
+  //          The serialization is simple and convenient for a VM compiled
+  //          to linear memory, an array of i32s structured as:
+  //            serialization := [num objects] [object*]
+  //            object        := [ptr (id)] [num links] [link*]
+  //            link          := [is_internal] [target]
+  //          A link target is, if the link is internal, the ptr of the
+  //          linked object, or if external, the table index.
+  startCycleCollection(relevantInnerGraph) {
     assert(!this.currCycleCollection, 'collection already in progress!');
-    // Mirror maybeDeadInside objects to the outside, so that the JS VM sees
+    // A mirroring of an internal object.
+    class Mirror {
+      constructor(ptr) {
+        this.ptr = ptr;
+        this.links = new Set();
+      }
+    }
+    // Parse the input, creating all the objects, with links to be fixed up.
+    var mirrors = new Map(); // FIXME: use weak later
+    let i = 0;
+    let objectsLeft = relevantInnerGraph[i++];
+    while (objectsLeft-- > 0) {
+      const ptr = relevantInnerGraph[i++];
+      let linksLeft = relevantInnerGraph[i++];
+      const links = new Set();
+      while (linksLeft-- > 0) {
+        const isInternal = relevantInnerGraph[i++];
+        let target = relevantInnerGraph[i++];
+        if (!isInternal) {
+          target = this.getFromTable(target);
+        }
+        links.insert(target);
+      }
+      mirrors.push(new Mirror(ptr, links));
+    }
+    // Fix up links.
+    mirrors.forEach((mirror, ptr) => {
+      const properLinks = new Set();
+      for (let link in mirror.links) {
+        if (typeof link === 'number') {
+          link = mirrors.get(link);
+        }
+        properLinks.add(link);
+      }
+      mirror.links = properLinks;
+    });
+    // Connect the JS objects with incoming links to their mirrors.
+..
+
+
+// TODO
+    // Mirror inner objects to the outside, so that the JS VM sees
     // the entire relevant graph.
-    // We must mirror the entire internal relevant graph. Note that that graph
-    // must only contain maybeDeadInside objects, otherwise there is not a
-    // potentially collectible cycle here, so we can start at the incoming
-    // links and look for ones that reach maybeDeadInside objects.
     const reached = new Set();
     for (let ref in this.incomingOrigins.set.iter) {
       ref = ref.deref();
