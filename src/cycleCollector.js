@@ -113,16 +113,58 @@ class TableManager {
       return index;
     };
     if (this.tracked.inc(x)) {
-      this.indexes[x] = allocIndex();
+      const index = this.indexes[x] = allocIndex();
+      this.table.set(index, x);
     }
     return this.indexes[x];
   }
-  // Decrements the refcount for an item.
+  // Decrements the refcount for an item. Returns true if the item was
+  // removed.
   dec(x) {
     if (this.tracked.dec(x)) {
-      this.freeList.push(this.indexes[x]);
+      const index = this.indexes[x];
+      this.freeList.push(index);
       this.indexes.delete(x);
+      this.table.set(index, null);
+      return true;
     }
+    return false;
+  }
+}
+
+//
+// Manages a Table of references that are all weak - we replace each
+// normal reference with a WeakRef. The WeakRefs are kept unique per
+// object, so we still use one index per original object.
+//
+class WeakTableManager {
+  constructor(table, tableStartIndex) {
+    this.parent = new TableManager(table, tableStartIndex);
+    this.weakRefs = new WeakMap();
+  }
+  inc(x) {
+    return parent.inc(this.getWeakRef(x));
+  }
+  dec(x) {
+    return parent.dec(this.getWeakRef(x));
+  }
+  getWeakRef(x) {
+    if (this.weakRefs.has(x)) {
+      return this.weakRefs[x];
+    }
+    return this.weakRefs[x] = new WeakRef[x];
+  }
+  getOriginal(index) {
+    return this.parent.table.get(index).deref();
+  }
+}
+
+//
+// Provides unique weak refs for objects, i.e., in a way that only keeps one
+// WeakRef for each object.
+//
+class WeakRefManager {
+  constructor() {
   }
 }
 
@@ -147,10 +189,16 @@ class CycleCollector {
   // When constructing a CycleCollector a wasm Table must be passed in, and
   // the start index from which we can manage it.
   constructor(table, tableStartIndex) {
-    this.tableManager = new TableManager(table, tableStartIndex);
+    // For simplicity our table will always store WeakRefs to objects. We
+    // will also store a strong ref on the side, which may be removed when
+    // cycle collecting.
+    this.tableManager = new WeakTableManager(table, tableStartIndex);
+    this.strongRefs = new RefCountedSet(Set);
     // We must track all cross-VM links. This internal bookkeeping is weak.
     this.outgoingLinks = new Set();
     this.incomingLinks = new WeakMap();
+    // Also track all objects that have incoming links.
+    this.incomingOrigins = new RefCountedSet(IterableWeakSet);
   }
   // Increment a link between an internal object to an external one (an
   // object may have multiple links to the same place, e.g., an array with
@@ -158,28 +206,65 @@ class CycleCollector {
   incOutgoingLink(ptr, ref) {
     var links = this.outgoingLinks[ptr];
     if (!links) {
-      links = this.outGoingLinks[ptr] = new RefCountedSet(IterableWeakSet);
+      // We track links to the table index, rather than to the object.
+      // The index is what can be stored in linear memory, and so when using
+      // a compiled object is what we have to look up the outer object with.
+      links = this.outGoingLinks[ptr] = new RefCountedSet(Set);
     }
-    links.inc(ref);
-    return this.tableManager.inc(ref);
+    // Begin with holding a strong reference to the target object.
+    this.strongRefs.inc(ref);
+    // Store a (unique) WeakRef in the table.
+    var index = this.tableManager.inc(ref);
+    links.inc(index);
+    return index;
   }
   decOutgoingLink(ptr, ref) {
     this.outgoingLinks[ptr].dec(ref);
     this.tableManager.dec(ref);
+    this.strongRefs.dec(ref);
   }
   incIncomingLink(ref, ptr) {
     if (!this.incomingLinks.has(ref)) {
       this.incomingLinks[ref] = new RefCountedSet(Set);
     }
     this.incomingLinks[ref].inc(ptr);
+    this.incomingOrigins.inc(ref);
   }
   decIncomingLink(ref, ptr) {
     this.incomingLinks[ref].dec(ptr);
+    this.incomingOrigins.dec(ref);
   }
-  // Start a cycle collection. This restructures links so that the JS GC
-  // can collect cycles on the JS side, with finalizers that notify us of
-  // collection. For algorithm details, see [doclink].
-  startCycleCollection() {
+  // Gets the object at an index in the table.
+  getFromTable(index) {
+    return this.tableManager.getOriginal(index);
+  }
+  // Start a cycle collection. For the algorithm details, see [doclink].
+  // @param maybeDeadInside Objects in the inner VM that may be dead - they are
+  //                        only kept alive by incoming links.
+  startCycleCollection(maybeDeadInside) {
+    assert(!this.currCycleCollection, 'collection already in progress!');
+    // Mirror maybeDeadInside objects to the outside, so that the JS VM sees
+    // the entire relevant graph.
+    // We must mirror the entire internal relevant graph. Note that that graph
+    // must only contain maybeDeadInside objects, otherwise there is not a
+    // potentially collectible cycle here, so we can start at the incoming
+    // links and look for ones that reach maybeDeadInside objects.
+    const reached = new Set();
+    for (let ref in this.incomingOrigins.set.iter) {
+      ref = ref.deref();
+      if (!ref) continue;
+      const links = this.incomingLinks[ref].set;
+      for (const ptr in set) {
+        if (ptr in maybeDeadInside) {
+          reached.add(ptr);
+        }
+      }
+    }
+
+// Weakify
+    this.currCycleCollection = {
+      maybeDeadInside: maybeDeadInside
+    };
   }
   // Internals
   //...
