@@ -293,10 +293,10 @@ class CycleCollector {
         }
         links.insert(target);
       }
-      mirrors.push(new Mirror(ptr, links));
+      mirrors.set(ptr, new Mirror(ptr, links));
     }
     // Fix up links.
-    mirrors.forEach((mirror, ptr) => {
+    for (const mirror of mirrors.values()) {
       const properLinks = new Set();
       for (let link in mirror.links) {
         if (typeof link === 'number') {
@@ -305,25 +305,35 @@ class CycleCollector {
         properLinks.add(link);
       }
       mirror.links = properLinks;
-    });
-    // Connect the JS objects with incoming links to their mirrors.
-..
-
-
-// TODO
-    // Mirror inner objects to the outside, so that the JS VM sees
-    // the entire relevant graph.
-    const reached = new Set();
+    }
+    // Connect JS objects with incoming links to their mirrors. Avoid modifying
+    // those objects - use a WeakMap instead.
+    const externalLinksToMirrors = new WeakMap();
     for (let ref in this.incomingOrigins.set.iter) {
       ref = ref.deref();
       if (!ref) continue;
-      const links = this.incomingLinks[ref].set;
+      const set = this.incomingLinks[ref].set;
       for (const ptr in set) {
-        if (ptr in maybeDeadInside) {
-          reached.add(ptr);
+        if (mirrors.has(ptr)) {
+          if (!externalLinksToMirrors.has(ref)) {
+            externalLinksToMirrors.set(ref, new Set());
+          }
+          externalLinksToMirrors.get(ref).add(mirrors.get(ptr));
         }
       }
     }
+    // JS now mirrors the internal objects and their participation in
+    // possible cycles.
+    // Listen for when the mirrors go away.
+    var finalizationGroup = new FinalizationGroup(holdings => {
+      for (const holding of holdings) {
+        zzz
+      }
+    });
+   // listen on objects, or just the incoming refs?
+zzz    this.finalizationGroup.register(x, weakRef, weakRef);
+
+
 
 // Weakify
     this.currCycleCollection = {
