@@ -837,9 +837,10 @@ var ERROR_ON_UNDEFINED_SYMBOLS = 1;
 // issue a linker error.  Set to 0 to downgrade this to a warning.
 var ERROR_ON_MISSING_LIBRARIES = 1;
 
-// Specifies a list of Emscripten-provided JS libraries to link against.
+// Specifies a comma separated list of Emscripten-provided JS libraries to link
+// against.
 // (internal, use -lfoo or -lfoo.js to link to Emscripten system JS libraries)
-var SYSTEM_JS_LIBRARIES = [];
+var SYSTEM_JS_LIBRARIES = "";
 
 // Use small chunk size for binary synchronous XHR's in Web Workers.  Used for
 // testing.  See test_chunked_synchronous_xhr in runner.py and library.js.

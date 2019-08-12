@@ -41,6 +41,10 @@ MACOS = sys.platform == 'darwin'
 LINUX = sys.platform.startswith('linux')
 DEBUG = int(os.environ.get('EMCC_DEBUG', '0'))
 
+BITCODE_ENDINGS = ('.bc', '.o', '.obj', '.lo')
+DYNAMICLIB_ENDINGS = ('.dylib', '.so') # Windows .dll suffix is not included in this list, since those are never linked to directly on the command line.
+STATICLIB_ENDINGS = ('.a',)
+
 # can add  %(asctime)s  to see timestamps
 logging.basicConfig(format='%(name)s:%(levelname)s: %(message)s',
                     level=logging.DEBUG if DEBUG else logging.INFO)
@@ -1152,13 +1156,11 @@ class SettingsManager(object):
       self.attrs = values
 
     @classmethod
-    def apply_opt_level(self, opt_level, shrink_level=0, noisy=False):
+    def apply_opt_level(self, opt_level):
       if opt_level >= 1:
         self.attrs['ASM_JS'] = 1
         self.attrs['ASSERTIONS'] = 0
         self.attrs['ALIASING_FUNCTION_POINTERS'] = 1
-      if shrink_level >= 2:
-        self.attrs['EVAL_CTORS'] = 1
 
     def keys(self):
       return self.attrs.keys()
@@ -1266,6 +1268,129 @@ Settings = SettingsManager()
 verify_settings()
 
 
+def parse_value(text):
+  # Note that using response files can introduce whitespace, if the file
+  # has a newline at the end. For that reason, we rstrip() in relevant
+  # places here.
+  def parse_string_value(text):
+    first = text[0]
+    if first == "'" or first == '"':
+      text = text.rstrip()
+      assert text[-1] == text[0] and len(text) > 1, 'unclosed opened quoted string. expected final character to be "%s" and length to be greater than 1 in "%s"' % (text[0], text)
+      return text[1:-1]
+    return text
+
+  def parse_string_list_members(text):
+    sep = ','
+    values = text.split(sep)
+    result = []
+    index = 0
+    while True:
+      current = values[index].lstrip() # Cannot safely rstrip for cases like: "HERE-> ,"
+      if not len(current):
+        exit_with_error('string array should not contain an empty value')
+      first = current[0]
+      if not(first == "'" or first == '"'):
+        result.append(current.rstrip())
+      else:
+        start = index
+        while True: # Continue until closing quote found
+          if index >= len(values):
+            exit_with_error("unclosed quoted string. expected final character to be '%s' in '%s'" % (first, values[start]))
+          new = values[index].rstrip()
+          if new and new[-1] == first:
+            if start == index:
+              result.append(current.rstrip()[1:-1])
+            else:
+              result.append((current + sep + new)[1:-1])
+            break
+          else:
+            current += sep + values[index]
+            index += 1
+
+      index += 1
+      if index >= len(values):
+        break
+    return result
+
+  def parse_string_list(text):
+    text = text.rstrip()
+    if text[-1] != ']':
+      exit_with_error('unclosed opened string list. expected final character to be "]" in "%s"' % (text))
+    inner = text[1:-1]
+    if inner.strip() == "":
+      return []
+    return parse_string_list_members(inner)
+
+  if text[0] == '[':
+    # if json parsing fails, we fall back to our own parser, which can handle a few
+    # simpler syntaxes
+    try:
+      return json.loads(text)
+    except ValueError:
+      return parse_string_list(text)
+
+  try:
+    return int(text)
+  except ValueError:
+    return parse_string_value(text)
+
+
+def apply_settings(changes):
+  """Take a list of settings in form `NAME=VALUE` and apply them to the global
+  Settings object.
+  """
+
+  DEFERRED_RESPONSE_FILES = ('EMTERPRETIFY_BLACKLIST', 'EMTERPRETIFY_WHITELIST', 'EMTERPRETIFY_SYNCLIST')
+
+  def standardize_setting_change(key, value):
+    # Handle aliases in settings flags. These are settings whose name
+    # has changed.
+    settings_aliases = {
+      'BINARYEN': 'WASM',
+      'BINARYEN_MEM_MAX': 'WASM_MEM_MAX',
+      # TODO: change most (all?) other BINARYEN* names to WASM*
+    }
+    key = settings_aliases.get(key, key)
+    # boolean NO_X settings are aliases for X
+    # (note that *non*-boolean setting values have special meanings,
+    # and we can't just flip them, so leave them as-is to be
+    # handled in a special way later)
+    if key.startswith('NO_') and value in ('0', '1'):
+      key = key[3:]
+      value = str(1 - int(value))
+    return key, value
+
+  for change in changes:
+    key, value = change.split('=', 1)
+    key, value = standardize_setting_change(key, value)
+
+    # In those settings fields that represent amount of memory, translate
+    # suffixes to multiples of 1024.
+    if key in ('TOTAL_STACK', 'TOTAL_MEMORY', 'MEMORY_GROWTH_STEP', 'GL_MAX_TEMP_BUFFER_SIZE',
+               'WASM_MEM_MAX', 'DEFAULT_PTHREAD_STACK_SIZE'):
+      value = str(expand_byte_size_suffixes(value))
+
+    if value[0] == '@':
+      if key not in DEFERRED_RESPONSE_FILES:
+        value = open(value[1:]).read()
+    else:
+      value = value.replace('\\', '\\\\')
+    try:
+      setattr(Settings, key, parse_value(value))
+    except Exception as e:
+      exit_with_error('a problem occured in evaluating the content after a "-s", specifically "%s": %s', change, str(e))
+
+    if Settings.WASM_BACKEND and key == 'BINARYEN_TRAP_MODE':
+      exit_with_error('BINARYEN_TRAP_MODE is not supported by the LLVM wasm backend')
+
+    if key == 'EXPORTED_FUNCTIONS':
+      # used for warnings in emscripten.py
+      Settings.ORIGINAL_EXPORTED_FUNCTIONS = Settings.EXPORTED_FUNCTIONS[:]
+
+  verify_settings()
+
+
 # llvm-ar appears to just use basenames inside archives. as a result, files with the same basename
 # will trample each other when we extract them. to help warn of such situations, we warn if there
 # are duplicate entries in the archive
@@ -1349,10 +1474,13 @@ def g_multiprocessing_initializer(*args):
       os.environ[key] = value
 
 
+VERBOSE = False
+
+
 def print_compiler_stage(cmd):
   """Emulate the '-v' of clang/gcc by printing the name of the sub-command
   before executing it."""
-  if '-v' in COMPILER_OPTS:
+  if VERBOSE:
     print(' "%s" %s' % (cmd[0], ' '.join(cmd[1:])), file=sys.stderr)
     sys.stderr.flush()
 
@@ -2184,21 +2312,6 @@ class Building(object):
 
     if 'c' in action:
       assert os.path.exists(output_filename), 'emar could not create output file: ' + output_filename
-
-  @staticmethod
-  def emscripten(infile, memfile, js_libraries):
-    if path_from_root() not in sys.path:
-      sys.path += [path_from_root()]
-    import emscripten
-    # Run Emscripten
-    outfile = infile + '.o.js'
-    with ToolchainProfiler.profile_block('emscripten.py'):
-      emscripten.run(infile, outfile, memfile, js_libraries)
-
-    # Detect compilation crashes and errors
-    assert os.path.exists(outfile), 'Emscripten failed to generate .js'
-
-    return outfile
 
   @staticmethod
   def can_inline():
