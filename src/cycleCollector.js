@@ -189,10 +189,13 @@ class CycleCollector {
   // When constructing a CycleCollector a wasm Table must be passed in, and
   // the start index from which we can manage it.
   constructor(table, tableStartIndex, innerVM) {
-    // For simplicity our table will always store WeakRefs to objects. We
-    // will also store a strong ref on the side, which may be removed when
-    // cycle collecting.
+    // For simplicity our table will always store WeakRefs to objects, which
+    // means usage of the table does not change during a cycle collection
+    // (otherwise if we turned a strong ref to a weak one, that would be
+    // noticeable).
     this.tableManager = new WeakTableManager(table, tableStartIndex);
+    // We store strong refs here, i.e., roots for outside objects. This
+    // does change during a cycle collection.
     this.outsideRoots = new RefCountedSet(Set);
     // We also have hooks to the inner VM, and create roots there as
     // needed.
@@ -203,6 +206,8 @@ class CycleCollector {
     this.incomingLinks = new WeakMap();
     // Also track all objects that have incoming links.
     this.incomingOrigins = new RefCountedSet(IterableWeakSet);
+    // Info for the current cycle collection, if any.
+    this.currCycleCollection = null;
   }
   // Increment a link between an internal object to an external one (an
   // object may have multiple links to the same place, e.g., an array with
@@ -213,19 +218,21 @@ class CycleCollector {
       // We track links to the table index, rather than to the object.
       // The index is what can be stored in linear memory, and so when using
       // a compiled object is what we have to look up the outer object with.
-      links = this.outGoingLinks[ptr] = new RefCountedSet(Set);
+      links = this.outGoingLinks[ptr] = new RefCountedSet(IterableWeakSet);
     }
-    // Begin with holding a strong reference to the target object.
-    this.outsideRoots.inc(ref);
     // Store a (unique) WeakRef in the table.
     var index = this.tableManager.inc(ref);
-    links.inc(index);
+    if (links.inc(index)) {
+      // While this ptr has a link to ref, hold a strong reference on it.
+      this.outsideRoots.inc(ref);
+    }
     return index;
   }
   decOutgoingLink(ptr, ref) {
-    this.outgoingLinks[ptr].dec(ref);
+    if (this.outgoingLinks[ptr].dec(ref)) {
+      this.outsideRoots.dec(ref);
+    }
     this.tableManager.dec(ref);
-    this.outsideRoots.dec(ref);
   }
   incIncomingLink(ref, ptr) {
     if (!this.incomingLinks.has(ref)) {
@@ -309,7 +316,7 @@ class CycleCollector {
     // Connect JS objects with incoming links to their mirrors. Avoid modifying
     // those objects - use a WeakMap instead.
     const externalLinksToMirrors = new WeakMap();
-    for (let ref in this.incomingOrigins.set.iter) {
+    for (let ref in this.incomingOrigins.set.iterable) {
       ref = ref.deref();
       if (!ref) continue;
       const set = this.incomingLinks[ref].set;
@@ -323,22 +330,31 @@ class CycleCollector {
       }
     }
     // JS now mirrors the internal objects and their participation in
-    // possible cycles.
-    // Listen for when the mirrors go away.
-    var finalizationGroup = new FinalizationGroup(holdings => {
-      for (const holding of holdings) {
-        zzz
+    // possible cycles. The JS object graph now represents the relevant links
+    // from the inner VM, which means we can stop holding strong refs on
+    // those objects. That is, if a mirrored object has a reference to an
+    // outside object, we can make that a weak reference - if the object
+    // should be kept alive, the JS graph (with mirroring) keeps it alive,
+    // and a manual root for the JS object is not needed.
+    const deccedOutsideRoots = new WeakMap();
+    for (const mirror of mirrors.values()) {
+      const outgoing = this.outgoingLinks.get(mirror.ptr);
+      if (outgoing) {
+        for (const weak in outgoing.iterable) {
+          const ref = weak.deref();
+          if (ref) {
+            this.outsideRoots.dec(ref);
+            deccedOutsideRoots.set(ref, (deccedOutsideRoots.get(ref) | 0) + 1);
+          }
+        }
       }
-    });
-   // listen on objects, or just the incoming refs?
-zzz    this.finalizationGroup.register(x, weakRef, weakRef);
-
-
-
-// Weakify
+    }
+    // Save relevant information we need during the cycle collection.
     this.currCycleCollection = {
-      maybeDeadInside: maybeDeadInside
+      externalLinksToMirrors: externalLinksToMirrors,
+      deccedOutsideRoots: deccedOutsideRoots,
     };
+// TODO: handle the invalidation problem
   }
   // Internals
   //...
