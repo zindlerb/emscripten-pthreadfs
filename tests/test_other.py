@@ -9384,6 +9384,22 @@ int main () {
     with env_modify({'EMCC_STRICT': '1'}):
       self.assertContained('ReferenceError: SPLIT_MEMORY is not defined', self.expect_fail(cmd))
 
+  @parameterized({
+    'yes': (True,),
+    'no': (False,),
+  })
+  def test_use_strict(self, use_strict):
+    cmd = [PYTHON, EMCC, path_from_root('tests', 'hello_world.c')]
+    if use_strict:
+      cmd += ['-s', 'USE_STRICT']
+    run_process(cmd)
+    with open('a.out.js') as f:
+      js = f.read()
+    if use_strict:
+      self.assertContained('use strict', js)
+    else:
+      self.assertNotContained('use strict', js)
+
   def test_safe_heap_log(self):
     self.set_setting('SAFE_HEAP')
     self.set_setting('SAFE_HEAP_LOG')

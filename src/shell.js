@@ -1,3 +1,7 @@
+#if USE_STRICT
+'use strict';
+#endif
+
 // Copyright 2010 The Emscripten Authors.  All rights reserved.
 // Emscripten is available under two separate licenses, the MIT license and the
 // University of Illinois/NCSA Open Source License.  Both these licenses can be

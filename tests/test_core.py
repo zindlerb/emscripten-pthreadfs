@@ -195,14 +195,6 @@ class TestCoreBase(RunnerCore):
     output = find_files('.out', '.txt')
     self.do_run_from_file(src, output, **kwargs)
 
-  def verify_in_strict_mode(self, filename):
-    with open(filename) as infile:
-      js = infile.read()
-    filename += '.strict.js'
-    with open(filename, 'w') as outfile:
-      outfile.write('"use strict";\n' + js)
-    run_js(filename)
-
   def get_bullet_library(self, use_cmake):
     if use_cmake:
       configure_commands = ['cmake', '.']
@@ -4845,10 +4837,9 @@ main( int argv, char ** argc ) {
     self.do_run_in_out_file_test('tests', 'dirent', 'test_readdir_empty')
 
   def test_stat(self):
+    self.set_setting('USE_STRICT', 1)
     src = open(path_from_root('tests', 'stat', 'test_stat.c')).read()
     self.do_run(src, 'success', force_c=True)
-
-    self.verify_in_strict_mode('src.c.o.js')
 
   def test_stat_chmod(self):
     src = open(path_from_root('tests', 'stat', 'test_chmod.c')).read()
@@ -5037,9 +5028,7 @@ main( int argv, char ** argc ) {
   def test_fs_errorstack(self, js_engines=[NODE_JS]):
     # Enables strict mode, which may catch some strict-mode-only errors
     # so that users can safely work with strict JavaScript if enabled.
-    create_test_file('pre.js', '"use strict";')
-    self.emcc_args += ['--pre-js', 'pre.js']
-
+    self.set_setting('USE_STRICT', 1)
     self.set_setting('FORCE_FILESYSTEM', 1)
     self.set_setting('ASSERTIONS', 1)
     self.do_run(r'''
@@ -5787,7 +5776,6 @@ return malloc(size);
   @needs_make('configure script')
   @is_slow_test
   def test_freetype(self):
-    assert 'asm2g' in core_test_modes
     if self.run_name == 'asm2g':
       # flip for some more coverage here
       self.set_setting('ALIASING_FUNCTION_POINTERS', 1 - self.get_setting('ALIASING_FUNCTION_POINTERS'))
@@ -5864,7 +5852,6 @@ return malloc(size);
   def test_zlib(self):
     self.maybe_closure()
 
-    assert 'asm2g' in core_test_modes
     if self.run_name == 'asm2g':
       self.emcc_args += ['-g4'] # more source maps coverage
     if self.run_name == 'asm2f':
@@ -8114,6 +8101,12 @@ extern "C" {
         f(a);
       }
     ''', ['abort(stack overflow)', '__handle_stack_overflow'])
+
+  def test_use_strict_error(self):
+    self.set_setting('USE_STRICT', 1)
+    create_test_file('bad_pre.js', 'doesnotexist = 100;\n')
+    self.emcc_args += ['--pre-js', 'bad_pre.js']
+    self.do_run_in_out_file_test('tests', 'core', 'test_use_strict_error', assert_returncode=None)
 
 
 # Generate tests for everything

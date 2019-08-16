@@ -815,6 +815,9 @@ var LINKABLE = 0;
 //     is the correct thing to use).
 var STRICT = 0;
 
+// Whether to emit "use strict" in the JS, which enables JavaScript strict mode.
+var USE_STRICT = 0;
+
 // If set to 1, we will warn on any undefined symbols that are not resolved by
 // the library_*.js files. Note that it is common in large projects to not
 // implement everything, when you know what is not going to actually be called
