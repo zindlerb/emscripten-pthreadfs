@@ -1249,6 +1249,8 @@ def calculate(temp_files, in_temp, stdout_, stderr_, forced=[]):
     always_include.add('libmalloc')
   if shared.Settings.WASM_BACKEND:
     always_include.add('libcompiler_rt')
+  if (shared.Settings.WASI:
+    always_include.add('libwasi')
 
   libs_to_link = []
   already_included = set()
