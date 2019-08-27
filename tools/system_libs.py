@@ -1159,7 +1159,6 @@ class libasan_rt_wasm(SanitizerLibrary):
 
 class libwasi(Library):
   name = 'libwasi'
-  symbols = read_symbols(shared.path_from_root('system', 'lib', 'wasi.symbols'))
 
   cflags = ['-Os']
   src_dir = ['system', 'lib']
@@ -1249,8 +1248,6 @@ def calculate(temp_files, in_temp, stdout_, stderr_, forced=[]):
     always_include.add('libmalloc')
   if shared.Settings.WASM_BACKEND:
     always_include.add('libcompiler_rt')
-  if (shared.Settings.WASI:
-    always_include.add('libwasi')
 
   libs_to_link = []
   already_included = set()
@@ -1343,6 +1340,9 @@ def calculate(temp_files, in_temp, stdout_, stderr_, forced=[]):
   if shared.Settings.USE_ASAN:
     force_include.add('libasan_rt_wasm')
     add_library(system_libs_map['libasan_rt_wasm'])
+
+  if shared.Settings.WASI:
+    add_library(system_libs_map['libwasi'])
 
   libs_to_link.sort(key=lambda x: x[0].endswith('.a')) # make sure to put .a files at the end.
 
