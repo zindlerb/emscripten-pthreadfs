@@ -1157,6 +1157,15 @@ class libasan_rt_wasm(SanitizerLibrary):
   src_dir = ['system', 'lib', 'compiler-rt', 'lib', 'asan']
 
 
+class libwasi(Library):
+  name = 'libwasi'
+  symbols = read_symbols(shared.path_from_root('system', 'lib', 'wasi.symbols'))
+
+  cflags = ['-Os']
+  src_dir = ['system', 'lib']
+  src_files = ['wasi.c']
+
+
 # If main() is not in EXPORTED_FUNCTIONS, it may be dce'd out. This can be
 # confusing, so issue a warning.
 def warn_on_unexported_main(symbolses):
