@@ -12,11 +12,9 @@
 #include <emscripten.h>
 #include <string.h>
 
+#include "wasi.h"
+
 // WASI APIs
-
-extern void __wasi_proc_exit(int);
-
-size_t __wasi_fd_write(size_t fd, void* iovs, size_t num, size_t* written);
 
 // libc
 
