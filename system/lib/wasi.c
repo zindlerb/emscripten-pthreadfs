@@ -10,6 +10,7 @@
  */
 
 #include <emscripten.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "wasi.h"
@@ -71,34 +72,26 @@ int __syscall6(int id, int vararg) { // close
 }
 
 int __syscall54(int id, int vararg) { // ioctl
-  EM_ASM({
-    console.log("syscall54:", $1);
-  }, vararg);
+  puts("syscall 54");
   return 0;
 }
 
 int __syscall140(int id, int vararg) { // llseek
-  EM_ASM({
-    console.log("syscall140:", $1);
-  }, vararg);
+  puts("syscall 140");
   return 0;
 }
-
-struct iov_t { // identical in musl and wasi
-  unsigned char* ptr;
-  int len;
-};
 
 int __syscall146(int id, int vararg) { // writev
   // hack to support printf, similar to library_syscalls.js handling of SYSCALLS_REQUIRE_FILESYSTEM=0
   int stream = get_vararg_i32();
-  struct iov_t* iov = (struct iov_t*)get_vararg_i32();
+  // Luckily iovs are identical in musl and wasi
+  struct __wasi_ciovec_t* iov = (struct __wasi_ciovec_t*)get_vararg_i32();
   size_t iovcnt = get_vararg_i32();
   size_t ret = 0;
   for (int i = 0; i < iovcnt; i++) {
-    // TODO: error handling
     size_t num;
-    __wasi_fd_write(1 /* stdout */, iov, 1, &num);
+    int result = __wasi_fd_write(1 /* stdout */, iov, 1, &num);
+    // TODO: error handling
     ret += num;
     iov++;
   }
