@@ -173,6 +173,24 @@ var SyscallsLibrary = {
     },
 #endif // SYSCALLS_REQUIRE_FILESYSTEM
 
+#if !SYSCALLS_REQUIRE_FILESYSTEM || WASI
+    nonFSWritev: function(stream, iov, iovcnt) {
+console.log('non!', stream, iov, iovcnt);
+      var ret = 0;
+      for (var i = 0; i < iovcnt; i++) {
+        var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
+        var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
+console.log('  ', i, ptr, len);
+        for (var j = 0; j < len; j++) {
+          SYSCALLS.printChar(stream, HEAPU8[ptr+j]);
+        }
+        ret += len;
+      }
+console.log('retting', ret);
+      return ret;
+    },
+#endif // !SYSCALLS_REQUIRE_FILESYSTEM || WASI
+
     // arguments handling
 
     varargs: 0,
@@ -954,16 +972,7 @@ var SyscallsLibrary = {
 #else
     // hack to support printf in SYSCALLS_REQUIRE_FILESYSTEM=0
     var stream = SYSCALLS.get(), iov = SYSCALLS.get(), iovcnt = SYSCALLS.get();
-    var ret = 0;
-    for (var i = 0; i < iovcnt; i++) {
-      var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
-      var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
-      for (var j = 0; j < len; j++) {
-        SYSCALLS.printChar(stream, HEAPU8[ptr+j]);
-      }
-      ret += len;
-    }
-    return ret;
+    return SYSCALLS.nonFSWritev(stream, iov, iovcnt);
 #endif // SYSCALLS_REQUIRE_FILESYSTEM
   },
   __syscall147__deps: ['$PROCINFO'],

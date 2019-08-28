@@ -15,7 +15,12 @@ mergeInto(LibraryManager.library, {
     return _exit(code);
   },
 
-  fd_write: function(fd, iovs, num, written) {
-    throw 'waka';
+  fd_write__deps: ['$SYSCALLS'],
+  fd_write: function(fd, iovs, num, out) {
+console.log('waka ', [fd, iovs, num, out, new Error().stack]);
+    var written = SYSCALLS.nonFSWritev(fd, iovs, num);
+console.log('  wrote ', [written, out]);
+    if (out) {{{ makeSetValue('out', 0, 'written', 'i32') }}};
+    return 0;
   },
 });

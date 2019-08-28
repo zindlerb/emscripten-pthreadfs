@@ -91,7 +91,7 @@ int __syscall146(int id, int vararg) { // writev
   size_t ret = 0;
   for (int i = 0; i < iovcnt; i++) {
     size_t num;
-    int result = __wasi_fd_write(1 /* stdout */, iov, 1, &num);
+    int result = __wasi_fd_write(stream, iov, 1, &num);
     // TODO: error handling
     ret += num;
     iov++;
