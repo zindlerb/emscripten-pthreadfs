@@ -1030,9 +1030,7 @@ function createWasm(env) {
     Module['asm'] = exports;
 #if WASI
     // In wasi the memory is exported.
-console.log('receive instance ', exports.memory, exports.memory.buffer);
     updateGlobalBufferAndViews(exports['memory'].buffer);
-console.log('chak', HEAP32[10]);
 #endif
 #if USE_PTHREADS
     // Keep a reference to the compiled module so we can post it to the workers.

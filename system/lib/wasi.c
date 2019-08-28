@@ -58,31 +58,32 @@ void *emscripten_memcpy_big(void *restrict dest, const void *restrict src, size_
 
 // I/O syscalls - we support printf etc., but no filesystem access for now.
 
-static int* _vararg;
+static intptr_t _vararg;
 
-static void set_vararg(int vararg) {
-  _vararg = (int*)vararg;
+static void set_vararg(intptr_t vararg) {
+  _vararg = vararg;
 }
 
 static int get_vararg_i32() {
-  return *_vararg++;
+  int ret = *(int*)_vararg;
+  _vararg += 4;
+  return ret;
 }
 
-int __syscall6(int id, int vararg) { // close
+int __syscall6(int id, intptr_t vararg) { // close
   return 0;
 }
 
-int __syscall54(int id, int vararg) { // ioctl
-  puts("syscall 54");
+int __syscall54(int id, intptr_t vararg) { // ioctl
   return 0;
 }
 
-int __syscall140(int id, int vararg) { // llseek
-  puts("syscall 140");
+int __syscall140(int id, intptr_t vararg) { // llseek
   return 0;
 }
 
-int __syscall146(int id, int vararg) { // writev
+int __syscall146(int id, intptr_t vararg) { // writev
+  set_vararg(vararg);
   // hack to support printf, similar to library_syscalls.js handling of SYSCALLS_REQUIRE_FILESYSTEM=0
   int stream = get_vararg_i32();
   // Luckily iovs are identical in musl and wasi

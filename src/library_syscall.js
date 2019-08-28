@@ -175,18 +175,15 @@ var SyscallsLibrary = {
 
 #if !SYSCALLS_REQUIRE_FILESYSTEM || WASI
     nonFSWritev: function(stream, iov, iovcnt) {
-console.log('non!', stream, iov, iovcnt);
       var ret = 0;
       for (var i = 0; i < iovcnt; i++) {
         var ptr = {{{ makeGetValue('iov', 'i*8', 'i32') }}};
         var len = {{{ makeGetValue('iov', 'i*8 + 4', 'i32') }}};
-console.log('  ', i, ptr, len);
         for (var j = 0; j < len; j++) {
           SYSCALLS.printChar(stream, HEAPU8[ptr+j]);
         }
         ret += len;
       }
-console.log('retting', ret);
       return ret;
     },
 #endif // !SYSCALLS_REQUIRE_FILESYSTEM || WASI
