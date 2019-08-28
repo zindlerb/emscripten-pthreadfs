@@ -10,6 +10,7 @@
  */
 
 #include <emscripten.h>
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -96,4 +97,27 @@ int __syscall146(int id, int vararg) { // writev
     iov++;
   }
   return ret;
+}
+
+// Memory management
+
+extern intptr_t emscripten_get_sbrk_ptr();
+
+static const size_t WASM_PAGE_SIZE = 65536;
+
+void *sbrk(intptr_t increment) {
+  intptr_t old_brk = emscripten_get_sbrk_ptr();
+  // TODO: overflow checks
+  intptr_t updated_brk = old_brk + increment;
+  uintptr_t old_size = __builtin_wasm_memory_size(0) * WASM_PAGE_SIZE;
+  if (updated_brk >= old_size) {
+    // Try to grow memory.
+    intptr_t diff = updated_brk - old_size;
+    uintptr_t result = __builtin_wasm_memory_grow(0, (diff + WASM_PAGE_SIZE - 1) / WASM_PAGE_SIZE);
+    if (result == SIZE_MAX) {
+      errno = ENOMEM;
+      return (void*)-1;
+    }
+  }
+  return (void*)old_brk;
 }

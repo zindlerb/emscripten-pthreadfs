@@ -1791,10 +1791,14 @@ class Building(object):
         '-o',
         target,
         '--allow-undefined',
-        '--import-memory',
-        '--import-table',
         '--lto-O%d' % lto_level,
     ] + args
+
+    # wasi does not import the memory, but for JS it is convenient to do so,
+    # as it allows us to set up memory even before the wasm module arrives
+    if not Settings.WASI:
+      cmd.append('--import-memory')
+      cmd.append('--import-table')
 
     if Settings.USE_PTHREADS:
       cmd.append('--shared-memory')
