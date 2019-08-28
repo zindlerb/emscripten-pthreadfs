@@ -12,10 +12,15 @@
 #include <emscripten.h>
 #include <string.h>
 
+// WASI APIs
+
+extern void __wasi_proc_exit(int);
+
+size_t __wasi_fd_write(size_t fd, void* iovs, size_t num, size_t* written);
+
 // libc
 
 void exit(int status) {
-  extern void __wasi_proc_exit(int);
   __wasi_proc_exit(status);
   __builtin_unreachable();
 }
@@ -60,7 +65,7 @@ static void set_vararg(int vararg) {
 }
 
 static int get_vararg_i32() {
-  return *vararg++;
+  return *_vararg++;
 }
 
 int __syscall6(int id, int vararg) { // close
@@ -81,7 +86,7 @@ int __syscall140(int id, int vararg) { // llseek
   return 0;
 }
 
-struct Iov {
+struct iov_t { // identical in musl and wasi
   unsigned char* ptr;
   int len;
 };
@@ -89,17 +94,15 @@ struct Iov {
 int __syscall146(int id, int vararg) { // writev
   // hack to support printf, similar to library_syscalls.js handling of SYSCALLS_REQUIRE_FILESYSTEM=0
   int stream = get_vararg_i32();
-  Iov* iov = (Iov*)get_vararg_i32();
-  int iovcnt = get_vararg_i32();
-  int ret = 0;
+  struct iov_t* iov = (struct iov_t*)get_vararg_i32();
+  size_t iovcnt = get_vararg_i32();
+  size_t ret = 0;
   for (int i = 0; i < iovcnt; i++) {
-    int ptr = iov->ptr;
-    int len = iov->len;
+    // TODO: error handling
+    size_t num;
+    __wasi_fd_write(1 /* stdout */, iov, 1, &num);
+    ret += num;
     iov++;
-    for (int j = 0; j < len; j++) {
-      SYSCALLS.printChar(stream, HEAPU8[ptr+j]);
-    }
-    ret += len;
   }
   return ret;
 }

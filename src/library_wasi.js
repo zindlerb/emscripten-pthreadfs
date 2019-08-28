@@ -14,4 +14,8 @@ mergeInto(LibraryManager.library, {
   __wasi_proc_exit: function(code) {
     return _exit(code);
   },
+
+  __wasi_fd_write: function(fd, iovs, num, written) {
+    throw 'waka';
+  },
 });
