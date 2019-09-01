@@ -90,14 +90,20 @@ def is_python3_version_supported():
 
   Note: Emscripten requires python3.5 or above since python3.4 and below do not
   support circular dependencies."""
-  python3 = Building.which('python3')
-  if not python3:
+  try:
+    print('is_python3_version_supported')
+    python3 = Building.which('python3')
+    print('  python3 =', python3)
+    output = run_process([python3, '--version'], stdout=PIPE).stdout
+    print('  output =', output, output.split())
+    output = output.split()[1]
+    # ignore final component which can contains non-integers (e.g 'rc1')
+    version = [int(x) for x in output.split('.')[:2]]
+    return version >= [3, 5]
+  except Exception:
+    # If anything goes wrong (no python3, unexpected output format), then we do
+    # not support this python3
     return False
-  output = run_process([python3, '--version'], stdout=PIPE).stdout
-  output = output.split(' ')[1]
-  # ignore final component which can contains non-integers (e.g 'rc1')
-  version = [int(x) for x in output.split('.')[:2]]
-  return version >= [3, 5]
 
 
 def encode_leb(number):
@@ -8075,7 +8081,7 @@ int main() {
   @no_fastcomp()
   def test_binaryen_metadce_cxx(self):
     # test on libc++: see effects of emulated function pointers
-    self.run_metadce_test('hello_libcxx.cpp', ['-O2'], 37, [], ['waka'], 226582, 21, 33, 750) # noqa
+    self.run_metadce_test('hello_libcxx.cpp', ['-O2'], 37, [], ['waka'], 226582, 21, 33, None) # noqa
 
   @parameterized({
     'normal': (['-O2'], 36, ['abort'], ['waka'], 186423,  29,  38, 540), # noqa
@@ -8103,7 +8109,7 @@ int main() {
     # don't compare the # of functions in a main module, which changes a lot
     # TODO(sbc): Investivate why the number of exports is order of magnitude
     # larger for wasm backend.
-    'main_module_1': (['-O3', '-s', 'MAIN_MODULE=1'], 1612, [], [], 517336, None, 1514, None), # noqa
+    'main_module_1': (['-O3', '-s', 'MAIN_MODULE=1'], 1612, [], [], 517336, None, 1493, None), # noqa
     'main_module_2': (['-O3', '-s', 'MAIN_MODULE=2'],   16, [], [],  10770,   18,   13, None), # noqa
   })
   @no_fastcomp()
