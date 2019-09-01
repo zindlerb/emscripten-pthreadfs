@@ -2295,7 +2295,9 @@ def finalize_wasm(temp_files, infile, outfile, memfile, DEBUG):
   if shared.Settings.SAFE_STACK:
     cmd.append('--check-stack-overflow')
   if shared.Settings.WASI:
+    cmd.append('--sbrk-ptr=%d' % Memory().dynamic_base)
     cmd.append('--no-dyncalls')
+    cmd.append('--export-start')
   shared.print_compiler_stage(cmd)
   stdout = shared.check_call(cmd, stdout=subprocess.PIPE).stdout
   if write_source_map:

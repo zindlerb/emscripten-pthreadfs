@@ -340,7 +340,7 @@ var STATIC_BASE = {{{ GLOBAL_BASE }}},
     STACKTOP = STACK_BASE,
     STACK_MAX = {{{ getQuoted('STACK_MAX') }}},
     DYNAMIC_BASE = {{{ getQuoted('DYNAMIC_BASE') }}},
-    DYNAMICTOP_PTR = {{{ makeStaticAlloc(4) }}};
+    DYNAMICTOP_PTR = {{{ DYNAMICTOP_PTR = makeStaticAlloc(4) }}};
 
 #if ASSERTIONS
 assert(STACK_BASE % 16 === 0, 'stack must start aligned');
@@ -1004,7 +1004,11 @@ function createWasm(env) {
 
   // prepare imports
   var info = {
+#if !WASI
     'env': env
+#else
+    'wasi_unstable': env
+#endif
 #if WASM_BACKEND == 0
     ,
     'global': {
@@ -1024,6 +1028,10 @@ function createWasm(env) {
     exports = Asyncify.instrumentWasmExports(exports);
 #endif
     Module['asm'] = exports;
+#if WASI
+    // In wasi the memory is exported.
+    updateGlobalBufferAndViews(exports['memory'].buffer);
+#endif
 #if USE_PTHREADS
     // Keep a reference to the compiled module so we can post it to the workers.
     wasmModule = module;

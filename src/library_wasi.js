@@ -10,12 +10,15 @@
  */
 
 mergeInto(LibraryManager.library, {
-  __wasi_proc_exit__deps: ['exit'],
-  __wasi_proc_exit: function(code) {
+  proc_exit__deps: ['exit'],
+  proc_exit: function(code) {
     return _exit(code);
   },
 
-  __wasi_fd_write: function(fd, iovs, num, written) {
-    throw 'waka';
+  fd_write__deps: ['$SYSCALLS'],
+  fd_write: function(fd, iovs, num, out) {
+    var written = SYSCALLS.nonFSWritev(fd, iovs, num);
+    if (out) {{{ makeSetValue('out', 0, 'written', 'i32') }}};
+    return 0;
   },
 });
