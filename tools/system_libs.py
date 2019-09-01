@@ -1161,7 +1161,7 @@ class libasan_rt_wasm(SanitizerLibrary):
   src_dir = ['system', 'lib', 'compiler-rt', 'lib', 'asan']
 
 
-class libwasi(Library):
+class libwasi(Library, WasiLibrary):
   name = 'libwasi'
 
   cflags = ['-Os']
