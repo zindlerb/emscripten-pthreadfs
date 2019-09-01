@@ -19,6 +19,7 @@ size_t __stdio_write(FILE *f, const unsigned char *buf, size_t len)
 		if (error) {
 				num = -1;
 		}
+		cnt = num;
 #else
 		cnt = syscall(SYS_writev, f->fd, iov, iovcnt);
 #endif
