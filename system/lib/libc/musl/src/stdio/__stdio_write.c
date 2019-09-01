@@ -1,5 +1,6 @@
 #include "stdio_impl.h"
 #include <sys/uio.h>
+#include "wasi.h"
 
 size_t __stdio_write(FILE *f, const unsigned char *buf, size_t len)
 {
@@ -12,7 +13,15 @@ size_t __stdio_write(FILE *f, const unsigned char *buf, size_t len)
 	int iovcnt = 2;
 	ssize_t cnt;
 	for (;;) {
+#if __EMSCRIPTEN__
+		size_t num;
+		__wasi_errno_t error = __wasi_fd_write(f->fd, iov, iovcnt, &num);
+		if (error) {
+				num = -1;
+		}
+#else
 		cnt = syscall(SYS_writev, f->fd, iov, iovcnt);
+#endif
 		if (cnt == rem) {
 			f->wend = f->buf + f->buf_size;
 			f->wpos = f->wbase = f->buf;
