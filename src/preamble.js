@@ -1004,11 +1004,8 @@ function createWasm(env) {
 
   // prepare imports
   var info = {
-#if !WASI
-    'env': env
-#else
+    'env': env,
     'wasi_unstable': env
-#endif
 #if WASM_BACKEND == 0
     ,
     'global': {
