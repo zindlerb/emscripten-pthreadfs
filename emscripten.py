@@ -620,8 +620,8 @@ def optimize_syscalls(declares, DEBUG):
   else:
     syscall_prefix = '__syscall'
     wasi_prefix = '__wasi_'
-    syscalls = [d[len(syscall_prefix):] for d in declares if d.startswith(syscall_prefix)] +
-               [d[len(wasi_prefix):] for d in declares if d.startswith(wasi_prefix)]
+    syscalls = ([d[len(syscall_prefix):] for d in declares if d.startswith(syscall_prefix)] +
+                [d[len(wasi_prefix):] for d in declares if d.startswith(wasi_prefix)])
     if set(syscalls).issubset(set(['6', '54', '140', 'fd_write'])): # close, ioctl, llseek, writev
       if DEBUG:
         logger.debug('very limited syscalls (%s) so disabling full filesystem support', ', '.join(str(s) for s in syscalls))

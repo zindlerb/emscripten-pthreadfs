@@ -957,12 +957,12 @@ var SyscallsLibrary = {
     if (buffers[1].length) SYSCALLS.printChar(1, {{{ charCode("\n") }}});
     if (buffers[2].length) SYSCALLS.printChar(2, {{{ charCode("\n") }}});
   },
-  __wasi_fd_write__deps: ['$flush_NO_FILESYSTEM'],
+  fd_write__deps: ['$flush_NO_FILESYSTEM'],
 #if EXIT_RUNTIME == 1 && !MINIMAL_RUNTIME // MINIMAL_RUNTIME does not have __ATEXIT__ (so it does not get flushed stdout at program exit - programs in MINIMAL_RUNTIME do not have a concept of exiting)
-  __wasi_fd_write__postset: '__ATEXIT__.push(flush_NO_FILESYSTEM);',
+  fd_write__postset: '__ATEXIT__.push(flush_NO_FILESYSTEM);',
 #endif
 #endif
-  __wasi_fd_write: function(stream, iov, iovcnt, pnum) {
+  fd_write: function(stream, iov, iovcnt, pnum) {
 #if SYSCALLS_REQUIRE_FILESYSTEM
     stream = FS.getStream(stream);
     if (!stream) throw new FS.ErrnoError({{{ cDefine('EBADF') }}});
