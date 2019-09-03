@@ -154,6 +154,10 @@ var LibraryManager = {
       libraries.push('library_glemu.js');
     }
 
+    if (WASI) {
+      libraries.push('library_wasi.js');
+    }
+
     libraries = libraries.concat(additionalLibraries);
 
     if (BOOTSTRAPPING_STRUCT_INFO) libraries = ['library_bootstrap_structInfo.js', 'library_formatString.js'];
@@ -499,12 +503,16 @@ function exportRuntime() {
   }).join('\n');
 }
 
+// Assigned in preamble parsing.
+var DYNAMICTOP_PTR;
+
 var PassManager = {
   serialize: function() {
     print('\n//FORWARDED_DATA:' + JSON.stringify({
       Functions: Functions,
       EXPORTED_FUNCTIONS: EXPORTED_FUNCTIONS,
       STATIC_BUMP: STATIC_BUMP, // updated with info from JS
+      DYNAMICTOP_PTR: DYNAMICTOP_PTR,
       ATINITS: ATINITS.join('\n'),
       ATMAINS: ATMAINS.join('\n'),
       ATEXITS: ATEXITS.join('\n'),

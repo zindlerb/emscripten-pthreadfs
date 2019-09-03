@@ -1075,6 +1075,11 @@ var USE_GLFW = 2;
 // port, which can useful for local dev work on binaryen itself).
 var WASM = 1;
 
+// Whether to use the WASI APIs. This still emits a JS+wasm combination, but
+// the wasm part can run as a wasi executable inside a wasi runtime, without
+// any JS - basically, the JS is just a convenient way to run it on the Web.
+var WASI = 0;
+
 // Whether to use the WebAssembly backend that is in development in LLVM.  You
 // should not set this yourself, instead set EMCC_WASM_BACKEND=1 in the
 // environment.
@@ -1593,6 +1598,9 @@ var EMBIND = 0;
 
 // Whether the main() function reads the argc/argv parameters.
 var MAIN_READS_PARAMS = 1;
+
+// The computed location of the pointer to the sbrk position.
+var DYNAMICTOP_PTR = -1;
 
 // Legacy settings that have been removed or renamed.
 // For renamed settings the format is:
