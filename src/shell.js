@@ -98,11 +98,13 @@ var _scriptDir = (typeof document !== 'undefined' && document.currentScript) ? d
 #endif
 #endif
 
+#include "URIUtils.js"
+
 // `/` should be present at the end if `scriptDirectory` is not empty
 var scriptDirectory = '';
 function locateFile(path) {
 #if expectToReceiveOnModule('locateFile')
-  if (Module['locateFile']) {
+  if (Module['locateFile'] && !isDataURI(path)) {
     return Module['locateFile'](path, scriptDirectory);
   }
 #endif

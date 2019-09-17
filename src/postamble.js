@@ -442,7 +442,7 @@ function abort(what) {
   throw 'abort(' + what + '). Build with -s ASSERTIONS=1 for more info.';
 #else
   var extra = '';
-  var output = 'abort(' + what + ') at ' + stackTrace() + extra;
+  var output = 'abort(' + what + ') at ' + (new Error().stack) + extra;
   if (abortDecorators) {
     abortDecorators.forEach(function(decorator) {
       output = decorator(output, what);

@@ -851,13 +851,8 @@ Module['FS_createPreloadedFile'] = FS.createPreloadedFile;
 var cyberDWARFFile = '{{{ BUNDLED_CD_DEBUG_FILE }}}';
 #endif
 
-#include "URIUtils.js"
-
 #if WASM
-var wasmBinaryFile = '{{{ WASM_BINARY_FILE }}}';
-if (!isDataURI(wasmBinaryFile)) {
-  wasmBinaryFile = locateFile(wasmBinaryFile);
-}
+var wasmBinaryFile = locateFile('{{{ WASM_BINARY_FILE }}}');
 
 function getBinary() {
   try {
