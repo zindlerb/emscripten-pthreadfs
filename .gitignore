@@ -3,6 +3,10 @@
 .emscripten_sanity
 .emscripten_sanity_wasm
 
+# User-generated cache
+cache
+cache.lock
+
 # vim/emacs temporary/backup files
 *~
 *.swp

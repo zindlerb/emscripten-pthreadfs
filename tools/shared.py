@@ -221,9 +221,10 @@ def generate_config(path, first_time=False):
   node = find_executable('nodejs') or find_executable('node') or 'node'
   config_file = config_file.replace('\'{{{ NODE }}}\'', repr(node))
 
-  abspath = os.path.abspath(os.path.expanduser(path))
   # write
-  open(abspath, 'w').write(config_file)
+  with open(path, 'w') as f:
+    f.write(config_file)
+
   if first_time:
     print('''
 ==============================================================================
@@ -231,19 +232,18 @@ Welcome to Emscripten!
 
 This is the first time any of the Emscripten tools has been run.
 
-A settings file has been copied to %s, at absolute path: %s
+A settings file has been copied to %s.
 
 It contains our best guesses for the important paths, which are:
 
   LLVM_ROOT       = %s
   NODE_JS         = %s
-  EMSCRIPTEN_ROOT = %s
 
 Please edit the file if any of those are incorrect.
 
 This command will now exit. When you are done editing those paths, re-run it.
 ==============================================================================
-''' % (path, abspath, llvm_root, node, __rootpath__), file=sys.stderr)
+''' % (path, llvm_root, node), file=sys.stderr)
 
 
 # Emscripten configuration is done through the --em-config command line option
@@ -297,7 +297,7 @@ else:
   CONFIG_FILE = os.path.expanduser(EM_CONFIG)
   logger.debug('EM_CONFIG is located in ' + CONFIG_FILE)
   if not os.path.exists(CONFIG_FILE):
-    generate_config(EM_CONFIG, first_time=True)
+    generate_config(embedded_config, first_time=True)
     sys.exit(0)
 
 PYTHON = os.getenv('EM_PYTHON', sys.executable)
