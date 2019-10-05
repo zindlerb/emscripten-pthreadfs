@@ -1320,6 +1320,13 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
          exit_with_error('EMTERPRETIFY requires valid asm.js, and is incompatible with closure 2 which disables that')
       assert not use_source_map(options), 'EMTERPRETIFY is not compatible with source maps (maps are not useful in emterpreted code, and splitting out non-emterpreted source maps is not yet implemented)'
 
+    # default to disabling exceptions entirely, unless overridden by the user
+    if 'DISABLE_EXCEPTION_THROWING' not in settings_key_changes and \
+       'DISABLE_EXCEPTION_CATCHING' not in settings_key_changes and \
+       '-fexceptions' not in newargs and \
+       '-fno-exceptions' not in newargs:
+      newargs += ['-fno-exceptions']
+
     if shared.Settings.DISABLE_EXCEPTION_THROWING and not shared.Settings.DISABLE_EXCEPTION_CATCHING:
       exit_with_error("DISABLE_EXCEPTION_THROWING was set (probably from -fno-exceptions) but is not compatible with enabling exception catching (DISABLE_EXCEPTION_CATCHING=0). If you don't want exceptions, set DISABLE_EXCEPTION_CATCHING to 1; if you do want exceptions, don't link with -fno-exceptions")
 
@@ -2773,8 +2780,10 @@ def parse_args(newargs):
       settings_changes.append('PTHREADS_PROFILING=1')
       newargs[i] = ''
     elif newargs[i] == '-fno-exceptions':
+      settings_changes.append('DISABLE_EXCEPTION_CATCHING=1')
       settings_changes.append('DISABLE_EXCEPTION_THROWING=1')
     elif newargs[i] == '-fexceptions':
+      settings_changes.append('DISABLE_EXCEPTION_CATCHING=0')
       settings_changes.append('DISABLE_EXCEPTION_THROWING=0')
     elif newargs[i] == '--default-obj-ext':
       newargs[i] = ''

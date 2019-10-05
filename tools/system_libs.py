@@ -516,10 +516,8 @@ class NoExceptLibrary(Library):
 
   def get_cflags(self):
     cflags = super(NoExceptLibrary, self).get_cflags()
-    if self.is_noexcept:
-      cflags += ['-fno-exceptions']
-    else:
-      cflags += ['-s', 'DISABLE_EXCEPTION_CATCHING=0']
+    if not self.is_noexcept:
+      cflags += ['-fexceptions', '-s', 'DISABLE_EXCEPTION_CATCHING=0']
     return cflags
 
   def get_base_name(self):
@@ -836,13 +834,6 @@ class libcxx(NoBCLibrary, CXXLibrary, NoExceptLibrary, MTLibrary):
     os.path.join('filesystem', 'int128_builtins.cpp'),
     os.path.join('filesystem', 'operations.cpp')
   ]
-
-  def get_cflags(self):
-    cflags = super(libcxx, self).get_cflags()
-    if self.is_noexcept:
-      cflags.append('-D_LIBCPP_NO_EXCEPTIONS')
-    print(cflags)
-    return cflags
 
 
 class libmalloc(MTLibrary, NoBCLibrary):
