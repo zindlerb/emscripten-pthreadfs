@@ -7157,7 +7157,7 @@ err = err = function(){};
   @no_emterpreter
   @no_wasm('wasmifying destroys debug info and stack tracability')
   def test_exception_source_map(self):
-    self.emcc_args.append('-g4')
+    self.emcc_args += ['-g4', '-fexceptions']
     if not jsrun.check_engine(NODE_JS):
       self.skipTest('sourcemapper requires Node to run')
 
