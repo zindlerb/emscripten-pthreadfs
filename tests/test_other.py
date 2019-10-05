@@ -8063,10 +8063,10 @@ int main() {
     self.run_metadce_test('hello_libcxx.cpp', ['-O2'], 19, [], ['waka'], 226582, 17, 32, None) # noqa
 
   @parameterized({
-    'normal': (['-O2'], 39, ['abort'], ['waka'], 186423, 23, 37, 542), # noqa
+    'normal': (['-O2'], 38, ['abort'], ['waka'], 186423, 23, 34, 539), # noqa
     'emulated_function_pointers':
               (['-O2', '-s', 'EMULATED_FUNCTION_POINTERS=1'],
-                        39, ['abort'], ['waka'], 188310, 23, 38, 522), # noqa
+                        38, ['abort'], ['waka'], 188310, 23, 35, 519), # noqa
   })
   @no_wasm_backend()
   def test_binaryen_metadce_cxx_fastcomp(self, *args):
