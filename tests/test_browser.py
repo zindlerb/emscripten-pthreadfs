@@ -190,7 +190,7 @@ class browser(BrowserCore):
     # sourceContent when the maps are relative paths
     try_delete(html_file)
     try_delete(html_file + '.map')
-    self.compile_btest(['src.cpp', '-o', 'src.html', '-g4'])
+    self.compile_btest(['src.cpp', '-o', 'src.html', '-g4', '-fexceptions'])
     self.assertExists(html_file)
     self.assertExists('src.wasm.map')
     webbrowser.open_new('file://' + html_file)
