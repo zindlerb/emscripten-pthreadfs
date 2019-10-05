@@ -517,7 +517,7 @@ class NoExceptLibrary(Library):
   def get_cflags(self):
     cflags = super(NoExceptLibrary, self).get_cflags()
     if not self.is_noexcept:
-      cflags += ['-fexceptions', '-s', 'DISABLE_EXCEPTION_CATCHING=0']
+      cflags += ['-fexceptions']
     return cflags
 
   def get_base_name(self):
