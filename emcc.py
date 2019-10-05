@@ -1325,6 +1325,8 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
        'DISABLE_EXCEPTION_CATCHING' not in settings_key_changes and \
        '-fexceptions' not in newargs and \
        '-fno-exceptions' not in newargs:
+      # possible confusions:
+      #   * clang "error: cannot use 'throw' with exceptions disabled", does not mention -fexceptions is the solution
       newargs += ['-fno-exceptions']
 
     if shared.Settings.DISABLE_EXCEPTION_THROWING and not shared.Settings.DISABLE_EXCEPTION_CATCHING:

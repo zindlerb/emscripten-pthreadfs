@@ -5312,6 +5312,7 @@ main( int argv, char ** argc ) {
     self.do_run_in_out_file_test('tests', 'core', 'test_nl_types')
 
   def test_799(self):
+    self.emcc_args += ['-fexceptions']
     src = open(path_from_root('tests', '799.cpp')).read()
     self.do_run(src, '''Set PORT family: 0, port: 3979
 Get PORT family: 0
@@ -5396,8 +5397,7 @@ PORT: 3979
     self.do_run_in_out_file_test('tests', 'core', 'test_stdvec')
 
   def test_random_device(self):
-    self.emcc_args += ['-std=c++11']
-
+    self.emcc_args += ['-std=c++11', '-fexceptions']
     self.do_run_in_out_file_test('tests', 'core', 'test_random_device')
 
   def test_reinterpreted_ptrs(self):
