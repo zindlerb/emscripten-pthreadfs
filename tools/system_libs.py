@@ -837,6 +837,13 @@ class libcxx(NoBCLibrary, CXXLibrary, NoExceptLibrary, MTLibrary):
     os.path.join('filesystem', 'operations.cpp')
   ]
 
+  def get_cflags(self):
+    cflags = super(libcxx, self).get_cflags()
+    if self.is_noexcept:
+      cflags.append('-D_LIBCPP_NO_EXCEPTIONS')
+    print(cflags)
+    return cflags
+
 
 class libmalloc(MTLibrary, NoBCLibrary):
   name = 'libmalloc'
