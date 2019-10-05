@@ -1320,14 +1320,23 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
          exit_with_error('EMTERPRETIFY requires valid asm.js, and is incompatible with closure 2 which disables that')
       assert not use_source_map(options), 'EMTERPRETIFY is not compatible with source maps (maps are not useful in emterpreted code, and splitting out non-emterpreted source maps is not yet implemented)'
 
-    # default to disabling exceptions entirely, unless overridden by the user
+    # if the user did not say anything about exceptions, apply our defaults
     if 'DISABLE_EXCEPTION_THROWING' not in settings_key_changes and \
        'DISABLE_EXCEPTION_CATCHING' not in settings_key_changes and \
        '-fexceptions' not in newargs and \
        '-fno-exceptions' not in newargs:
+      if shared.Settings.ASSERTIONS:
+        # when assertions are enabled, allow exception throwing (but not
+        # catching). if an exception is thrown, it will show a message
+        # about enabling exceptions.
+        shared.Settings.DISABLE_EXCEPTION_THROWING = 0
+      else:
+        # when assertions are not on, by default exceptions are completey
+        # disabled.
+        newargs += ['-fno-exceptions']
+
       # possible confusions:
       #   * clang "error: cannot use 'throw' with exceptions disabled", does not mention -fexceptions is the solution
-      newargs += ['-fno-exceptions']
 
     if shared.Settings.DISABLE_EXCEPTION_THROWING and not shared.Settings.DISABLE_EXCEPTION_CATCHING:
       exit_with_error("DISABLE_EXCEPTION_THROWING was set (probably from -fno-exceptions) but is not compatible with enabling exception catching (DISABLE_EXCEPTION_CATCHING=0). If you don't want exceptions, set DISABLE_EXCEPTION_CATCHING to 1; if you do want exceptions, don't link with -fno-exceptions")
