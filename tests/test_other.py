@@ -4438,7 +4438,7 @@ int main()
   return 0;
 }
     ''')
-    run_process([PYTHON, EMCC, 'src.cpp'])
+    run_process([PYTHON, EMCC, 'src.cpp', '-fexceptions'])
 
     # cannot symlink nonexistents
     self.assertContained(r'''Before:

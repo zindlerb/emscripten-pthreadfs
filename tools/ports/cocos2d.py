@@ -60,6 +60,7 @@ def get(ports, settings, shared):
 
       if src.endswith('.cpp'):
         command.append('-std=c++11')
+        command.append('-fexceptions')
 
       commands.append(command)
       o_s.append(o)
