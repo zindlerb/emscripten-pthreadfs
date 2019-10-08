@@ -1424,9 +1424,11 @@ var SyscallsLibrary = {
     {{{ makeSetValue('pnum', 0, 'num', 'i32') }}}
     return 0;
   },
-  path_open: function(dirfd, dirflags, path, path_len, oflags, fs_rights_base, fs_rights_inheriting, fs_flags, pfd) {
+  path_open: function(dirfd, dirflags, path, path_len, oflags, fs_rights_base_l, fs_rights_base_h, fs_rights_inheriting_l, fs_rights_inheriting_h, fs_flags, pfd) {
+//console.log('path_open', oflags, fs_rights_base_l, fs_rights_base_h, fs_flags);
     assert(dirfd === 3); // __preopened_singleton, see wasi-helpers.c
     path = UTF8ToString(path);
+    assert(fs_rights_base_h === 0 && fs_rights_inheriting_h === 0);
     // Recombine the mode TODO refactor JS FS to work the wasi way?
     var flags = oflags;
     if (fs_flags & {{{ cDefine('__WASI_FDFLAG_APPEND') }}})   flags |= {{{ cDefine('O_APPEND') }}};
@@ -1434,9 +1436,24 @@ var SyscallsLibrary = {
     if (fs_flags & {{{ cDefine('__WASI_FDFLAG_NONBLOCK') }}}) flags |= {{{ cDefine('O_NONBLOCK') }}};
     if (fs_flags & {{{ cDefine('__WASI_FDFLAG_RSYNC') }}})    flags |= {{{ cDefine('O_RSYNC') }}};
     if (fs_flags & {{{ cDefine('__WASI_FDFLAG_SYNC') }}})     flags |= {{{ cDefine('O_SYNC') }}};
-    var mode = 438 /* 0666 */; // FIXME: detect from the others?
+    var mode = 0; // FIXME
+    if (flags & {{{ cDefine('O_DIRECTORY') }}}) mode |= {{{ cDefine('S_IFDIR') }}};
+    else mode |= {{{ cDefine('S_IFREG') }}};
+    if ((fs_rights_base_l & {{{ cDefine('__WASI_RIGHT_FD_READ') }}}) && (fs_rights_base_l & {{{ cDefine('__WASI_RIGHT_FD_WRITE') }}})) {
+      mode |= {{{ cDefine('O_RDWR') }}};
+    } else if (fs_rights_base_l & {{{ cDefine('__WASI_RIGHT_FD_READ') }}}) {
+      mode |= {{{ cDefine('O_RDONLY') }}};
+    } else {
+      mode |= {{{ cDefine('O_WRONLY') }}};
+    }
+    if ((fs_rights_base_l & {{{ cDefine('__WASI_RIGHT_PATH_CREATE_FILE') }}}) && (fs_rights_base_l & {{{ cDefine('__WASI_RIGHT_PATH_CREATE_DIRECTORY') }}})) {
+      mode |= {{{ cDefine('O_CREAT') }}};
+    }
+//console.log('waka', path, flags, mode);
     var stream = FS.open(path, flags, mode);
-    return stream.fd;
+//console.log('shaka', stream.fd);
+    {{{ makeSetValue('pfd', 0, 'stream.fd', 'i32') }}}
+    return 0;
   },
   fd_close: function(fd) {
 #if SYSCALLS_REQUIRE_FILESYSTEM

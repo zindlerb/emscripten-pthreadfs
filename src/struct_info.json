@@ -914,7 +914,11 @@
             "__WASI_FDFLAG_DSYNC",
             "__WASI_FDFLAG_NONBLOCK",
             "__WASI_FDFLAG_RSYNC",
-            "__WASI_FDFLAG_SYNC"
+            "__WASI_FDFLAG_SYNC",
+            "__WASI_RIGHT_FD_WRITE",
+            "__WASI_RIGHT_FD_READ",
+            "__WASI_RIGHT_PATH_CREATE_FILE",
+            "__WASI_RIGHT_PATH_CREATE_DIRECTORY"
         ],
         "structs": {}
     },

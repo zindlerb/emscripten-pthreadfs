@@ -13,6 +13,8 @@
 
 int main() {
   int f = open(".", O_RDONLY);
+  printf("open: %d\n", f);
+  printf("errno: %d\n", errno);
 
   int ret = fsync(f);
   printf("fsync(opened): %d\n", ret);
