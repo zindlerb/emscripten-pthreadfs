@@ -1431,6 +1431,10 @@ console.log('path_open', oflags, fs_rights_base_l, fs_rights_base_h, fs_flags);
     assert(fs_rights_base_h === 0 && fs_rights_inheriting_h === 0);
     // Recombine the mode TODO refactor JS FS to work the wasi way?
     var flags = oflags;
+    if (oflags & {{{ cDefine('__WASI_O_CREAT') }}})           flags |= {{{ cDefine('O_CREAT') }}};
+    if (oflags & {{{ cDefine('__WASI_O_EXCL') }}})            flags |= {{{ cDefine('O_EXCL') }}};
+    if (oflags & {{{ cDefine('__WASI_O_TRUNC') }}})           flags |= {{{ cDefine('O_TRUNC') }}};
+    if (oflags & {{{ cDefine('__WASI_O_DIRECTORY') }}})       flags |= {{{ cDefine('O_DIRECTORY') }}};
     if (fs_flags & {{{ cDefine('__WASI_FDFLAG_APPEND') }}})   flags |= {{{ cDefine('O_APPEND') }}};
     if (fs_flags & {{{ cDefine('__WASI_FDFLAG_DSYNC') }}})    flags |= {{{ cDefine('O_DSYNC') }}};
     if (fs_flags & {{{ cDefine('__WASI_FDFLAG_NONBLOCK') }}}) flags |= {{{ cDefine('O_NONBLOCK') }}};

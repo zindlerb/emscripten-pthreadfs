@@ -918,7 +918,11 @@
             "__WASI_RIGHT_FD_WRITE",
             "__WASI_RIGHT_FD_READ",
             "__WASI_RIGHT_PATH_CREATE_FILE",
-            "__WASI_RIGHT_PATH_CREATE_DIRECTORY"
+            "__WASI_RIGHT_PATH_CREATE_DIRECTORY",
+            "__WASI_O_CREAT",
+            "__WASI_O_EXCL",
+            "__WASI_O_TRUNC",
+            "__WASI_O_DIRECTORY"
         ],
         "structs": {}
     },
