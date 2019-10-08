@@ -103,9 +103,9 @@ function JSify(data, functionsOnly) {
       if (LIBRARY_DEBUG) {
         snippet = modifyFunction(snippet, function(name, args, body) {
           return 'function ' + name + '(' + args + ') {\n' +
-                 'var ret = (function() { if (runtimeDebug) err("[library call:' + finalName + ': " + Array.prototype.slice.call(arguments).map(prettyPrint) + "]");\n' +
+                 'var ret = (function() { if (runtimeDebug) console.warn("[library call:' + finalName + ': " + Array.prototype.slice.call(arguments).map(prettyPrint) + "]");\n' +
                   body +
-                  '}).apply(this, arguments); if (runtimeDebug && typeof ret !== "undefined") err("  [     return:" + prettyPrint(ret)); return ret; \n}\n';
+                  '}).apply(this, arguments); if (runtimeDebug && typeof ret !== "undefined") console.warn("  [     return:" + prettyPrint(ret)); return ret; \n}\n';
         });
       }
     }
