@@ -1425,7 +1425,7 @@ var SyscallsLibrary = {
     return 0;
   },
   path_open: function(dirfd, dirflags, path, path_len, oflags, fs_rights_base_l, fs_rights_base_h, fs_rights_inheriting_l, fs_rights_inheriting_h, fs_flags, pfd) {
-//console.log('path_open', oflags, fs_rights_base_l, fs_rights_base_h, fs_flags);
+console.log('path_open', oflags, fs_rights_base_l, fs_rights_base_h, fs_flags);
     assert(dirfd === 3); // __preopened_singleton, see wasi-helpers.c
     path = UTF8ToString(path);
     assert(fs_rights_base_h === 0 && fs_rights_inheriting_h === 0);
@@ -1449,9 +1449,9 @@ var SyscallsLibrary = {
     if ((fs_rights_base_l & {{{ cDefine('__WASI_RIGHT_PATH_CREATE_FILE') }}}) && (fs_rights_base_l & {{{ cDefine('__WASI_RIGHT_PATH_CREATE_DIRECTORY') }}})) {
       mode |= {{{ cDefine('O_CREAT') }}};
     }
-//console.log('waka', path, flags, mode);
+console.log('waka', path, flags, mode);
     var stream = FS.open(path, flags, mode);
-//console.log('shaka', stream.fd);
+console.log('shaka', stream.fd);
     {{{ makeSetValue('pfd', 0, 'stream.fd', 'i32') }}}
     return 0;
   },

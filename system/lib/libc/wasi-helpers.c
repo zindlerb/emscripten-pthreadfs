@@ -12,7 +12,7 @@
 #include <wasi/wasi.h>
 #include <wasi/wasi-helpers.h>
 
-//#include <stdio.h>
+   #include <stdio.h>
 
 int __wasi_syscall_ret(__wasi_errno_t code) {
   if (code == __WASI_ESUCCESS) return 0;
@@ -35,7 +35,7 @@ static __wasi_fd_t __preopened_singleton = 3;
 #define ALL_WASI_OFLAGS (O_CREAT | O_EXCL | O_TRUNC | O_DIRECTORY)
 
 int __wasi_helper_sys_open(const char *filename, int flags, mode_t mode) {
-//printf("sys_open %s %d %d\n", filename, flags, mode);
+printf("sys_open %s %d %d\n", filename, flags, mode);
   // Silently ignore non-supported musl flags for now (like our JS
   // impl always did) FIXME
   __wasi_fdflags_t fs_flags = 0;
