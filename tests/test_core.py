@@ -5200,7 +5200,7 @@ main( int argv, char ** argc ) {
     self.clear()
     orig_compiler_opts = self.emcc_args[:]
     src = open(path_from_root('tests', 'unistd', 'unlink.c')).read()
-    for fs in ['MEMFS', 'NODEFS']:
+    for fs in ['NODEFS']:
       self.emcc_args = orig_compiler_opts + ['-D' + fs]
       # symlinks on node.js on non-linux behave differently (e.g. on Windows they require administrative privileges)
       # so skip testing those bits on that combination.
@@ -5209,15 +5209,7 @@ main( int argv, char ** argc ) {
           self.emcc_args += ['-DNO_SYMLINK=1']
         if MACOS:
           continue
-      self.do_run(src, 'success', force_c=True, js_engines=[NODE_JS])
-    # Several differences/bugs on non-linux including https://github.com/nodejs/node/issues/18014
-    if not WINDOWS and not MACOS:
-      self.emcc_args = orig_compiler_opts + ['-DNODERAWFS']
-      # 0 if root user
-      if os.geteuid() == 0:
-        self.emcc_args += ['-DSKIP_ACCESS_TESTS']
-      self.emcc_args += ['-s', 'NODERAWFS=1']
-      self.do_run(src, 'success', force_c=True, js_engines=[NODE_JS])
+      self.do_run(src, 'zsuccess', force_c=True, js_engines=[NODE_JS])
 
   def test_unistd_links(self):
     self.clear()

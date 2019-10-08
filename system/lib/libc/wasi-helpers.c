@@ -52,13 +52,12 @@ printf("sys_open %s %d %d\n", filename, flags, mode);
   if (flags & O_SYNC)     fs_flags |= __WASI_FDFLAG_SYNC;
 
   __wasi_rights_t rights = 0;
-  int accMode = mode & O_ACCMODE;
+  int accMode = oflags & O_ACCMODE;
   if (accMode == O_RDONLY) rights |= __WASI_RIGHT_FD_READ;
   else if (accMode == O_RDWR)   rights |= __WASI_RIGHT_FD_READ |
                                           __WASI_RIGHT_FD_WRITE;
   else if (accMode == O_WRONLY) rights |= __WASI_RIGHT_FD_WRITE;
 
-  // XXX flags? mode?
   if (flags & O_CREAT) rights |= __WASI_RIGHT_PATH_CREATE_FILE |
                                  __WASI_RIGHT_PATH_CREATE_DIRECTORY;
 
@@ -73,6 +72,7 @@ printf("sys_open %s %d %d\n", filename, flags, mode);
       rights,
       fs_flags,
       &fd);
+printf("exiting %d %d\n", err, fd);
   if (__wasi_syscall_ret(err)) {
     return -1;
   }

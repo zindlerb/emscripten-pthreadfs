@@ -1430,7 +1430,7 @@ console.log('path_open', oflags, fs_rights_base_l, fs_rights_base_h, fs_flags);
     path = UTF8ToString(path);
     assert(fs_rights_base_h === 0 && fs_rights_inheriting_h === 0);
     // Recombine the mode TODO refactor JS FS to work the wasi way?
-    var flags = oflags;
+    var flags = 0;
     if (oflags & {{{ cDefine('__WASI_O_CREAT') }}})           flags |= {{{ cDefine('O_CREAT') }}};
     if (oflags & {{{ cDefine('__WASI_O_EXCL') }}})            flags |= {{{ cDefine('O_EXCL') }}};
     if (oflags & {{{ cDefine('__WASI_O_TRUNC') }}})           flags |= {{{ cDefine('O_TRUNC') }}};
@@ -1440,19 +1440,19 @@ console.log('path_open', oflags, fs_rights_base_l, fs_rights_base_h, fs_flags);
     if (fs_flags & {{{ cDefine('__WASI_FDFLAG_NONBLOCK') }}}) flags |= {{{ cDefine('O_NONBLOCK') }}};
     if (fs_flags & {{{ cDefine('__WASI_FDFLAG_RSYNC') }}})    flags |= {{{ cDefine('O_RSYNC') }}};
     if (fs_flags & {{{ cDefine('__WASI_FDFLAG_SYNC') }}})     flags |= {{{ cDefine('O_SYNC') }}};
-    var mode = 0; // FIXME
-    if (flags & {{{ cDefine('O_DIRECTORY') }}}) mode |= {{{ cDefine('S_IFDIR') }}};
-    else mode |= {{{ cDefine('S_IFREG') }}};
     if ((fs_rights_base_l & {{{ cDefine('__WASI_RIGHT_FD_READ') }}}) && (fs_rights_base_l & {{{ cDefine('__WASI_RIGHT_FD_WRITE') }}})) {
-      mode |= {{{ cDefine('O_RDWR') }}};
+      flags |= {{{ cDefine('O_RDWR') }}};
     } else if (fs_rights_base_l & {{{ cDefine('__WASI_RIGHT_FD_READ') }}}) {
-      mode |= {{{ cDefine('O_RDONLY') }}};
+      flags |= {{{ cDefine('O_RDONLY') }}};
     } else {
-      mode |= {{{ cDefine('O_WRONLY') }}};
+      flags |= {{{ cDefine('O_WRONLY') }}};
     }
     if ((fs_rights_base_l & {{{ cDefine('__WASI_RIGHT_PATH_CREATE_FILE') }}}) && (fs_rights_base_l & {{{ cDefine('__WASI_RIGHT_PATH_CREATE_DIRECTORY') }}})) {
-      mode |= {{{ cDefine('O_CREAT') }}};
+      flags |= {{{ cDefine('O_CREAT') }}};
     }
+    var mode = 438 /* 0666 */; // FIXME
+    if (flags & {{{ cDefine('O_DIRECTORY') }}}) mode |= {{{ cDefine('S_IFDIR') }}};
+    else mode |= {{{ cDefine('S_IFREG') }}};
 console.log('waka', path, flags, mode);
     var stream = FS.open(path, flags, mode);
 console.log('shaka', stream.fd);
