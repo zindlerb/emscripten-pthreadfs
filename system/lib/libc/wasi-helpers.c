@@ -33,12 +33,12 @@ static __wasi_fd_t __preopened_singleton = 3;
 int __wasi_helper_sys_open(const char *filename, int flags, mode_t mode) {
   // Silently ignore non-supported musl flags for now (like our JS
   // impl always did) FIXME
-  __wasi_fdflags_t fdflags = 0;
-  if (fdflags & O_APPEND)   fdflags |= __WASI_FDFLAG_APPEND;
-  if (fdflags & O_DSYNC)    fdflags |= __WASI_FDFLAG_DSYNC;
-  if (fdflags & O_NONBLOCK) fdflags |= __WASI_FDFLAG_NONBLOCK;
-  if (fdflags & O_RSYNC)    fdflags |= __WASI_FDFLAG_RSYNC;
-  if (fdflags & O_SYNC)     fdflags |= __WASI_FDFLAG_SYNC;
+  __wasi_fdflags_t fs_flags = 0;
+  if (flags & O_APPEND)   fs_flags |= __WASI_FDFLAG_APPEND;
+  if (flags & O_DSYNC)    fs_flags |= __WASI_FDFLAG_DSYNC;
+  if (flags & O_NONBLOCK) fs_flags |= __WASI_FDFLAG_NONBLOCK;
+  if (flags & O_RSYNC)    fs_flags |= __WASI_FDFLAG_RSYNC;
+  if (flags & O_SYNC)     fs_flags |= __WASI_FDFLAG_SYNC;
   // For now, ask for all the rights FIXME
   __wasi_rights_t rights = -1;
 
@@ -51,7 +51,7 @@ int __wasi_helper_sys_open(const char *filename, int flags, mode_t mode) {
       flags & ALL_WASI_OFLAGS,
       rights,
       rights,
-      fdflags,
+      fs_flags,
       &fd);
   if (__wasi_syscall_ret(err)) {
     return -1;

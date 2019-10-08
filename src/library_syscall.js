@@ -304,11 +304,6 @@ var SyscallsLibrary = {
     return count;
 #endif // SYSCALLS_REQUIRE_FILESYSTEM
   },
-  __syscall5: function(which, varargs) { // open
-    var pathname = SYSCALLS.getStr(), flags = SYSCALLS.get(), mode = SYSCALLS.get(); // optional TODO
-    var stream = FS.open(pathname, flags, mode);
-    return stream.fd;
-  },
   __syscall9: function(which, varargs) { // link
     var oldpath = SYSCALLS.get(), newpath = SYSCALLS.get();
     return -{{{ cDefine('EMLINK') }}}; // no hardlinks for us
@@ -1429,6 +1424,19 @@ var SyscallsLibrary = {
     {{{ makeSetValue('pnum', 0, 'num', 'i32') }}}
     return 0;
   },
+  path_open: function(dirfd, dirflags, path, path_len, oflags, fs_rights_base, fs_rights_inheriting, fs_flags, pfd) {
+    assert(dirfd === 3); // __preopened_singleton, see wasi-helpers.c
+    path = UTF8ToString(path);
+    // Recombine the mode TODO refactor JS FS to work the wasi way?
+    var mode = oflags;
+    if (fs_flags & {{{ cFlags('__WASI_FDFLAG_APPEND') }}})   mode |= {{{ cFlags('O_APPEND') }}};
+    if (fs_flags & {{{ cFlags('__WASI_FDFLAG_DSYNC') }}})    mode |= {{{ cFlags('O_DSYNC') }}};
+    if (fs_flags & {{{ cFlags('__WASI_FDFLAG_NONBLOCK') }}}) mode |= {{{ cFlags('O_NONBLOCK') }}};
+    if (fs_flags & {{{ cFlags('__WASI_FDFLAG_RSYNC') }}})    mode |= {{{ cFlags('O_RSYNC') }}};
+    if (fs_flags & {{{ cFlags('__WASI_FDFLAG_SYNC') }}})     mode |= {{{ cFlags('O_SYNC') }}};
+    var stream = FS.open(pathname, flags, mode);
+    return stream.fd;
+  },
   fd_close: function(fd) {
 #if SYSCALLS_REQUIRE_FILESYSTEM
     var stream = SYSCALLS.getStreamFromFD(fd);
@@ -1829,6 +1837,7 @@ var WASI_SYSCALLS = set([
   'fd_close',
   'fd_read',
   'fd_seek',
+  'path_open',
 ]);
 
 // Fallback for cases where the wasi_unstable.name prefixing fails,

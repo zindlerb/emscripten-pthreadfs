@@ -2499,7 +2499,7 @@ class Building(object):
     'fd_close',
     'fd_read',
     'fd_seek',
-    'fd_open',
+    'path_open',
     'proc_exit',
   ])
 

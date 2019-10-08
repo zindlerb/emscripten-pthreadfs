@@ -17,6 +17,7 @@ See docs/process.md for how version tagging works.
 
 Current Trunk
 -------------
+ - Change some `O_*` flags (like `O_CREAT`) to match wasi.
 
 v.1.38.47: 10/02/2019
 ---------------------

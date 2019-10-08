@@ -903,6 +903,17 @@
         ],
         "structs": {}
     },
+    {
+        "file": "wasi/wasi.h",
+        "defines": [
+            "__WASI_FDFLAG_APPEND",
+            "__WASI_FDFLAG_DSYNC",
+            "__WASI_FDFLAG_NONBLOCK",
+            "__WASI_FDFLAG_RSYNC",
+            "__WASI_FDFLAG_SYNC"
+        ],
+        "structs": {}
+    },
     
     // ===========================================
     // SDL
