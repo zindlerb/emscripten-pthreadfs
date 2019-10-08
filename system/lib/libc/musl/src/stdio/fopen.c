@@ -18,7 +18,7 @@ FILE *fopen(const char *restrict filename, const char *restrict mode)
 	/* Compute the flags to pass to open() */
 	flags = __fmodeflags(mode);
 
-#ifdef __EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
 	fd = __wasi_helper_sys_open(filename, flags, 0666);
 #else
 	fd = sys_open(filename, flags, 0666);

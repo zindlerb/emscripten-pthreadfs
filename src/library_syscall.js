@@ -1428,13 +1428,14 @@ var SyscallsLibrary = {
     assert(dirfd === 3); // __preopened_singleton, see wasi-helpers.c
     path = UTF8ToString(path);
     // Recombine the mode TODO refactor JS FS to work the wasi way?
-    var mode = oflags;
-    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_APPEND') }}})   mode |= {{{ cDefine('O_APPEND') }}};
-    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_DSYNC') }}})    mode |= {{{ cDefine('O_DSYNC') }}};
-    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_NONBLOCK') }}}) mode |= {{{ cDefine('O_NONBLOCK') }}};
-    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_RSYNC') }}})    mode |= {{{ cDefine('O_RSYNC') }}};
-    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_SYNC') }}})     mode |= {{{ cDefine('O_SYNC') }}};
-    var stream = FS.open(pathname, flags, mode);
+    var flags = oflags;
+    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_APPEND') }}})   flags |= {{{ cDefine('O_APPEND') }}};
+    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_DSYNC') }}})    flags |= {{{ cDefine('O_DSYNC') }}};
+    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_NONBLOCK') }}}) flags |= {{{ cDefine('O_NONBLOCK') }}};
+    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_RSYNC') }}})    flags |= {{{ cDefine('O_RSYNC') }}};
+    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_SYNC') }}})     flags |= {{{ cDefine('O_SYNC') }}};
+    var mode = 438 /* 0666 */; // FIXME: detect from the others?
+    var stream = FS.open(path, flags, mode);
     return stream.fd;
   },
   fd_close: function(fd) {

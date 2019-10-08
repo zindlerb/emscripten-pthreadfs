@@ -14,7 +14,7 @@ int open(const char *filename, int flags, ...)
 		va_end(ap);
 	}
 
-#ifdef __EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
 	int fd = __wasi_helper_sys_open(filename, flags, mode);
 #else
 	int fd = __sys_open_cp(filename, flags, mode);
