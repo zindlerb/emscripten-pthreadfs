@@ -2492,6 +2492,17 @@ class Building(object):
           js_file = Building.minify_wasm_imports_and_exports(js_file, wasm_file, minify_whitespace=minify_whitespace, minify_exports=Settings.DECLARE_ASM_MODULE_EXPORTS, debug_info=debug_info)
     return js_file
 
+  WASI_IMPORTS = set([
+    'environ_get',
+    'environ_sizes_get',
+    'fd_write',
+    'fd_close',
+    'fd_read',
+    'fd_seek',
+    'fd_open',
+    'proc_exit',
+  ])
+
   # run binaryen's wasm-metadce to dce both js and wasm
   @staticmethod
   def metadce(js_file, wasm_file, minify_whitespace, debug_info):
@@ -2532,17 +2543,8 @@ class Building(object):
         'root': True
       })
     # fix wasi imports TODO: support wasm stable with an option?
-    WASI_IMPORTS = set([
-      'environ_get',
-      'environ_sizes_get',
-      'fd_write',
-      'fd_close',
-      'fd_read',
-      'fd_seek',
-      'proc_exit',
-    ])
     for item in graph:
-      if 'import' in item and item['import'][1][1:] in WASI_IMPORTS:
+      if 'import' in item and item['import'][1][1:] in Building.WASI_IMPORTS:
         item['import'][0] = 'wasi_unstable'
     if Settings.WASM_BACKEND:
       # wasm backend's imports are prefixed differently inside the wasm

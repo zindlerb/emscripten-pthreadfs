@@ -1,3 +1,19 @@
+#ifdef __EMSCRIPTEN__
+// Wasi flags here are a mix of __WASI_O_* and __WASI_FDFLAG_*, which overlap,
+// so we can't use a enum space for them all.
+#define O_CREAT        __WASI_O_CREAT
+#define O_EXCL         __WASI_O_EXCL
+#define O_TRUNC        __WASI_O_TRUNC
+#define O_DIRECTORY    __WASI_O_DIRECTORY
+#define O_NOCTTY       0400
+#define O_APPEND      02000
+#define O_NONBLOCK    04000
+#define O_DSYNC      010000
+#define O_SYNC     04010000
+#define O_RSYNC    04010000
+#define O_NOFOLLOW  0400000
+#define O_CLOEXEC  02000000
+#else
 #define O_CREAT        0100
 #define O_EXCL         0200
 #define O_NOCTTY       0400
@@ -10,6 +26,7 @@
 #define O_DIRECTORY 0200000
 #define O_NOFOLLOW  0400000
 #define O_CLOEXEC  02000000
+#endif
 
 #define O_ASYNC      020000
 #define O_DIRECT     040000

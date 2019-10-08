@@ -12,4 +12,8 @@
 // error, 0 otherwise), and sets errno accordingly.
 extern int __wasi_syscall_ret(__wasi_errno_t code);
 
+// Internal helper for opening a file. Returns a negative number on error,
+// fd otherwise, just like a musl syscall.
+extern int __wasi_helper_sys_open(const char *filename, int flags, mode_t mode);
+
 #endif // __wasi_emscripten_helpers_h
