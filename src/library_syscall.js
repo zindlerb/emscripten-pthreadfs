@@ -1429,11 +1429,11 @@ var SyscallsLibrary = {
     path = UTF8ToString(path);
     // Recombine the mode TODO refactor JS FS to work the wasi way?
     var mode = oflags;
-    if (fs_flags & {{{ cFlags('__WASI_FDFLAG_APPEND') }}})   mode |= {{{ cFlags('O_APPEND') }}};
-    if (fs_flags & {{{ cFlags('__WASI_FDFLAG_DSYNC') }}})    mode |= {{{ cFlags('O_DSYNC') }}};
-    if (fs_flags & {{{ cFlags('__WASI_FDFLAG_NONBLOCK') }}}) mode |= {{{ cFlags('O_NONBLOCK') }}};
-    if (fs_flags & {{{ cFlags('__WASI_FDFLAG_RSYNC') }}})    mode |= {{{ cFlags('O_RSYNC') }}};
-    if (fs_flags & {{{ cFlags('__WASI_FDFLAG_SYNC') }}})     mode |= {{{ cFlags('O_SYNC') }}};
+    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_APPEND') }}})   mode |= {{{ cDefine('O_APPEND') }}};
+    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_DSYNC') }}})    mode |= {{{ cDefine('O_DSYNC') }}};
+    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_NONBLOCK') }}}) mode |= {{{ cDefine('O_NONBLOCK') }}};
+    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_RSYNC') }}})    mode |= {{{ cDefine('O_RSYNC') }}};
+    if (fs_flags & {{{ cDefine('__WASI_FDFLAG_SYNC') }}})     mode |= {{{ cDefine('O_SYNC') }}};
     var stream = FS.open(pathname, flags, mode);
     return stream.fd;
   },

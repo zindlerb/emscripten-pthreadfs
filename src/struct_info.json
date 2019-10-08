@@ -134,6 +134,10 @@
             "F_DUPFD", 
             "F_SETLK", 
             "O_WRONLY",
+            "O_NONBLOCK",
+            "O_RSYNC",
+            "O_DSYNC",
+            "O_SYNC",
             "AT_FDCWD",
             "AT_SYMLINK_NOFOLLOW",
             "AT_REMOVEDIR"

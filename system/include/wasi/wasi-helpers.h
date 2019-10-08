@@ -8,6 +8,8 @@
 #ifndef __wasi_emscripten_helpers_h
 #define __wasi_emscripten_helpers_h
 
+#include <sys/stat.h>
+
 // Converts a wasi return code to a musl syscall return code (-1 if
 // error, 0 otherwise), and sets errno accordingly.
 extern int __wasi_syscall_ret(__wasi_errno_t code);

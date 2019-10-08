@@ -6,7 +6,9 @@
  */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
 #include <wasi/wasi.h>
 #include <wasi/wasi-helpers.h>
 
