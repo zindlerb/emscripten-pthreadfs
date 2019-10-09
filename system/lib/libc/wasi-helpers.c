@@ -35,7 +35,7 @@ static __wasi_fd_t __preopened_singleton = 3;
 #define ALL_WASI_OFLAGS (O_CREAT | O_EXCL | O_TRUNC | O_DIRECTORY)
 
 int __wasi_helper_sys_open(const char *filename, int flags, mode_t mode) {
-printf("sys_open %s %d %d\n", filename, flags, mode);
+//printf("sys_open %s %d %d\n", filename, flags, mode);
   // Silently ignore non-supported musl flags for now (like our JS
   // impl always did) FIXME
   __wasi_oflags_t oflags = 0;
@@ -52,14 +52,15 @@ printf("sys_open %s %d %d\n", filename, flags, mode);
   if (flags & O_SYNC)     fs_flags |= __WASI_FDFLAG_SYNC;
 
   __wasi_rights_t rights = 0;
-  int accMode = oflags & O_ACCMODE;
-  if (accMode == O_RDONLY) rights |= __WASI_RIGHT_FD_READ;
+  int accMode = flags & O_ACCMODE;
+  if (accMode == O_RDONLY)      rights |= __WASI_RIGHT_FD_READ;
   else if (accMode == O_RDWR)   rights |= __WASI_RIGHT_FD_READ |
                                           __WASI_RIGHT_FD_WRITE;
   else if (accMode == O_WRONLY) rights |= __WASI_RIGHT_FD_WRITE;
 
   if (flags & O_CREAT) rights |= __WASI_RIGHT_PATH_CREATE_FILE |
                                  __WASI_RIGHT_PATH_CREATE_DIRECTORY;
+//printf("sys_open sends %d %lld %d\n", oflags, rights, fs_flags);
 
   __wasi_fd_t fd;
   __wasi_errno_t err = __wasi_path_open(
@@ -72,7 +73,7 @@ printf("sys_open %s %d %d\n", filename, flags, mode);
       rights,
       fs_flags,
       &fd);
-printf("exiting %d %d\n", err, fd);
+//printf("exiting %d %d\n", err, fd);
   if (__wasi_syscall_ret(err)) {
     return -1;
   }
