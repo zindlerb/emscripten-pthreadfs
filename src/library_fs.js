@@ -384,6 +384,49 @@ mergeInto(LibraryManager.library, {
     },
 
     //
+    // wasi
+    // TODO harmonize wasi and musl flags here?
+    //
+    toWasiFDFlags: function(flags) {
+      var wasi = 0;
+      if (flags & {{{ cDefine('O_APPEND') }}}) {
+        wasi |= {{{ cDefine('__WASI_FDFLAG_APPEND') }}};
+      }
+      if (flags & {{{ cDefine('O_DSYNC') }}}) {
+        wasi |= {{{ cDefine('__WASI_FDFLAG_DSYNC') }}};
+      }
+      if (flags & {{{ cDefine('O_NONBLOCK') }}}) {
+        wasi |= {{{ cDefine('__WASI_FDFLAG_NONBLOCK') }}};
+      }
+      if (flags & {{{ cDefine('O_RSYNC') }}}) {
+        wasi |= {{{ cDefine('__WASI_FDFLAG_RSYNC') }}};
+      }
+      if (flags & {{{ cDefine('O_SYNC') }}}) {
+        wasi |= {{{ cDefine('__WASI_FDFLAG_SYNC') }}};
+      }
+      return wasi;
+    },
+    fromWasiFDFlags: function(wasi) {
+      var flags = 0;
+      if (wasi & {{{ cDefine('__WASI_FDFLAG_APPEND') }}}) {
+        flags |= {{{ cDefine('O_APPEND') }}};
+      }
+      if (wasi & {{{ cDefine('__WASI_FDFLAG_DSYNC') }}}) {
+        flags |= {{{ cDefine('O_DSYNC') }}};
+      }
+      if (wasi & {{{ cDefine('__WASI_FDFLAG_NONBLOCK') }}}) {
+        flags |= {{{ cDefine('O_NONBLOCK') }}};
+      }
+      if (wasi & {{{ cDefine('__WASI_FDFLAG_RSYNC') }}}) {
+        flags |= {{{ cDefine('O_RSYNC') }}};
+      }
+      if (wasi & {{{ cDefine('__WASI_FDFLAG_SYNC') }}}) {
+        flags |= {{{ cDefine('O_SYNC') }}};
+      }
+      return flags;
+    },
+
+    //
     // streams
     //
     MAX_OPEN_FDS: 4096,

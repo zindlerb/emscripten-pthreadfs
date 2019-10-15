@@ -17,8 +17,13 @@ int pipe2(int fd[2], int flag)
 	}
 #endif
 	if (flag & O_NONBLOCK) {
+#ifdef __EMSCRIPTEN__
+     __wasi_fd_fdstat_set_flags(fd[0], __WASI_FDFLAG_NONBLOCK);
+     __wasi_fd_fdstat_set_flags(fd[1], __WASI_FDFLAG_NONBLOCK);
+#else
 		__syscall(SYS_fcntl, fd[0], F_SETFL, O_NONBLOCK);
 		__syscall(SYS_fcntl, fd[1], F_SETFL, O_NONBLOCK);
+#endif
 	}
 	return 0;
 }

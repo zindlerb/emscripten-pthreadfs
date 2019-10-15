@@ -1568,12 +1568,6 @@
               "global_locale"
             ]
         },
-        "defines": [
-            "__WASI_FILETYPE_CHARACTER_DEVICE",
-            "__WASI_FILETYPE_DIRECTORY",
-            "__WASI_FILETYPE_REGULAR_FILE",
-            "__WASI_FILETYPE_SYMBOLIC_LINK"
-        ]
     },
     {
         "file": "wasi/wasi.h",
@@ -1585,7 +1579,17 @@
                 "fs_rights_inheriting"
             ]
         },
-        "defines": []
+        "defines": [
+            "__WASI_FILETYPE_CHARACTER_DEVICE",
+            "__WASI_FILETYPE_DIRECTORY",
+            "__WASI_FILETYPE_REGULAR_FILE",
+            "__WASI_FILETYPE_SYMBOLIC_LINK",
+            "__WASI_FDFLAG_APPEND",
+            "__WASI_FDFLAG_DSYNC",
+            "__WASI_FDFLAG_NONBLOCK",
+            "__WASI_FDFLAG_RSYNC",
+            "__WASI_FDFLAG_SYNC"
+        ]
     },
     {
         "file": "emscripten/fetch.h",

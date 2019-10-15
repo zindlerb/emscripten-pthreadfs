@@ -32,9 +32,16 @@ FILE *__fdopen(int fd, const char *mode)
 
 	/* Set append mode on fd if opened for append */
 	if (*mode == 'a') {
+#ifdef __EMSCRIPTEN__
+		__wasi_fdstat_t statbuf;
+		__wasi_fd_fdstat_get(fd, &statbuf);
+		if (!(statbuf.fs_flags & __WASI_FDFLAG_APPEND))
+			__wasi_fd_fdstat_set_flags(fd, statbuf.fs_flags | __WASI_FDFLAG_APPEND);
+#else
 		int flags = __syscall(SYS_fcntl, fd, F_GETFL);
 		if (!(flags & O_APPEND))
 			__syscall(SYS_fcntl, fd, F_SETFL, flags | O_APPEND);
+#endif
 		f->flags |= F_APP;
 	}
 

@@ -2566,6 +2566,7 @@ class Building(object):
       'fd_read',
       'fd_seek',
       'fd_fdstat_get',
+      'fd_fdstat_set_flags',
       'fd_sync',
       'proc_exit',
     ])

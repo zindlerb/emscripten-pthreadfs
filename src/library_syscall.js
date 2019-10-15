@@ -1432,9 +1432,14 @@ var SyscallsLibrary = {
                FS.isLink(stream.mode) ? {{{ cDefine('__WASI_FILETYPE_SYMBOLIC_LINK') }}} :
                {{{ cDefine('__WASI_FILETYPE_REGULAR_FILE') }}};
     {{{ makeSetValue('pbuf', C_STRUCTS.__wasi_fdstat_t.fs_filetype, 'type', 'i8') }}};
-    // TODO {{{ makeSetValue('pbuf', C_STRUCTS.__wasi_fdstat_t.fs_flags, '?', 'i16') }}};
+    {{{ makeSetValue('pbuf', C_STRUCTS.__wasi_fdstat_t.fs_flags, 'FS.toWasiFDFlags(stream.flags)', 'i16') }}};
     // TODO {{{ makeSetValue('pbuf', C_STRUCTS.__wasi_fdstat_t.fs_rights_base, '?', 'i64') }}};
     // TODO {{{ makeSetValue('pbuf', C_STRUCTS.__wasi_fdstat_t.fs_rights_inheriting, '?', 'i64') }}};
+    return 0;
+  },
+  fd_fdstat_set_flags: function(fd, flags) {
+    var stream = SYSCALLS.getStreamFromFD(fd);
+    stream.flags = FS.fromWasiFDFlags(flags);
     return 0;
   },
 #if EMTERPRETIFY_ASYNC
@@ -1844,6 +1849,7 @@ var WASI_SYSCALLS = set([
   'fd_read',
   'fd_seek',
   'fd_fdstat_get',
+  'fd_fdstat_set_flags',
   'fd_sync',
 ]);
 
