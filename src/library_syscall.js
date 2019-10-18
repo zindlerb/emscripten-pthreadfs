@@ -304,9 +304,8 @@ var SyscallsLibrary = {
     return count;
 #endif // SYSCALLS_REQUIRE_FILESYSTEM
   },
-  __syscall5: function(which, varargs) { // open
-    var pathname = SYSCALLS.getStr(), flags = SYSCALLS.get(), mode = SYSCALLS.get(); // optional TODO
-    var stream = FS.open(pathname, flags, mode);
+  emscripten_path_open: function(pathname, flags, mode) {
+    var stream = FS.open(UTF8ToString(pathname), flags, mode);
     return stream.fd;
   },
   __syscall9: function(which, varargs) { // link
@@ -1860,11 +1859,12 @@ for (var x in SyscallsLibrary) {
   var which = null; // if this is a musl syscall, its number
   var m = /^__syscall(\d+)$/.exec(x);
   var wasi = false;
+  // A syscall is either musl, or wasi, or emscripten.
   if (m) {
     which = +m[1];
   } else if (x in WASI_SYSCALLS) {
     wasi = true;
-  } else {
+  } else if (!x.startsWith('emscripten_')) {
     continue;
   }
   var t = SyscallsLibrary[x];

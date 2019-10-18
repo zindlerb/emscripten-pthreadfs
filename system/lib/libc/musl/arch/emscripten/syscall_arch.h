@@ -148,6 +148,8 @@ long __syscall337(int which, ...);
 long __syscall340(int which, ...);
 long __syscall345(int which, ...);
 
+long emscripten_path_open(const char* filename, int flags, int mode);
+
 #undef SYS_futimesat
 
 #ifdef __cplusplus
