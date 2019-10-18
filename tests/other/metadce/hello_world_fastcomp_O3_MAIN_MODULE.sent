@@ -368,7 +368,6 @@ ___syscall4
 ___syscall40
 ___syscall41
 ___syscall42
-___syscall5
 ___syscall51
 ___syscall54
 ___syscall57
@@ -913,6 +912,7 @@ _emscripten_pc_get_function
 _emscripten_pc_get_line
 _emscripten_pc_get_source_js
 _emscripten_performance_now
+_emscripten_posix_open
 _emscripten_print_double
 _emscripten_random
 _emscripten_request_animation_frame
