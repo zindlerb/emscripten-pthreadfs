@@ -628,7 +628,13 @@ def optimize_syscalls(declares, DEBUG):
     # without filesystem support, it doesn't matter what syscalls need
     shared.Settings.SYSCALLS_REQUIRE_FILESYSTEM = 0
   else:
-    syscall_prefixes = ('__syscall', 'fd_', '__wasi_fd_')
+    syscall_prefixes = (
+      '__syscall',
+      'fd_', '__wasi_fd_',
+      'path_', '__wasi_path_',
+      'emscripten_fd_',
+      'emscripten_posix_',
+    )
     syscalls = [d for d in declares if d.startswith(syscall_prefixes)]
     # check if the only filesystem syscalls are in: close, ioctl, llseek, write
     # (without open, etc.. nothing substantial can be done, so we can disable

@@ -304,7 +304,7 @@ var SyscallsLibrary = {
     return count;
 #endif // SYSCALLS_REQUIRE_FILESYSTEM
   },
-  emscripten_path_open: function(pathname, flags, mode) {
+  emscripten_posix_open: function(pathname, flags, mode) {
     var stream = FS.open(UTF8ToString(pathname), flags, mode);
     return stream.fd;
   },

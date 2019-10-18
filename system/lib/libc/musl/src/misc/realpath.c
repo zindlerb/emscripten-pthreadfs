@@ -22,7 +22,11 @@ char *realpath(const char *restrict filename, char *restrict resolved)
 		return 0;
 	}
 
+#ifdef __EMSCRIPTEN__
+	fd = sys_open_nomode(filename, O_PATH|O_NONBLOCK|O_CLOEXEC);
+#else
 	fd = sys_open(filename, O_PATH|O_NONBLOCK|O_CLOEXEC);
+#endif
 	if (fd < 0) return 0;
 	__procfdname(buf, fd);
 

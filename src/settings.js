@@ -845,7 +845,7 @@ var WARN_ON_UNDEFINED_SYMBOLS = 1;
 // to 0, in which case if an undefined function is called a runtime error will
 // occur.  Any undefined symbols that are listed in EXPORTED_FUNCTIONS will also
 // be reported.
-var ERROR_ON_UNDEFINED_SYMBOLS = 1;
+var ERROR_ON_UNDEFINED_SYMBOLS = 0;
 
 // Use small chunk size for binary synchronous XHR's in Web Workers.  Used for
 // testing.  See test_chunked_synchronous_xhr in runner.py and library.js.

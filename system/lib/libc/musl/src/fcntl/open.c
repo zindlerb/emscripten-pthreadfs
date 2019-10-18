@@ -14,11 +14,8 @@ int open(const char *filename, int flags, ...)
 		va_end(ap);
 	}
 
-#ifdef __EMSCRIPTEN__
-	int fd = emscripten_path_open(filename, flags, mode);
-	// CLOEXEC makes no sense for a single process
-#else
 	int fd = __sys_open_cp(filename, flags, mode);
+#ifndef __EMSCRIPTEN__ // CLOEXEC makes no sense for a single process
 	if (fd>=0 && (flags & O_CLOEXEC))
 		__syscall(SYS_fcntl, fd, F_SETFD, FD_CLOEXEC);
 #endif

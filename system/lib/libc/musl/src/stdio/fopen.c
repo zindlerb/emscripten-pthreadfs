@@ -18,11 +18,7 @@ FILE *fopen(const char *restrict filename, const char *restrict mode)
 	/* Compute the flags to pass to open() */
 	flags = __fmodeflags(mode);
 
-#ifdef __EMSCRIPTEN__
-	fd = emscripten_path_open(filename, flags, 0666);
-#else
 	fd = sys_open(filename, flags, 0666);
-#endif
 	if (fd < 0) return 0;
 #ifndef __EMSCRIPTEN__ // CLOEXEC makes no sense for a single process
 	if (flags & O_CLOEXEC)

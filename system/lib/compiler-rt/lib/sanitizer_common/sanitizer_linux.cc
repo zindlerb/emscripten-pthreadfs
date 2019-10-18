@@ -216,19 +216,27 @@ uptr internal_close(fd_t fd) {
 }
 
 uptr internal_open(const char *filename, int flags) {
+#ifdef __EMSCRIPTEN__
+  return emscripten_posix_open(filename, flags, 0666);
+#else
 #if SANITIZER_USES_CANONICAL_LINUX_SYSCALLS
   return internal_syscall(SYSCALL(openat), AT_FDCWD, (uptr)filename, flags);
 #else
   return internal_syscall(SYSCALL(open), (uptr)filename, flags);
 #endif
+#endif
 }
 
 uptr internal_open(const char *filename, int flags, u32 mode) {
+#ifdef __EMSCRIPTEN__
+  return emscripten_posix_open(filename, flags, mode);
+#else
 #if SANITIZER_USES_CANONICAL_LINUX_SYSCALLS
   return internal_syscall(SYSCALL(openat), AT_FDCWD, (uptr)filename, flags,
                           mode);
 #else
   return internal_syscall(SYSCALL(open), (uptr)filename, flags, mode);
+#endif
 #endif
 }
 
