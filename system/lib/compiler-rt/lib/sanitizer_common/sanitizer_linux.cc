@@ -215,6 +215,10 @@ uptr internal_close(fd_t fd) {
 #endif
 }
 
+#ifdef __EMSCRIPTEN__
+extern long emscripten_posix_open(const char* filename, int flags, int mode);
+#endif
+
 uptr internal_open(const char *filename, int flags) {
 #ifdef __EMSCRIPTEN__
   return emscripten_posix_open(filename, flags, 0666);
