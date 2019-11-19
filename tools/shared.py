@@ -2867,19 +2867,17 @@ class Building(object):
   counter = 0
 
   @staticmethod
-  def get_debug_tempfile_name(suffix='.wasm'):
-    ret = '/tmp/emscripten_temp/temp_' + str(Building.counter) + suffix
-    print('emitting ' + ret)
-    Building.counter += 1
-    return ret;
-
-  @staticmethod
   def emit_wasm_source_map(wasm_file, map_file):
     sourcemap_cmd = [PYTHON, path_from_root('tools', 'wasm-sourcemap.py'),
                      wasm_file,
                      '--dwarfdump=' + LLVM_DWARFDUMP,
                      '-o',  map_file]
     check_call(sourcemap_cmd)
+
+
+  @staticmethod
+  def emit_wtmaps_map_file(wasm_file, map_file):
+    run_process([os.path.expanduser('~/Dev/wtmaps-utils/target/debug/wtmaps'), wasm_file, '-o', map_file])
 
   @staticmethod
   def get_binaryen_feature_flags():
@@ -2922,7 +2920,7 @@ class Building(object):
         cmd += ['--strip-dwarf']
     # if we are preserving dwarf all the way through the pipeline, we must use
     # the wtmaps utility to update that info
-    preserve_dwarf = False # Settings.DEBUG_LEVEL == 3 and Settings.WASM_BACKEND and outfile
+    preserve_dwarf = Settings.DEBUG_LEVEL == 3 and Settings.WASM_BACKEND and outfile
     if preserve_dwarf:
       # We are emitting the maximum amount of debug info; in the wasm backend,
       # our wasm file contains DWARF sections. Keep them valid through
@@ -2937,13 +2935,7 @@ class Building(object):
         shutil.copyfile(infile, temp_infile)
         infile = temp_infile
       identity_map = temp_files.get('.map').name
-
-      def emit_wtmaps_map_file(wasm_file, map_file):
-        run_process([os.path.expanduser('~/Dev/wtmaps-utils/target/debug/wtmaps'), wasm_file, '-o', map_file])
-        #shutil.copyfile(wasm_file, Building.get_debug_tempfile_name())
-        #shutil.copyfile(map_file, Building.get_debug_tempfile_name('.map'))
-
-      emit_wtmaps_map_file(infile, identity_map)
+      Building.emit_wtmaps_map_file(infile, identity_map)
       output_map = outfile + '.map'
       cmd += ['--input-source-map=' + identity_map]
       cmd += ['--output-source-map=' + output_map]
@@ -2970,8 +2962,7 @@ class Building(object):
       temp_wasm = temp_files.get('.wasm').name
       run_process([WDWARF_CP, infile, '-o', temp_wasm, '-m', output_map, '-w', outfile])
       shutil.copyfile(temp_wasm, outfile)
-      #shutil.copyfile(outfile, Building.get_debug_tempfile_name())
-      emit_wtmaps_map_file(outfile, output_map)
+      Building.emit_wtmaps_map_file(outfile, output_map)
 
     return ret
 
