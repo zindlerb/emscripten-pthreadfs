@@ -2534,12 +2534,17 @@ class Building(object):
         logger.debug('running post-meta-DCE cleanup on shell code: ' + ' '.join(passes))
         js_file = Building.acorn_optimizer(js_file, passes)
         # Also minify the names used between js and wasm, if we are emitting an optimized JS+wasm combo (then the JS knows how to load the minified names).
-        # If we are building with DECLARE_ASM_MODULE_EXPORTS=0, we must *not* minify the exports from the wasm module, since in DECLARE_ASM_MODULE_EXPORTS=0 mode, the code that
-        # reads out the exports is compacted by design that it does not have a chance to unminify the functions. If we are building with DECLARE_ASM_MODULE_EXPORTS=1, we might
-        # as well minify wasm exports to regain some of the code size loss that setting DECLARE_ASM_MODULE_EXPORTS=1 caused.
-        # ASYNCIFY_LAZY_LOAD_CODE disables minification because it runs after the wasm is completely finalized, and we need to be able to still
-        # identify import names at that time. To avoid that, we would need to keep a mapping of the names and send that to binaryen.
-        if not Settings.STANDALONE_WASM and not Settings.AUTODEBUG and not Settings.ASSERTIONS and not Settings.SIDE_MODULE and emitting_js and not Settings.ASYNCIFY_LAZY_LOAD_CODE:
+        # Things that process the JS after this operation would be done must disable this.
+        # For example, ASYNCIFY_LAZY_LOAD_CODE needs to identify import names, and wasm2js
+        # needs to use the getTempRet0 imports (otherwise, it may create new ones to replace
+        # the old, which would break).
+        if not Settings.STANDALONE_WASM and \
+           not Settings.AUTODEBUG and \
+           not Settings.ASSERTIONS and \
+           not Settings.SIDE_MODULE and \
+           emitting_js and \
+           not Settings.ASYNCIFY_LAZY_LOAD_CODE and \
+           not Settings.WASM2JS:
           js_file = Building.minify_wasm_imports_and_exports(js_file, wasm_file, minify_whitespace=minify_whitespace, minify_exports=Settings.DECLARE_ASM_MODULE_EXPORTS, debug_info=debug_info)
     return js_file
 
@@ -2881,6 +2886,14 @@ class Building(object):
     run_process([WTMAPS, wasm_file, '-o', map_file])
 
   @staticmethod
+  def emit_wasm_source_map(wasm_file, map_file):
+    sourcemap_cmd = [PYTHON, path_from_root('tools', 'wasm-sourcemap.py'),
+                     wasm_file,
+                     '--dwarfdump=' + LLVM_DWARFDUMP,
+                     '-o',  map_file]
+    check_call(sourcemap_cmd)
+
+  @staticmethod
   def get_binaryen_feature_flags():
     # start with the MVP features, add the rest as needed
     ret = ['--mvp-features']
@@ -2915,10 +2928,7 @@ class Building(object):
     if emit_source_map:
       cmd += ['--input-source-map=' + infile + '.map']
       cmd += ['--output-source-map=' + outfile + '.map']
-      cmd += ['--output-source-map-url=' + Settings.SOURCE_MAP_BASE + os.path.basename(Settings.WASM_BINARY_FILE) + '.map']
-      # remove any dwarf debug info sections, as the source map has the info
-      if tool == 'wasm-opt':
-        cmd += ['--strip-dwarf']
+
     # if we are preserving dwarf all the way through the pipeline, we must use
     # the wtmaps utility to update that info
     preserve_dwarf = Settings.DEBUG_LEVEL == 3 and Settings.WASM_BACKEND and outfile
@@ -2941,17 +2951,9 @@ class Building(object):
       cmd += ['--input-source-map=' + identity_map]
       cmd += ['--output-source-map=' + output_map]
 
-    #shutil.copyfile(infile, Building.get_debug_tempfile_name())
-
-    if stdout is not None:
-      ret = run_process(cmd, stdout=stdout).stdout
-    else:
-      run_process(cmd)
-      ret = None
-
-    #if outfile:
-    #  shutil.copyfile(outfile, Building.get_debug_tempfile_name())
-    #  shutil.copyfile(output_map, Building.get_debug_tempfile_name('.map'))
+    ret = run_process(cmd, stdout=stdout).stdout
+    if outfile:
+      Building.debug_copy(outfile, '%s.wasm' % tool)
 
     if preserve_dwarf:
       # The wasm has been modified, and we emitted a new source map. Adjust
@@ -2970,6 +2972,14 @@ class Building(object):
   @staticmethod
   def run_wasm_opt(*args, **kwargs):
     return Building.run_binaryen_command('wasm-opt', *args, **kwargs)
+
+  debug_copy_counter = 0
+
+  @staticmethod
+  def debug_copy(src, dst):
+    if DEBUG:
+      shutil.copyfile(src, os.path.join(CANONICAL_TEMP_DIR, 'emdebug-%d-%s' % (Building.debug_copy_counter, dst)))
+      Building.debug_copy_counter += 1
 
 
 # compatibility with existing emcc, etc. scripts
@@ -3084,15 +3094,19 @@ class JS(object):
 
   @staticmethod
   def legalize_sig(sig):
-    ret = [sig[0]]
+    legal = [sig[0]]
+    # a return of i64 is legalized into an i32 (and the high bits are
+    # accessible on the side through getTempRet0).
+    if legal[0] == 'j':
+      legal[0] = 'i'
+    # a parameter of i64 is legalized into i32, i32
     for s in sig[1:]:
       if s != 'j':
-        ret.append(s)
+        legal.append(s)
       else:
-        # an i64 is legalized into i32, i32
-        ret.append('i')
-        ret.append('i')
-    return ''.join(ret)
+        legal.append('i')
+        legal.append('i')
+    return ''.join(legal)
 
   @staticmethod
   def is_legal_sig(sig):

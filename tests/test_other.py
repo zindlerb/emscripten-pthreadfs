@@ -2329,6 +2329,33 @@ int f() {
         else:
           self.assertIn('strip-debug', err)
 
+  @no_fastcomp()
+  def test_debuginfo_line_tables_only(self):
+    def test(do_compile):
+      do_compile([])
+      no_size = os.path.getsize('a.out.wasm')
+      do_compile(['-gline-tables-only'])
+      line_size = os.path.getsize('a.out.wasm')
+      do_compile(['-g'])
+      full_size = os.path.getsize('a.out.wasm')
+      self.assertLess(no_size, line_size)
+      # currently we don't support full debug info anyhow, so line tables
+      # is all we have
+      self.assertEqual(line_size, full_size)
+
+    def compile_directly(compile_args):
+      run_process([PYTHON, EMCC, path_from_root('tests', 'hello_world.cpp')] + compile_args)
+
+    test(compile_directly)
+
+    def compile_to_object_first(compile_args):
+      # compile with the specified args
+      run_process([PYTHON, EMCC, path_from_root('tests', 'hello_world.cpp')] + compile_args + ['-c', '-o', 'a.o'])
+      # link with debug info
+      run_process([PYTHON, EMCC, 'a.o', '-g'])
+
+    test(compile_to_object_first)
+
   @unittest.skipIf(not scons_path, 'scons not found in PATH')
   @with_env_modify({'EMSCRIPTEN_ROOT': path_from_root()})
   def test_scons(self):
@@ -8825,7 +8852,9 @@ int main() {
     output = open('a.wasm', 'rb').read()
     # has sourceMappingURL section content and points to 'dir/a.wasm.map' file
     source_mapping_url_content = encode_leb(len('sourceMappingURL')) + b'sourceMappingURL' + encode_leb(len('dir/a.wasm.map')) + b'dir/a.wasm.map'
-    self.assertIn(source_mapping_url_content, output)
+    self.assertEqual(output.count(source_mapping_url_content), 1)
+    # make sure no DWARF debug info sections remain - they would just waste space
+    self.assertNotIn(b'.debug_', output)
 
   def test_check_source_map_args(self):
     # -g4 is needed for source maps; -g is not enough
