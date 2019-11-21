@@ -2869,8 +2869,6 @@ class Building(object):
 
     return library_files
 
-  counter = 0
-
   @staticmethod
   def emit_wasm_source_map(wasm_file, map_file):
     sourcemap_cmd = [PYTHON, path_from_root('tools', 'wasm-sourcemap.py'),
@@ -2878,20 +2876,11 @@ class Building(object):
                      '--dwarfdump=' + LLVM_DWARFDUMP,
                      '-o',  map_file]
     check_call(sourcemap_cmd)
-
 
   @staticmethod
   def emit_wtmaps_map_file(wasm_file, map_file):
     WTMAPS = 'wtmaps' # from yury's wtmaps project
     run_process([WTMAPS, wasm_file, '-o', map_file])
-
-  @staticmethod
-  def emit_wasm_source_map(wasm_file, map_file):
-    sourcemap_cmd = [PYTHON, path_from_root('tools', 'wasm-sourcemap.py'),
-                     wasm_file,
-                     '--dwarfdump=' + LLVM_DWARFDUMP,
-                     '-o',  map_file]
-    check_call(sourcemap_cmd)
 
   @staticmethod
   def get_binaryen_feature_flags():
