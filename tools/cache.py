@@ -61,7 +61,7 @@ class Cache(object):
 
   def acquire_cache_lock(self):
     if not self.EM_EXCLUSIVE_CACHE_ACCESS and self.acquired_count == 0:
-      logger.debug('PID %s acquiring multiprocess file lock to Emscripten cache at %s' % (str(os.getpid()), self.dirname))
+      logger.debug('PID %s acquiring multiprocess file lock to Emscripten cache at %s (%s)' % (str(os.getpid()), self.dirname, self.filelock_name))
       try:
         self.filelock.acquire(60)
       except filelock.Timeout:

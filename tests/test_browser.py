@@ -201,7 +201,6 @@ If manually bisecting:
   through and see the print (best to run with EMTEST_SAVE_DIR=1 for the reload).
 ''')
 
-  @no_wasm_backend('wasm source maps')
   def test_emscripten_log(self):
     # TODO: wasm support for source maps. emscripten_loadSourceMap looks at $HTML.map but it should be $NAME.wasm.map.
     src = 'src.cpp'
