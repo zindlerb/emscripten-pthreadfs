@@ -2292,13 +2292,13 @@ int f() {
           self.assertFalse(os.path.exists(self.canonical_temp_dir))
         elif debug == '1':
           if self.is_wasm_backend():
-            self.assertExists(os.path.join(self.canonical_temp_dir, 'emcc-0-original.js'))
+            self.assertExists(os.path.join(self.canonical_temp_dir, 'emcc-3-original.js'))
           else:
             self.assertExists(os.path.join(self.canonical_temp_dir, 'emcc-0-linktime.bc'))
             self.assertExists(os.path.join(self.canonical_temp_dir, 'emcc-1-original.js'))
         elif debug == '2':
           if self.is_wasm_backend():
-            self.assertExists(os.path.join(self.canonical_temp_dir, 'emcc-0-original.js'))
+            self.assertExists(os.path.join(self.canonical_temp_dir, 'emcc-3-original.js'))
           else:
             self.assertExists(os.path.join(self.canonical_temp_dir, 'emcc-0-basebc.bc'))
             self.assertExists(os.path.join(self.canonical_temp_dir, 'emcc-1-linktime.bc'))
@@ -4110,11 +4110,6 @@ int main(int argc, char **argv) {
     assert 'eval(' not in src
     assert 'eval.' not in src
     assert 'new Function' not in src
-    try_delete('a.out.js')
-
-    # Test that -s DYNAMIC_EXECUTION=0 and --closure 1 are not allowed together.
-    self.expect_fail([PYTHON, EMCC, path_from_root('tests', 'hello_world.c'), '-O1',
-                      '-s', 'DYNAMIC_EXECUTION=0', '--closure', '1'])
     try_delete('a.out.js')
 
     # Test that -s DYNAMIC_EXECUTION=1 and -s RELOCATABLE=1 are not allowed together.
@@ -8250,6 +8245,10 @@ int main() {
     # Growth support code is in the wasm
     'O3_grow_standalone': ('mem.c', ['-O3', '-s', 'ALLOW_MEMORY_GROWTH', '-s', 'STANDALONE_WASM'],
                            4, [], [], 6449,  4,  3,  6),         # noqa
+    # without argc/argv, no support code for them is emitted, even with lto
+    'O3_standalone_narg_flto':
+                          ('mem_no_argv.c', ['-O3', '-s', 'STANDALONE_WASM', '-flto'],
+                           1, [], [], 6309,  1,  3,  5),         # noqa
   })
   @no_fastcomp()
   def test_metadce_mem(self, filename, *args):
