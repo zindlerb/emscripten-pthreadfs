@@ -2941,7 +2941,8 @@ class Building(object):
       cmd += ['--input-source-map=' + identity_map]
       cmd += ['--output-source-map=' + output_map]
 
-    ret = run_process(cmd, stdout=stdout).stdout
+    # ignore stderr due to source map warnings
+    ret = run_process(cmd, stdout=stdout, stderr=PIPE).stdout
     if outfile:
       Building.save_intermediate(outfile, '%s.wasm' % tool)
 
