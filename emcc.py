@@ -2639,9 +2639,7 @@ def parse_args(newargs):
         if options.debug_level < 3:
           newargs[i] = ''
         else:
-          # until we support full DWARF info, limit the clang frontend to just
-          # emit line tables, which can be represented in source maps
-          newargs[i] = '-gline-tables-only'
+          newargs[i] = '-g'
       else:
         # a non-integer level can be something like -gline-tables-only. keep
         # the flag for the clang frontend to emit the appropriate DWARF info.
