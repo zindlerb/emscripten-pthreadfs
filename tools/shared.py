@@ -2881,6 +2881,7 @@ class Building(object):
   def emit_wtmaps_map_file(wasm_file, map_file):
     WTMAPS = 'wtmaps' # from yury's wtmaps project
     run_process([WTMAPS, wasm_file, '-o', map_file])
+    Building.save_intermediate(map_file, 'wtmaps.map')
 
   @staticmethod
   def get_binaryen_feature_flags():
@@ -2950,11 +2951,11 @@ class Building(object):
       # We are emitting the maximum amount of debug info; in the wasm backend,
       # our wasm file contains DWARF sections. Keep them valid through
       # binaryen transformations
+      Building.save_intermediate(output_map, 'output_map.map')
       WDWARF_CP = 'wdwarf-cp' # from yury's wtmaps project
       temp_wasm = temp_files.get('.wasm').name
       run_process([WDWARF_CP, infile, '-o', temp_wasm, '-m', output_map, '-w', outfile])
       shutil.copyfile(temp_wasm, outfile)
-      Building.emit_wtmaps_map_file(outfile, output_map)
 
     return ret
 
