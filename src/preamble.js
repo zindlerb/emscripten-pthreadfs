@@ -73,6 +73,10 @@ var tempDoublePtr = 0;
 #endif
 #endif // USE_PTHREADS
 
+#if LEGACY_VM_SUPPORT
+#include "legacy_vm_support_polyfills.js"
+#endif
+
 //========================================
 // Runtime essentials
 //========================================
