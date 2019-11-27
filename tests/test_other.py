@@ -8187,7 +8187,7 @@ int main() {
 
   @parameterized({
     'O0': ([],       9, [], ['waka'], 22185,  8,  17, 57), # noqa
-    'O1': (['-O1'],  7, [], ['waka'], 10415,  6,  14, 31), # noqa
+    'O1': (['-O1'],  7, [], ['waka'], 10415,  6,  14, 30), # noqa
     'O2': (['-O2'],  7, [], ['waka'], 10183,  6,  14, 24), # noqa
     'O3': (['-O3'],  4, [], [],        1957,  4,   2, 12), # noqa; in -O3, -Os and -Oz we metadce
     'Os': (['-Os'],  4, [], [],        1963,  4,   2, 12), # noqa
@@ -8235,7 +8235,7 @@ int main() {
                            3, [], [], 6309,  3,  3,  5),         # noqa
     # without argc/argv, no support code for them is emitted
     'O3_standalone_narg': ('mem_no_argv.c', ['-O3', '-s', 'STANDALONE_WASM'],
-                           1, [], [], 6309,  1,  3,  5),         # noqa
+                           1, [], [], 6309,  1,  3,  4),         # noqa
     # without main, no support code for argc/argv is emitted either
     'O3_standalone_lib':  ('mem_no_main.c', ['-O3', '-s', 'STANDALONE_WASM'],
                            0, [], [], 6309,  0,  3,  4),         # noqa
@@ -8248,7 +8248,7 @@ int main() {
     # without argc/argv, no support code for them is emitted, even with lto
     'O3_standalone_narg_flto':
                           ('mem_no_argv.c', ['-O3', '-s', 'STANDALONE_WASM', '-flto'],
-                           1, [], [], 6309,  1,  3,  5),         # noqa
+                           1, [], [], 6309,  1,  3,  4),         # noqa
   })
   @no_fastcomp()
   def test_metadce_mem(self, filename, *args):
@@ -8894,7 +8894,8 @@ int main() {
                     '--dwarfdump-output',
                     path_from_root('tests', 'other', 'wasm_sourcemap', 'foo.wasm.dump'),
                     '-o', 'a.out.wasm.map',
-                    path_from_root('tests', 'other', 'wasm_sourcemap', 'foo.wasm')]
+                    path_from_root('tests', 'other', 'wasm_sourcemap', 'foo.wasm'),
+                    '--basepath=' + os.getcwd()]
     run_process(wasm_map_cmd)
     output = open('a.out.wasm.map').read()
     # has "sources" entry with file (includes also `--prefix =wasm-src:///` replacement)
@@ -8909,26 +8910,34 @@ int main() {
                     '--dwarfdump-output',
                     path_from_root('tests', 'other', 'wasm_sourcemap_dead', 't.wasm.dump'),
                     '-o', 'a.out.wasm.map',
-                    path_from_root('tests', 'other', 'wasm_sourcemap_dead', 't.wasm')]
+                    path_from_root('tests', 'other', 'wasm_sourcemap_dead', 't.wasm'),
+                    '--basepath=' + os.getcwd()]
     run_process(wasm_map_cmd, stdout=PIPE, stderr=PIPE)
     output = open('a.out.wasm.map').read()
     # has only two entries
     self.assertRegexpMatches(output, r'"mappings":\s*"[A-Za-z0-9+/]+,[A-Za-z0-9+/]+"')
 
+  @no_fastcomp()
   def test_wasm_sourcemap_relative_paths(self):
-    filename = 'a.cpp'
-    shutil.copyfile(path_from_root('tests', 'hello_123.c'), 'a.cpp')
-    filenames = [
-      filename,
-      os.path.abspath(filename)
-    ]
-    if not WINDOWS:
-      filenames.append('./' + filename)
-    for curr in filenames:
-      print(curr)
-      run_process([PYTHON, EMCC, curr, '-g4'])
-      with open('a.out.wasm.map', 'r') as f:
-        self.assertIn('"a.cpp"', str(f.read()))
+    def test(infile, source_map_added_dir=''):
+      expected_source_map_path = os.path.join(source_map_added_dir, 'a.cpp')
+      print(infile, expected_source_map_path)
+      shutil.copyfile(path_from_root('tests', 'hello_123.c'), infile)
+      infiles = [
+        infile,
+        os.path.abspath(infile),
+        './' + infile
+      ]
+      for curr in infiles:
+        print('  ', curr)
+        run_process([PYTHON, EMCC, curr, '-g4'])
+        with open('a.out.wasm.map', 'r') as f:
+          self.assertIn('"%s"' % expected_source_map_path, str(f.read()))
+
+    test('a.cpp')
+
+    os.mkdir('inner')
+    test(os.path.join('inner', 'a.cpp'), 'inner')
 
   def test_wasm_producers_section(self):
     # no producers section by default
@@ -9005,6 +9014,28 @@ T6:(else) !ASSERTIONS""", output)
       os.mkdir('subdir')
     run_process([PYTHON, EMCC, path_from_root('tests', 'hello_world.c'), '-o', os.path.join('subdir', 'a.js'), '-O3'])
     ret = run_process(NODE_JS + [os.path.join('subdir', 'a.js')], stdout=PIPE).stdout
+    self.assertContained('hello, world!', ret)
+
+  # Tests that a pthreads + modularize build can be run in node js
+  @no_fastcomp('node pthreads only supported on wasm backend')
+  def test_node_js_pthread_module(self):
+    # create module loader script
+    moduleLoader = 'moduleLoader.js'
+    moduleLoaderContents = '''
+const test_module = require("./module");
+test_module().then((test_module_instance) => {
+  test_module_instance._main();
+  process.exit(0);
+});
+'''
+    os.makedirs('subdir', exist_ok=True)
+    create_test_file(os.path.join('subdir', moduleLoader), moduleLoaderContents)
+
+    # build hello_world.c
+    run_process([PYTHON, EMCC, path_from_root('tests', 'hello_world.c'), '-o', os.path.join('subdir', 'module.js'), '-s', 'USE_PTHREADS=1', '-s', 'PTHREAD_POOL_SIZE=2', '-s', 'MODULARIZE=1', '-s', 'EXPORT_NAME=test_module', '-s', 'ENVIRONMENT=worker,node'])
+
+    # run the module
+    ret = run_process(NODE_JS + ['--experimental-wasm-threads'] + [os.path.join('subdir', moduleLoader)], stdout=PIPE).stdout
     self.assertContained('hello, world!', ret)
 
   def test_is_bitcode(self):
@@ -9683,17 +9714,17 @@ int main () {
   @parameterized({
     'c': ['c', [
       r'in malloc.*a\.out\.wasm\+0x',
-      r'(?im)in f (/|[a-z]:).*/test_lsan_leaks\.c:6:21$',
-      r'(?im)in main (/|[a-z]:).*/test_lsan_leaks\.c:10:16$',
-      r'(?im)in main (/|[a-z]:).*/test_lsan_leaks\.c:12:3$',
-      r'(?im)in main (/|[a-z]:).*/test_lsan_leaks\.c:13:3$',
+      r'(?im)in f (|[/a-z\.]:).*/test_lsan_leaks\.c:6:21$',
+      r'(?im)in main (|[/a-z\.]:).*/test_lsan_leaks\.c:10:16$',
+      r'(?im)in main (|[/a-z\.]:).*/test_lsan_leaks\.c:12:3$',
+      r'(?im)in main (|[/a-z\.]:).*/test_lsan_leaks\.c:13:3$',
     ]],
     'cpp': ['cpp', [
       r'in operator new\[\]\(unsigned long\).*a\.out\.wasm\+0x',
-      r'(?im)in f\(\) (/|[a-z]:).*/test_lsan_leaks\.cpp:4:21$',
-      r'(?im)in main (/|[a-z]:).*/test_lsan_leaks\.cpp:8:16$',
-      r'(?im)in main (/|[a-z]:).*/test_lsan_leaks\.cpp:10:3$',
-      r'(?im)in main (/|[a-z]:).*/test_lsan_leaks\.cpp:11:3$',
+      r'(?im)in f\(\) (|[/a-z\.]:).*/test_lsan_leaks\.cpp:4:21$',
+      r'(?im)in main (|[/a-z\.]:).*/test_lsan_leaks\.cpp:8:16$',
+      r'(?im)in main (|[/a-z\.]:).*/test_lsan_leaks\.cpp:10:3$',
+      r'(?im)in main (|[/a-z\.]:).*/test_lsan_leaks\.cpp:11:3$',
     ]],
   })
   @no_fastcomp('lsan not supported on fastcomp')

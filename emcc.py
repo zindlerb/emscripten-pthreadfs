@@ -1671,6 +1671,9 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
           if shared.Settings.SAFE_HEAP:
             passes += ['--safe-heap']
           passes += ['--post-emscripten']
+          # always inline __original_main into main, as otherwise it makes debugging confusing,
+          # and doing so is never bad for code size
+          passes += ['--inline-main']
           if not shared.Settings.EXIT_RUNTIME:
             passes += ['--no-exit-runtime']
           if options.opt_level > 0 or options.shrink_level > 0:
@@ -3161,6 +3164,7 @@ function(%(EXPORT_NAME)s) {
       # document.currentScript, so a simple export declaration is enough.
       src = 'var %s=%s' % (shared.Settings.EXPORT_NAME, src)
     else:
+      script_url_node = ""
       # When MODULARIZE this JS may be executed later,
       # after document.currentScript is gone, so we save it.
       # (when MODULARIZE_INSTANCE, an instance is created
@@ -3171,15 +3175,19 @@ function(%(EXPORT_NAME)s) {
         script_url = "import.meta.url"
       else:
         script_url = "typeof document !== 'undefined' && document.currentScript ? document.currentScript.src : undefined"
+        if shared.Settings.target_environment_may_be('node'):
+          script_url_node = "if (typeof __filename !== 'undefined') _scriptDir = _scriptDir || __filename;"
       src = '''
 var %(EXPORT_NAME)s = (function() {
   var _scriptDir = %(script_url)s;
+  %(script_url_node)s
   return (%(src)s);
 })();
 ''' % {
         'EXPORT_NAME': shared.Settings.EXPORT_NAME,
-        'src': src,
-        'script_url': script_url
+        'script_url': script_url,
+        'script_url_node': script_url_node,
+        'src': src
       }
   else:
     # Create the MODULARIZE_INSTANCE instance
