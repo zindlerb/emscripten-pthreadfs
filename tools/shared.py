@@ -2961,6 +2961,7 @@ class Building(object):
       temp_wasm = temp_files.get('.wasm').name
       run_process([WDWARF_CP, infile, '-o', temp_wasm, '-m', output_map, '-w', outfile])
       shutil.copyfile(temp_wasm, outfile)
+      Building.save_intermediate(outfile, '%s.wasm' % (tool + '.wtmapped'))
 
     return ret
 
