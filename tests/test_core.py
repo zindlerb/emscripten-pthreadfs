@@ -2632,7 +2632,6 @@ The current type of b is: 9
   @needs_dlfcn
   def test_dlfcn_i64(self):
     self.prep_dlfcn_lib()
-    self.set_setting('EXPORTED_FUNCTIONS', ['_foo'])
     lib_src = '''
       int foo(int x) {
         return (long long)x / (long long)1234;
@@ -2643,7 +2642,6 @@ The current type of b is: 9
     self.build_dlfcn_lib(lib_src, dirname, filename)
 
     self.prep_dlfcn_main()
-    self.clear_setting('EXPORTED_FUNCTIONS')
     src = r'''
       #include <stdio.h>
       #include <stdlib.h>
@@ -2713,7 +2711,6 @@ The current type of b is: 9
   @needs_dlfcn
   def test_dlfcn_qsort(self):
     self.prep_dlfcn_lib()
-    self.set_setting('EXPORTED_FUNCTIONS', ['_get_cmp'])
     lib_src = '''
       int lib_cmp(const void* left, const void* right) {
         const int* a = (const int*) left;
@@ -2734,7 +2731,6 @@ The current type of b is: 9
     self.build_dlfcn_lib(lib_src, dirname, filename)
 
     self.prep_dlfcn_main()
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc'])
     src = '''
       #include <stdio.h>
       #include <stdlib.h>
@@ -2827,7 +2823,6 @@ The current type of b is: 9
       '''
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.cpp')
-    self.set_setting('EXPORTED_FUNCTIONS', ['_func'])
     self.build_dlfcn_lib(lib_src, dirname, filename)
 
     self.prep_dlfcn_main()
@@ -2884,7 +2879,6 @@ The current type of b is: 9
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main'])
     self.do_run(src, '''\
 In func: 13
 First calling main_fptr from lib.
@@ -2908,7 +2902,6 @@ Var: 42
       '''
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.cpp')
-    self.set_setting('EXPORTED_FUNCTIONS', ['_func'])
     self.build_dlfcn_lib(lib_src, dirname, filename)
 
     self.prep_dlfcn_main()
@@ -2941,7 +2934,6 @@ Var: 42
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main'])
     self.do_run(src, '100\n200\n13\n42\n')
 
   @needs_dlfcn
@@ -3057,7 +3049,6 @@ Var: 42
         return 13;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_myfunc'])
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.c')
     self.build_dlfcn_lib(lib_src, dirname, filename)
@@ -3086,7 +3077,6 @@ Var: 42
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc'])
     self.do_run(src, 'success', force_c=True)
 
   @needs_dlfcn
@@ -3100,7 +3090,6 @@ Var: 42
         return 13;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_myfunc'])
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.c')
     self.build_dlfcn_lib(lib_src, dirname, filename)
@@ -3144,7 +3133,6 @@ Var: 42
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc'])
     self.do_run(src, 'success', force_c=True)
 
   @needs_dlfcn
@@ -3165,7 +3153,6 @@ Var: 42
         return strlen(bigstack);
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_myfunc'])
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.c')
     self.build_dlfcn_lib(lib_src, dirname, filename)
@@ -3202,7 +3189,6 @@ Var: 42
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc', '_strcmp'])
     self.do_run(src, 'success', force_c=True)
 
   @needs_dlfcn
@@ -3239,7 +3225,6 @@ Var: 42
         }
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_callvoid', '_callint', '_getvoid', '_getint'])
     dirname = self.get_dir()
     self.build_dlfcn_lib(lib_src, dirname, os.path.join(dirname, 'liblib.c'))
 
@@ -3291,7 +3276,6 @@ Var: 42
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc'])
     self.do_run(src, '''go
 void_main.
 int_main 201
@@ -3317,14 +3301,12 @@ ok
       void *mallocproxy(int n) { return malloc(n); }
       void freeproxy(void *p) { free(p); }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_mallocproxy', '_freeproxy'])
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.c')
     self.build_dlfcn_lib(lib_src, dirname, filename)
 
     self.prep_dlfcn_main()
     src = open(path_from_root('tests', 'dlmalloc_proxy.c')).read()
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc', '_free'])
     self.do_run(src, '''*294,153*''', force_c=True)
 
   @needs_dlfcn
@@ -3341,7 +3323,6 @@ ok
         printf("pre %d\n", i);
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_jumpy'])
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.c')
     self.build_dlfcn_lib(lib_src, dirname, filename)
@@ -3376,7 +3357,6 @@ ok
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc', '_free'])
     self.do_run(src, '''go!
 pre 1
 pre 2
@@ -3405,7 +3385,6 @@ out!
       }
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_ok', '_fail'])
     dirname = self.get_dir()
     filename = os.path.join(dirname, 'liblib.cpp')
     self.build_dlfcn_lib(lib_src, dirname, filename)
@@ -3450,7 +3429,6 @@ out!
         return 0;
       }
       '''
-    self.set_setting('EXPORTED_FUNCTIONS', ['_main', '_malloc', '_free'])
     self.do_run(src, '''go!
 ok: 65
 int 123
@@ -4104,7 +4082,7 @@ ok
       void call_side() {
         printf("side: jslib_x is %d.\n", jslib_x);
       }
-    ''', expected=['main: jslib_x is 148.\nside: jslib_x is 148.\n'], main_emcc_args=['--js-library', 'lib.js', '-s', 'EXPORTED_FUNCTIONS=["_main", "_jslib_x"]'])
+    ''', expected=['main: jslib_x is 148.\nside: jslib_x is 148.\n'], main_emcc_args=['--js-library', 'lib.js'])
 
   @needs_dlfcn
   def test_dylink_many_postsets(self):

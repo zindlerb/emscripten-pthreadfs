@@ -1158,16 +1158,22 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       options.memory_init_file = False # memory init file is not supported with asm.js side modules, must be executable synchronously (for dlopen)
 
     if shared.Settings.MAIN_MODULE or shared.Settings.SIDE_MODULE:
-      assert shared.Settings.ASM_JS, 'module linking requires asm.js output (-s ASM_JS=1)'
+      if not shared.Settings.ASM_JS:
+        exit_with_error('module linking requires asm.js output (-s ASM_JS=1)')
       if shared.Settings.MAIN_MODULE != 2 and shared.Settings.SIDE_MODULE != 2:
         shared.Settings.LINKABLE = 1
       shared.Settings.RELOCATABLE = 1
-      assert not options.use_closure_compiler, 'cannot use closure compiler on shared modules'
+      if options.use_closure_compiler:
+        exit_with_error('cannot use closure compiler on shared modules')
       # shared modules need memory utilities to allocate their memory
       shared.Settings.EXPORTED_RUNTIME_METHODS += [
         'allocate',
         'getMemory',
       ]
+
+    if shared.Settings.LINKABLE and shared.Settings.USER_EXPORTED_FUNCTIONS:
+      shared.warning('EXPORTED_FUNCTIONS is not valid with LINKABLE set (normally due to SIDE_MODULE=1/MAIN_MODULE=1) '
+                     'since all functions are exported.  To export only a subset use SIDE_MODULE=2/MAIN_MODULE=2')
 
     if shared.Settings.RELOCATABLE:
       shared.Settings.ALLOW_TABLE_GROWTH = 1
