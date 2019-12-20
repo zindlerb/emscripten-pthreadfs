@@ -1172,8 +1172,9 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       ]
 
     if shared.Settings.LINKABLE and shared.Settings.USER_EXPORTED_FUNCTIONS:
-      shared.warning('EXPORTED_FUNCTIONS is not valid with LINKABLE set (normally due to SIDE_MODULE=1/MAIN_MODULE=1) '
-                     'since all functions are exported.  To export only a subset use SIDE_MODULE=2/MAIN_MODULE=2')
+      shared.warning('EXPORTED_FUNCTIONS has no meaning when LINKABLE is set '
+                     '(normally due to SIDE_MODULE=1/MAIN_MODULE=1) since all functions are exported. '
+                     'To export only a subset use SIDE_MODULE=2/MAIN_MODULE=2')
 
     if shared.Settings.RELOCATABLE:
       shared.Settings.ALLOW_TABLE_GROWTH = 1
