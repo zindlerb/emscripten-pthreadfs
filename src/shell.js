@@ -353,6 +353,14 @@ assert(typeof Module['setWindowTitle'] === 'undefined', 'Module.setWindowTitle o
 
 #if USE_PTHREADS
 assert(ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER || ENVIRONMENT_IS_NODE, 'Pthreads do not work in this environment yet (need Web Workers, or an alternative to them)');
+#if ENVIRONMENT_MAY_BE_NODE
+if (ENVIRONMENT_IS_NODE) {
+  // Polyfill some threading-related Web APIs.
+  navigator = {
+    'hardwareConcurrency': os.cpus().length
+  };
+}
+#endif // ENVIRONMENT_MAY_BE_NODE
 #endif // USE_PTHREADS
 #endif // ASSERTIONS
 
