@@ -1259,6 +1259,8 @@ def verify_settings():
 Settings = SettingsManager()
 verify_settings()
 
+if sys.version_info[0] < 3:
+  warning('emscripten support for python2 is being phased out.  Please upgrade to python3 ASAP.  (See https://github.com/emscripten-core/emscripten/issues/7198)')
 
 # llvm-ar appears to just use basenames inside archives. as a result, files with the same basename
 # will trample each other when we extract them. to help warn of such situations, we warn if there
