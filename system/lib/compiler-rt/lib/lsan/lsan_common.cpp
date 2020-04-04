@@ -26,6 +26,7 @@
 #include "sanitizer_common/sanitizer_tls_get_addr.h"
 
 #if SANITIZER_EMSCRIPTEN
+#include <emscripten/heap.h>
 #include "lsan/lsan_allocator.h"
 #endif
 
@@ -344,10 +345,6 @@ void ScanRootRegion(Frontier *frontier, const RootRegion &root_region,
     ScanRangeForPointers(intersection_begin, intersection_end, frontier, "ROOT",
                          kReachable);
 }
-
-#if SANITIZER_EMSCRIPTEN
-extern "C" uptr emscripten_get_heap_size();
-#endif
 
 static void ProcessRootRegion(Frontier *frontier,
                               const RootRegion &root_region) {

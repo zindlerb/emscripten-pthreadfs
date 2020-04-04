@@ -11,6 +11,8 @@
 
 #ifdef __wasm__
 #define EM_IMPORT(NAME) __attribute__((import_module("env"), import_name(#NAME)))
+#define EM_IMPORT_WRAP(NAME) __attribute__((import_module("env"), import_name(#NAME)))NAME
 #else
 #define EM_IMPORT(NAME)
+#define EM_IMPORT_WRAP(NAME)
 #endif

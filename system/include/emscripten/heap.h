@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <stddef.h>
 #include <emscripten/emscripten.h>
 
 #define WASM_PAGE_SIZE 65536
@@ -25,10 +26,10 @@ intptr_t *emscripten_get_sbrk_ptr(void);
 // be overallocated, see src/settings.js variables MEMORY_GROWTH_GEOMETRIC_STEP,
 // MEMORY_GROWTH_GEOMETRIC_CAP and MEMORY_GROWTH_LINEAR_STEP. This function
 // cannot be used to shrink the size of the heap.
-int emscripten_resize_heap(size_t requested_size) EM_IMPORT(emscripten_resize_heap);
+int EM_IMPORT_WRAP(emscripten_resize_heap)(size_t requested_size);
 
 // Returns the current size of the WebAssembly heap.
-size_t emscripten_get_heap_size(void);
+size_t EM_IMPORT_WRAP(emscripten_get_heap_size)(void);
 
 #ifdef __cplusplus
 }

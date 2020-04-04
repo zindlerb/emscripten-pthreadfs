@@ -17,14 +17,9 @@
 
 #include "sanitizer_common.h"
 #include "sanitizer_stacktrace.h"
+#include <emscripten/emscripten.h>
 
 namespace __sanitizer {
-
-extern "C" {
-  uptr emscripten_stack_snapshot();
-  uptr emscripten_return_address(int level);
-  u32 emscripten_stack_unwind_buffer(uptr pc, uptr *buffer, u32 depth);
-}
 
 bool StackTrace::snapshot_stack = true;
 

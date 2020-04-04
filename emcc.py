@@ -1273,6 +1273,11 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       # TODO(sbc): Remove this once this becomes the default
       shared.Settings.IGNORE_MISSING_MAIN = 0
 
+    if shared.Settings.STANDALONE_WASM:
+      # In STANDALONE_WASM mode we need to know at link time (wasm-ld time) if a program
+      # has a main entry point so that we an link the correct crt1.o
+      shared.Settings.IGNORE_MISSING_MAIN = 0
+
     if shared.Settings.STRICT:
       shared.Settings.STRICT_JS = 1
       shared.Settings.AUTO_JS_LIBRARIES = 0
@@ -2177,8 +2182,8 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
     # if using the wasm backend, we might be using vanilla LLVM, which does not allow our
     # fastcomp deferred linking opts.
     # TODO: we could check if this is a fastcomp build, and still speed things up here
-    js_funcs = None
-    if shared.Settings.LLD_REPORT_UNDEFINED and shared.Settings.ERROR_ON_UNDEFINED_SYMBOLS:
+    js_funcs = []
+    if shared.Settings.LLD_REPORT_UNDEFINED == 1 and shared.Settings.ERROR_ON_UNDEFINED_SYMBOLS:
       js_funcs = get_all_js_syms(misc_temp_files)
       log_time('JS symbol generation')
     building.link_lld(linker_inputs, tmp_wasm, external_symbol_list=js_funcs)

@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <emscripten/em_macros.h>
+
 // EM_ASM does not work strict C mode.
 #if !defined(__cplusplus) && defined(__STRICT_ANSI__)
 
@@ -152,19 +154,19 @@ extern "C" {
 #endif // __cplusplus
 
 // C++ needs the nothrow attribute so -O0 doesn't lower these calls as invokes.
-__attribute__((nothrow))
+EM_IMPORT(emscripten_asm_const_int) __attribute__((nothrow))
 int emscripten_asm_const_int(const char* code, const char* arg_sigs, ...);
-__attribute__((nothrow))
+EM_IMPORT(emscripten_asm_const_double) __attribute__((nothrow))
 double emscripten_asm_const_double(const char* code, const char* arg_sigs, ...);
 
-__attribute__((nothrow))
+EM_IMPORT(emscripten_asm_const_int_sync_on_main_thread) __attribute__((nothrow))
 int emscripten_asm_const_int_sync_on_main_thread(
   const char* code, const char* arg_sigs, ...);
-__attribute__((nothrow))
+EM_IMPORT(emscripten_asm_const_double_sync_on_main_thread) __attribute__((nothrow))
 double emscripten_asm_const_double_sync_on_main_thread(
   const char* code, const char* arg_sigs, ...);
 
-__attribute__((nothrow))
+EM_IMPORT(emscripten_asm_const_async_on_main_thread) __attribute__((nothrow))
 void emscripten_asm_const_async_on_main_thread(
   const char* code, const char* arg_sigs, ...);
 
@@ -180,12 +182,17 @@ extern "C" {
 
 #define _EM_ASM_PREP_ARGS(...) , ##__VA_ARGS__
 
+EM_IMPORT(emscripten_asm_const_int)
 int emscripten_asm_const_int(const char* code, ...);
+EM_IMPORT(emscripten_asm_const_double)
 double emscripten_asm_const_double(const char* code, ...);
 
+EM_IMPORT(emscripten_asm_const_int_sync_on_main_thread)
 int emscripten_asm_const_int_sync_on_main_thread(const char* code, ...);
+EM_IMPORT(emscripten_asm_const_double_sync_on_main_thread)
 double emscripten_asm_const_double_sync_on_main_thread(const char* code, ...);
 
+EM_IMPORT(emscripten_asm_const_async_on_main_thread)
 void emscripten_asm_const_async_on_main_thread(const char* code, ...);
 
 #ifdef __cplusplus

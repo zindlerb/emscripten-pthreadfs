@@ -5470,9 +5470,10 @@ PORT: 3979
   def test_js_libraries(self):
     create_test_file('main.cpp', '''
       #include <stdio.h>
+      #include <emscripten.h>
       extern "C" {
-        extern void printey();
-        extern int calcey(int x, int y);
+        void EM_IMPORT_WRAP(printey)();
+        int calcey(int x, int y);
       }
       int main() {
         printey();
@@ -5501,8 +5502,9 @@ PORT: 3979
   def test_unicode_js_library(self):
     create_test_file('main.cpp', '''
       #include <stdio.h>
+      #include <emscripten.h>
       extern "C" {
-        extern void printey();
+        void EM_IMPORT_WRAP(printey)();
       }
       int main() {
         printey();

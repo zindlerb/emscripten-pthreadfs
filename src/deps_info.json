@@ -85,7 +85,6 @@
   "connect": ["htonl", "htons", "ntohs"],
   "socket": ["htonl", "htons", "ntohs"],
   "socketpair": ["htons", "ntohs"],
-  "sleep": ["usleep"],
   "recv": ["htons", "ntohs"],
   "send": ["htons", "ntohs"],
   "ctime": ["_get_tzname", "_get_daylight", "_get_timezone", "malloc", "free"],

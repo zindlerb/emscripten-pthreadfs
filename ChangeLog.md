@@ -263,6 +263,9 @@ Current Trunk
   add-list or the only-list) all the functions that are on the stack when
   pausing, then things will work (for more, see
   https://github.com/WebAssembly/binaryen/pull/2913).
+- In STANDALONE_WASM mode building a program without an main entry point now
+  requires passing the `--no-entry` flag (or a list of `EXPORTED_FUNCTIONS`
+  that doesn't include `main`).
 
 1.39.18: 06/12/2020
 -------------------

@@ -26,10 +26,6 @@
 
 namespace __sanitizer {
 
-extern "C" {
-  int emscripten_get_module_name(char *buf, uptr length);
-}
-
 void ListOfModules::init() {
   modules_.Initialize(2);
 
@@ -70,12 +66,6 @@ int internal_sigaction(int signum, const void *act, void *oldact) {
 #endif
   return sigaction(signum, (const struct sigaction *)act,
                    (struct sigaction *)oldact);
-}
-
-extern "C" {
-  uptr emscripten_builtin_mmap2(void *addr, uptr length, int prot, int flags,
-                               int fd, unsigned offset);
-  uptr emscripten_builtin_munmap(void *addr, uptr length);
 }
 
 uptr internal_mmap(void *addr, uptr length, int prot, int flags, int fd,

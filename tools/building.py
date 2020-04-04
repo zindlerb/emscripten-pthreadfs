@@ -428,11 +428,14 @@ def link_llvm(linker_inputs, target):
 
 def lld_flags_for_executable(external_symbol_list):
   cmd = []
-  if external_symbol_list:
-    undefs = configuration.get_temp_files().get('.undefined').name
-    with open(undefs, 'w') as f:
-      f.write('\n'.join(external_symbol_list))
-    cmd.append('--allow-undefined-file=%s' % undefs)
+  if Settings.LLD_REPORT_UNDEFINED:
+    if Settings.LLD_REPORT_UNDEFINED == 2:
+      cmd.append('--allow-undefined-file=%s' % path_from_root('src', 'default_imports.txt'))
+    elif all_external_symbols:
+      undefs = configuration.get_temp_files().get('.undefined').name
+      with open(undefs, 'w') as f:
+        f.write('\n'.join(all_external_symbols))
+      cmd.append('--allow-undefined-file=%s' % undefs)
   else:
     cmd.append('--allow-undefined')
 

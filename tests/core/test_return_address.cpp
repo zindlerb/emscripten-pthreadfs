@@ -8,7 +8,7 @@
 #include <cassert>
 #include <cstdio>
 
-extern "C" void *emscripten_return_address(int level);
+#include <emscripten/emscripten.h>
 
 void func(void) {
   assert(emscripten_return_address(0) != 0);
