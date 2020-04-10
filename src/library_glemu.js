@@ -1868,7 +1868,10 @@ var LibraryGLEmulation = {
     currentMatrix: 0, // 0: modelview, 1: projection, 2+i, texture matrix i.
     tempMatrix: null,
     matricesModified: false,
-    useTextureMatrix: false,
+
+    useTextureMatrix: function() {
+      return GLImmediate.currentMatrix >= 2;
+    },
 
     // Clientside attributes
     VERTEX: 0,
@@ -2029,7 +2032,7 @@ var LibraryGLEmulation = {
           var aTexCoordPrefix = 'a_texCoord';
           var vTexCoordPrefix = 'v_texCoord';
           var vPrimColor = 'v_color';
-          var uTexMatrixPrefix = GLImmediate.useTextureMatrix ? 'u_textureMatrix' : null;
+          var uTexMatrixPrefix = GLImmediate.useTextureMatrix() ? 'u_textureMatrix' : null;
 
           if (useCurrProgram) {
             if (GL.shaderInfos[GL.programShaders[GL.currProgram][0]].type == GLctx.VERTEX_SHADER) {
@@ -2078,7 +2081,7 @@ var LibraryGLEmulation = {
               texUnitUniformList += 'uniform sampler2D ' + uTexUnitPrefix + texUnit + ';\n';
               vsTexCoordInits += '  ' + vTexCoordPrefix + texUnit + ' = ' + aTexCoordPrefix + texUnit + ';\n';
 
-              if (GLImmediate.useTextureMatrix) {
+              if (GLImmediate.useTextureMatrix()) {
                 texUnitUniformList += 'uniform mat4 ' + uTexMatrixPrefix + texUnit + ';\n';
               }
             }
@@ -3241,7 +3244,6 @@ var LibraryGLEmulation = {
     } else if (mode == 0x1701 /* GL_PROJECTION */) {
       GLImmediate.currentMatrix = 1/*p*/;
     } else if (mode == 0x1702) { // GL_TEXTURE
-      GLImmediate.useTextureMatrix = true;
       GLImmediate.currentMatrix = 2/*t*/ + GLImmediate.clientActiveTexture;
     } else {
       throw "Wrong mode " + mode + " passed to glMatrixMode";
