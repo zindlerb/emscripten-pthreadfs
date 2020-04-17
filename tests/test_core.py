@@ -6045,9 +6045,7 @@ return malloc(size);
     self.emcc_args += [
         '-Wno-c++11-narrowing',
         '-Wno-deprecated-register',
-        '-Wno-writable-strings',
-        '-Wno-shift-negative-value',
-        '-Wno-format'
+        '-Wno-writable-strings'
     ]
     asserts = self.get_setting('ASSERTIONS', 0)
 

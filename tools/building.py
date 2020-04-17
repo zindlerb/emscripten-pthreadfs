@@ -233,7 +233,7 @@ def remove_quotes(arg):
     return arg
 
 
-def get_building_env(cflags=[]):
+def get_building_env(cflags=[], cxxflags=[]):
   env = os.environ.copy()
   # point CC etc. to the em* tools.
   env['CC'] = EMCC
@@ -246,6 +246,8 @@ def get_building_env(cflags=[]):
   env['EMSCRIPTEN_TOOLS'] = path_from_root('tools')
   if cflags:
     env['CFLAGS'] = env['EMMAKEN_CFLAGS'] = ' '.join(cflags)
+  if cxxflags:
+    env['CXXFLAGS'] = ' '.join(cxxflags)
   env['HOST_CC'] = CLANG_CC
   env['HOST_CXX'] = CLANG_CXX
   env['HOST_CFLAGS'] = "-W" # if set to nothing, CFLAGS is used, which we don't want

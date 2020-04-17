@@ -1587,7 +1587,8 @@ def build_library(name,
                   cache_name=None,
                   env_init={},
                   native=False,
-                  cflags=[]):
+                  cflags=[],
+                  cxxflags=[]):
   """Build a library and cache the result.  We build the library file
   once and cache it for all our tests. (We cache in memory since the test
   directory is destroyed and recreated for each test. Note that we cache
@@ -1608,7 +1609,7 @@ def build_library(name,
   if native:
     env = clang_native.get_clang_native_env()
   else:
-    env = building.get_building_env(cflags=cflags)
+    env = building.get_building_env(cflags=cflags, cxxflags=cxxflag)
   for k, v in env_init.items():
     env[k] = v
   if configure:
