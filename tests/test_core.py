@@ -2483,10 +2483,17 @@ The current type of b is: 9
     self.do_run_in_out_file_test('tests', 'core', 'test_atexit')
 
   @also_with_standalone_wasm
-  def test_atexit_threads(self):
+  def test_atexit_tls(self):
     # also tests thread exit (__cxa_thread_atexit)
     self.set_setting('EXIT_RUNTIME', 1)
-    self.do_run_in_out_file_test('tests', 'core', 'test_atexit_threads')
+    self.do_run_in_out_file_test('tests', 'core', 'test_atexit_tls')
+
+  @node_pthreads
+  def test_atexit_threads(self, js_engines):
+    # also tests with threads enabled
+    self.set_setting('EXIT_RUNTIME', 1)
+    self.set_setting('PTHREAD_POOL_SIZE', '2')
+    self.do_run_in_out_file_test('tests', 'core', 'test_atexit_threads', js_engines=js_engines)
 
   @no_asan('test relies on null pointer reads')
   def test_pthread_specific(self):

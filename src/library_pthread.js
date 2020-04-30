@@ -1087,6 +1087,7 @@ var LibraryPThread = {
       }
 #endif
     }
+    console.error('pthread_cleanup_push');
     PThread.exitHandlers.push(function() { {{{ makeDynCall('vi') }}}(routine, arg) });
   },
 
