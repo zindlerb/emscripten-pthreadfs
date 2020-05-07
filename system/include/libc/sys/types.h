@@ -6,6 +6,11 @@ extern "C" {
 
 #include <features.h>
 
+// XXX LLVM's Host.cpp has a big ifdef on OSes for including sys/wait.h, which
+//     emscripten probably needs to be added to. As a hack for now, just
+//     include it here, which is included in that file as well.
+#include <sys/wait.h>
+
 #define __NEED_ino_t
 #define __NEED_dev_t
 #define __NEED_uid_t
