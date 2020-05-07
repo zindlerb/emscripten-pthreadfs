@@ -94,6 +94,7 @@ UNSUPPORTED_LLD_FLAGS = {
     # in order to aid build systems that want to pass these flags.
     '-soname': True,
     '-rpath': True,
+    '-allow-shlib-undefined': False,
     '-rpath-link': True
 }
 
