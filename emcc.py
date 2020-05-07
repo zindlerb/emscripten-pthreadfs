@@ -95,6 +95,9 @@ UNSUPPORTED_LLD_FLAGS = {
     '-soname': True,
     '-rpath': True,
     '-allow-shlib-undefined': False,
+    # there is no need to specify --gc-sections: we add it automatically, when
+    # it is possible, and at no other times
+    '--gc-sections': False,
     '-rpath-link': True
 }
 
@@ -964,7 +967,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
     def add_link_flag(i, f):
       # Filter out libraries that musl includes in libc itself, or which we
       # otherwise provide implicitly.
-      if f in ('-lm', '-lrt', '-ldl', '-lpthread'):
+      if f in ('-lm', '-lrt', '-ldl', '-lpthread', '-lterminfo'):
         return
       if f.startswith('-l'):
         libs.append((i, f[2:]))
