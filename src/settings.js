@@ -1757,6 +1757,7 @@ var PRINTF_LONG_DOUBLE = 0;
 // resulting in a .c file that you can compile with a C compiler to get a
 // native executable that works the same as the normal js+wasm.
 var WASM2C = 0;
+var WASM2C_SANDBOXING = 'full';
 
 //===========================================
 // Internal, used for testing only, from here
