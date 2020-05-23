@@ -353,8 +353,8 @@ class CheerpBenchmarker(Benchmarker):
 # Benchmarkers
 
 benchmarkers = [
-  NativeBenchmarker('clang', shared.CLANG_CC, shared.CLANG_CXX),
-  NativeBenchmarker('gcc',   'gcc',    'g++')
+  #NativeBenchmarker('clang', shared.CLANG_CC, shared.CLANG_CXX),
+  #NativeBenchmarker('gcc',   'gcc',    'g++')
 ]
 
 if V8_ENGINE and V8_ENGINE in shared.JS_ENGINES:
@@ -364,11 +364,11 @@ if V8_ENGINE and V8_ENGINE in shared.JS_ENGINES:
   aot_v8 = V8_ENGINE + ['--no-liftoff']
   default_v8_name = os.environ.get('EMBENCH_NAME') or 'v8'
   benchmarkers += [
-    EmscriptenBenchmarker(default_v8_name, aot_v8),
+    #EmscriptenBenchmarker(default_v8_name, aot_v8),
     #EmscriptenBenchmarker(default_v8_name + '-lto', aot_v8, ['-flto']),
     EmscriptenWasm2CBenchmarker('wasm2c-full'),
-    EmscriptenWasm2CBenchmarker('wasm2c-mask', ['-s', 'WASM2C_SANDBOXING=mask']),
-    EmscriptenWasm2CBenchmarker('wasm2c-none', ['-s', 'WASM2C_SANDBOXING=none'])
+    #EmscriptenWasm2CBenchmarker('wasm2c-mask', ['-s', 'WASM2C_SANDBOXING=mask']),
+    #EmscriptenWasm2CBenchmarker('wasm2c-none', ['-s', 'WASM2C_SANDBOXING=none'])
   ]
   if os.path.exists(CHEERP_BIN):
     benchmarkers += [
@@ -969,13 +969,13 @@ class benchmark(runner.RunnerCore):
                       lib_builder=lib_builder, native_exec=os.path.join('building', 'third_party', 'lua_native', 'src', 'lua'),
                       output_parser=output_parser, args_processor=args_processor)
 
-  def ztest_zzz_lua_scimark(self):
+  def test_zzz_lua_scimark(self):
     def output_parser(output):
       return 100.0 / float(re.search(r'\nSciMark +([\d\.]+) ', output).group(1))
 
     self.lua('scimark', '[small problem sizes]', output_parser=output_parser)
 
-  def ztest_zzz_lua_binarytrees(self):
+  def test_zzz_lua_binarytrees(self):
     # js version: ['binarytrees.lua', {0: 0, 1: 9.5, 2: 11.99, 3: 12.85, 4: 14.72, 5: 15.82}[arguments[0]]]
     self.lua('binarytrees', 'long lived tree of depth')
 

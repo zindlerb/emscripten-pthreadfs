@@ -71,17 +71,6 @@ long __syscall192(long addr, long len, long prot, long flags, long fd, long off)
   return -ENOSYS;
 }
 
-// open(), etc. - we just support the standard streams, with no
-// corner case error checking; everything else is not permitted.
-// TODO: full file support for WASI, or an option for it
-// open()
-long __syscall5(const char* path, long flags, ...) {
-  if (!strcmp(path, "/dev/stdin")) return STDIN_FILENO;
-  if (!strcmp(path, "/dev/stdout")) return STDOUT_FILENO;
-  if (!strcmp(path, "/dev/stderr")) return STDERR_FILENO;
-  return -EPERM;
-}
-
 // ioctl()
 int __syscall54(int fd, int op, ...) {
   return -ENOSYS;
