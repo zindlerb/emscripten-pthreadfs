@@ -66,7 +66,6 @@ diagnostics.add_warning('legacy-settings', enabled=False, part_of_all=False)
 diagnostics.add_warning('linkflags')
 diagnostics.add_warning('emcc')
 diagnostics.add_warning('undefined')
-diagnostics.add_warning('deprected')
 diagnostics.add_warning('version-check')
 diagnostics.add_warning('unused-command-line-argument', shared=True)
 
@@ -2787,8 +2786,8 @@ class Building(object):
     assert Settings.STANDALONE_WASM
     WASM2C = NODE_JS + [path_from_root('node_modules', 'wasm2c', 'wasm2c.js')]
     WASM2C_DIR = path_from_root('node_modules', 'wasm2c')
-    c_file = unsuffixed(infile) + '.c'
-    h_file = unsuffixed(infile) + '.h'
+    c_file = unsuffixed(infile) + '.wasm.c'
+    h_file = unsuffixed(infile) + '.wasm.h'
     cmd = WASM2C + [infile, '-o', c_file]
     run_process(cmd)
     total = '''\
@@ -2799,6 +2798,12 @@ class Building(object):
  */
 '''
     SEP = '\n/* ==================================== */\n'
+
+    def bundle_file(total, filename):
+      with open(filename) as f:
+        total += '// ' + filename + '\n' + f.read() + SEP
+      return total
+
     # hermeticize the C file, by bundling in the wasm2c/ includes
     headers = [
       (WASM2C_DIR, 'wasm-rt.h'),
@@ -2806,18 +2811,34 @@ class Building(object):
       (os.path.dirname(h_file), os.path.basename(h_file))
     ]
     for header in headers:
-      with open(os.path.join(header[0], header[1])) as f:
-        total += f.read() + SEP
+      total = bundle_file(total, os.path.join(header[0], header[1]))
     # add the wasm2c output
     with open(c_file) as read_c:
       c = read_c.read()
     total += c + SEP
     # add the wasm2c runtime
-    with open(os.path.join(WASM2C_DIR, 'wasm-rt-impl.c')) as f:
-      total += f.read() + SEP
-    # add the emscripten main
-    with open(path_from_root('tools', 'wasm2c', 'main.c')) as main:
-      total += main.read()
+    total = bundle_file(total, os.path.join(WASM2C_DIR, 'wasm-rt-impl.c'))
+    # add the support code
+    support_files = ['base']
+    if Settings.AUTODEBUG:
+      support_files.append('autodebug')
+    if Settings.EXPECT_MAIN:
+      # TODO: add an option for direct OS access. For now, do that when building
+      #       an executable with main, as opposed to a library
+      support_files.append('os')
+      support_files.append('main')
+    else:
+      support_files.append('os_sandboxed')
+      support_files.append('reactor')
+      # for a reactor, also append wasmbox_* API definitions
+      with open(h_file, 'a') as f:
+        f.write('''
+// wasmbox_* API
+// TODO: optional prefixing
+extern void wasmbox_init(void);
+''')
+    for support_file in support_files:
+      total = bundle_file(total, path_from_root('tools', 'wasm2c', support_file + '.c'))
     # remove #includes of the headers we bundled
     for header in headers:
       total = total.replace('#include "%s"\n' % header[1], '/* include of %s */\n' % header[1])
@@ -2857,7 +2878,7 @@ class Building(object):
           sig,
           wabt_sig
         ))
-    total = total.replace('/* {{{ EMCC_INVOKE_IMPLS }}} */', '\n'.join(invokes))
+    total += '\n'.join(invokes)
     # adjust sandboxing
     TRAP_OOB = 'TRAP(OOB)'
     assert total.count(TRAP_OOB) == 2
@@ -3466,7 +3487,7 @@ elif os.path.exists(emsdk_embedded_config):
 else:
   EM_CONFIG = '~/.emscripten'
 
-PYTHON = os.getenv('EM_PYTHON', sys.executable)
+PYTHON = sys.executable
 EMSCRIPTEN_ROOT = __rootpath__
 
 # The following globals can be overridden by the config file.

@@ -448,7 +448,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       # (['-O2', '-g4'], lambda generated: 'var b=0' not in generated and 'var b = 0' not in generated and 'function _main' in generated, 'same as -g3 for now'),
       (['-s', 'INLINING_LIMIT=0'], lambda generated: 'function _dump' in generated, 'no inlining without opts'),
       ([], lambda generated: 'Module["_dump"]' not in generated, 'dump is not exported by default'),
-      (['-s', 'EXPORTED_FUNCTIONS=["_main", "_dump"]'], lambda generated: 'asm["_dump"];' in generated, 'dump is now exported'),
+      (['-s', 'EXPORTED_FUNCTIONS=["_main", "_dump"]'], lambda generated: 'Module["_dump"] =' in generated, 'dump is now exported'),
       (['--llvm-opts', '1'], lambda generated: '_puts(' in generated, 'llvm opts requested'),
       ([], lambda generated: '// Sometimes an existing Module' in generated, 'without opts, comments in shell code'),
       (['-O2'], lambda generated: '// Sometimes an existing Module' not in generated, 'with opts, no comments in shell code'),
@@ -10269,6 +10269,27 @@ int main() {
       for engine in WASM_ENGINES:
         self.assertContained(expected, run_js('test.wasm', engine))
 
+  @no_fastcomp("uses standalone mode")
+  def test_wasm2c_reactor(self):
+    # test compiling an unsafe library using wasm2c, then using it from a
+    # main program. this shows it is easy to use wasm2c as a sandboxing
+    # mechanism.
+
+    # first compile the library with emcc, getting a .c and .h
+    run_process([PYTHON, EMCC,
+                path_from_root('tests', 'other', 'wasm2c', 'unsafe-library.c'),
+                '-O3', '-o', 'lib.wasm', '-s', 'WASM2C', '--no-entry'])
+    # compile that .c to a native object
+    run_process([CLANG_CC, 'lib.wasm.c', '-c', '-O3', '-o', 'lib.o'])
+    # compile the main program natively normally, and link with the
+    # unsafe library
+    run_process([CLANG_CC,
+                path_from_root('tests', 'other', 'wasm2c', 'my-code.c'),
+                '-O3', 'lib.o', '-o', 'program.exe'])
+    output = run_process([os.path.abspath('program.exe')], stdout=PIPE).stdout
+    with open(path_from_root('tests', 'other', 'wasm2c', 'output.txt')) as f:
+      self.assertEqual(output, f.read())
+
   @no_fastcomp('wasm2js only')
   def test_promise_polyfill(self):
     def test(args):
@@ -10425,8 +10446,8 @@ int main() {
     out = run_process([PYTHON, EMCC, '-Wl,--version'], stdout=PIPE).stdout
     self.assertContained('LLD ', out)
 
-  # Tests that if a JS library function is missing, the linker will print out which function depended on the
-  # missing function.
+  # Tests that if a JS library function is missing, the linker will print out which function
+  # depended on the missing function.
   def test_chained_js_error_diagnostics(self):
     err = self.expect_fail([PYTHON, EMCC, path_from_root('tests', 'test_chained_js_error_diagnostics.c'), '--js-library', path_from_root('tests', 'test_chained_js_error_diagnostics.js')])
     self.assertContained("error: undefined symbol: nonexistent_function (referenced by bar__deps: ['nonexistent_function'], referenced by foo__deps: ['bar'], referenced by top-level compiled C/C++ code)", err)
@@ -10434,3 +10455,19 @@ int main() {
   def test_xclang_flag(self):
     create_test_file('foo.h', ' ')
     run_process([PYTHON, EMCC, '-c', '-o', 'out.o', '-Xclang', '-include', '-Xclang', 'foo.h', path_from_root('tests', 'hello_world.c')])
+
+  def test_native_call_before_init(self):
+    self.set_setting('ASSERTIONS')
+    self.set_setting('EXPORTED_FUNCTIONS', ['_foo'])
+    self.add_pre_run('console.log("calling foo"); Module["_foo"]();')
+    self.build('#include <stdio.h>\nint foo() { puts("foo called"); return 3; }', self.get_dir(), 'foo.c')
+    err = self.expect_fail(NODE_JS + ['foo.c.o.js'], stdout=PIPE)
+    self.assertContained('native function `foo` called before runtime initialization', err)
+
+  def test_native_call_after_exit(self):
+    self.set_setting('ASSERTIONS')
+    self.set_setting('EXIT_RUNTIME')
+    self.add_on_exit('console.log("calling main again"); Module["_main"]();')
+    self.build('#include <stdio.h>\nint main() { puts("foo called"); return 0; }', self.get_dir(), 'foo.c')
+    err = self.expect_fail(NODE_JS + ['foo.c.o.js'], stdout=PIPE)
+    self.assertContained('native function `main` called after runtime exit', err)
