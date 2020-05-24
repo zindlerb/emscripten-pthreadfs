@@ -204,7 +204,7 @@ class EmscriptenBenchmarker(Benchmarker):
       OPTIMIZATIONS,
       '-s', 'INITIAL_MEMORY=256MB',
       '-s', 'FILESYSTEM=0',
-      '--closure', '1',
+      '--closure', '0',
       '-s', 'MINIMAL_RUNTIME=1',
       '-s', 'BENCHMARK=%d' % (1 if IGNORE_COMPILATION and not has_output_parser else 0),
       '-o', final
@@ -240,7 +240,8 @@ class EmscriptenBenchmarker(Benchmarker):
 
 
 class EmscriptenWasm2CBenchmarker(EmscriptenBenchmarker):
-  def __init__(self, name, extra_args=[]):
+  def __init__(self, name, cc, extra_args=[]):
+    self.cc = [cc] if type(cc) is not list else cc
     super(EmscriptenWasm2CBenchmarker, self).__init__(name, 'no engine needed', extra_args=extra_args)
 
   def build(self, parent, filename, args, shared_args, emcc_args, native_args, native_exec, lib_builder, has_output_parser):
@@ -268,7 +269,7 @@ class EmscriptenWasm2CBenchmarker(EmscriptenBenchmarker):
     c = base + '.wasm.c'
     native = base + '.exe'
 
-    run_process(['clang', c, '-o', native, OPTIMIZATIONS, '-lm',
+    run_process(self.cc + [c, '-o', native, OPTIMIZATIONS, '-lm',
                  '-DWASM_RT_MAX_CALL_STACK_DEPTH=8000'])  # for havlak
 
     self.filename = native
@@ -352,8 +353,9 @@ class CheerpBenchmarker(Benchmarker):
 # Benchmarkers
 
 benchmarkers = [
-  #NativeBenchmarker('clang', shared.CLANG_CC, shared.CLANG_CXX),
-  #NativeBenchmarker('gcc',   'gcc',    'g++')
+  NativeBenchmarker('clang', 'clang', 'clang++'),
+  NativeBenchmarker('newclang', shared.CLANG_CC, shared.CLANG_CXX),
+  NativeBenchmarker('gcc',   'gcc',    'g++')
 ]
 
 if V8_ENGINE and V8_ENGINE in shared.JS_ENGINES:
@@ -365,9 +367,15 @@ if V8_ENGINE and V8_ENGINE in shared.JS_ENGINES:
   benchmarkers += [
     #EmscriptenBenchmarker(default_v8_name, aot_v8),
     #EmscriptenBenchmarker(default_v8_name + '-lto', aot_v8, ['-flto']),
-    EmscriptenWasm2CBenchmarker('wasm2c-full'),
-    #EmscriptenWasm2CBenchmarker('wasm2c-mask', ['-s', 'WASM2C_SANDBOXING=mask']),
-    #EmscriptenWasm2CBenchmarker('wasm2c-none', ['-s', 'WASM2C_SANDBOXING=none'])
+    EmscriptenWasm2CBenchmarker('wasm2c-clang-full', 'clang'),
+    EmscriptenWasm2CBenchmarker('wasm2c-clang-mask', 'clang', ['-s', 'WASM2C_SANDBOXING=mask']),
+    EmscriptenWasm2CBenchmarker('wasm2c-clang-none', 'clang', ['-s', 'WASM2C_SANDBOXING=none']),
+    EmscriptenWasm2CBenchmarker('wasm2c-gcc-full', 'gcc'),
+    EmscriptenWasm2CBenchmarker('wasm2c-gcc-mask', 'gcc', ['-s', 'WASM2C_SANDBOXING=mask']),
+    EmscriptenWasm2CBenchmarker('wasm2c-gcc-none', 'gcc', ['-s', 'WASM2C_SANDBOXING=none']),
+    EmscriptenWasm2CBenchmarker('wasm2c-newclang-full', shared.CLANG_CC),
+    EmscriptenWasm2CBenchmarker('wasm2c-newclang-mask', shared.CLANG_CC, ['-s', 'WASM2C_SANDBOXING=mask']),
+    EmscriptenWasm2CBenchmarker('wasm2c-newclang-none', shared.CLANG_CC, ['-s', 'WASM2C_SANDBOXING=none']),
   ]
   if os.path.exists(CHEERP_BIN):
     benchmarkers += [
