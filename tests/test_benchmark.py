@@ -354,7 +354,7 @@ class CheerpBenchmarker(Benchmarker):
 
 benchmarkers = [
   NativeBenchmarker('clang', 'clang', 'clang++'),
-  NativeBenchmarker('newclang', shared.CLANG_CC, shared.CLANG_CXX),
+  # NativeBenchmarker('sdkclang', shared.CLANG_CC, shared.CLANG_CXX),
   NativeBenchmarker('gcc',   'gcc',    'g++')
 ]
 
@@ -367,15 +367,9 @@ if V8_ENGINE and V8_ENGINE in shared.JS_ENGINES:
   benchmarkers += [
     #EmscriptenBenchmarker(default_v8_name, aot_v8),
     #EmscriptenBenchmarker(default_v8_name + '-lto', aot_v8, ['-flto']),
-    EmscriptenWasm2CBenchmarker('wasm2c-clang-full', 'clang'),
-    EmscriptenWasm2CBenchmarker('wasm2c-clang-mask', 'clang', ['-s', 'WASM2C_SANDBOXING=mask']),
-    EmscriptenWasm2CBenchmarker('wasm2c-clang-none', 'clang', ['-s', 'WASM2C_SANDBOXING=none']),
-    EmscriptenWasm2CBenchmarker('wasm2c-gcc-full', 'gcc'),
-    EmscriptenWasm2CBenchmarker('wasm2c-gcc-mask', 'gcc', ['-s', 'WASM2C_SANDBOXING=mask']),
-    EmscriptenWasm2CBenchmarker('wasm2c-gcc-none', 'gcc', ['-s', 'WASM2C_SANDBOXING=none']),
-    EmscriptenWasm2CBenchmarker('wasm2c-newclang-full', shared.CLANG_CC),
-    EmscriptenWasm2CBenchmarker('wasm2c-newclang-mask', shared.CLANG_CC, ['-s', 'WASM2C_SANDBOXING=mask']),
-    EmscriptenWasm2CBenchmarker('wasm2c-newclang-none', shared.CLANG_CC, ['-s', 'WASM2C_SANDBOXING=none']),
+    EmscriptenWasm2CBenchmarker('wasm2c-full', shared.CLANG_CC),
+    EmscriptenWasm2CBenchmarker('wasm2c-mask', shared.CLANG_CC, ['-s', 'WASM2C_SANDBOXING=mask']),
+    EmscriptenWasm2CBenchmarker('wasm2c-none', shared.CLANG_CC, ['-s', 'WASM2C_SANDBOXING=none']),
   ]
   if os.path.exists(CHEERP_BIN):
     benchmarkers += [
