@@ -133,7 +133,7 @@ def also_with_noderawfs(func):
     orig_args = self.emcc_args[:]
     func(self)
     print('noderawfs')
-    self.emcc_args = orig_args + ['-s', 'NODERAWFS=1', '-DNODERAWFS']
+    self.emcc_args = orig_args + ['-s', 'RAW_OS', '-DNODERAWFS']
     with js_engines_modify([NODE_JS]):
       func(self)
   return decorated
@@ -5391,7 +5391,7 @@ main( int argv, char ** argc ) {
     # Node.js fs.chmod is nearly no-op on Windows
     if not WINDOWS:
       self.emcc_args = orig_compiler_opts
-      self.emcc_args += ['-s', 'NODERAWFS=1']
+      self.emcc_args += ['-s', 'RAW_OS']
       self.do_run_in_out_file_test('tests', 'unistd', 'access', js_engines=[NODE_JS])
 
   def test_unistd_curdir(self):
@@ -5447,7 +5447,7 @@ main( int argv, char ** argc ) {
     # FIXME
     self.skipTest('fails on some node versions and OSes, e.g. 10.13.0 on linux')
 
-    self.emcc_args += ['-s', 'NODERAWFS=1']
+    self.emcc_args += ['-s', 'RAW_OS']
     self.do_run_in_out_file_test('tests', 'unistd', 'truncate', js_engines=[NODE_JS])
 
   def test_unistd_swab(self):
@@ -5495,7 +5495,7 @@ main( int argv, char ** argc ) {
       # 0 if root user
       if os.geteuid() == 0:
         self.emcc_args += ['-DSKIP_ACCESS_TESTS']
-      self.emcc_args += ['-s', 'NODERAWFS=1']
+      self.emcc_args += ['-s', 'RAW_OS']
       self.do_run(src, 'success', force_c=True, js_engines=[NODE_JS])
 
   def test_unistd_links(self):

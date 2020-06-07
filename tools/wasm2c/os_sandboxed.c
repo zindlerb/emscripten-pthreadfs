@@ -20,3 +20,6 @@ STUB_IMPORT_IMPL(u32, Z_envZ___sys_readZ_iiii, (u32 fd, u32 buf, u32 count), EM_
 STUB_IMPORT_IMPL(u32, Z_envZ___sys_accessZ_iii, (u32 pathname, u32 mode), EM_EACCES);
 STUB_IMPORT_IMPL(u32, Z_wasi_snapshot_preview1Z_clock_time_getZ_iiji, (u32 clock_id, u64 max_lag, u32 out), WASI_EINVAL);
 STUB_IMPORT_IMPL(u32, Z_wasi_snapshot_preview1Z_clock_res_getZ_iii, (u32 clock_id, u32 out), WASI_EINVAL);
+
+// called by main() if main() exists
+static void init_fds() {}

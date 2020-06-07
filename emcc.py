@@ -865,7 +865,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
     # configure tests want a more shell-like style, where we emit return codes on exit()
     cmd += ['-s', 'EXIT_RUNTIME=1']
     # use node.js raw filesystem access, to behave just like a native executable
-    cmd += ['-s', 'NODERAWFS=1']
+    cmd += ['-s', 'RAW_OS=1']
 
     logger.debug('just configuring: ' + ' '.join(cmd))
     if debug_configure:
@@ -1570,8 +1570,8 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       shared.Settings.PROXY_TO_WORKER = 1
 
     if options.use_preload_plugins or len(options.preload_files) or len(options.embed_files):
-      if shared.Settings.NODERAWFS:
-        exit_with_error('--preload-file and --embed-file cannot be used with NODERAWFS which disables virtual filesystem')
+      if shared.Settings.RAW_OS:
+        exit_with_error('--preload-file and --embed-file cannot be used with RAW_OS which disables virtual filesystem')
       # if we include any files, or intend to use preload plugins, then we definitely need filesystem support
       shared.Settings.FORCE_FILESYSTEM = 1
 

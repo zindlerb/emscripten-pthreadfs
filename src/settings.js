@@ -824,8 +824,11 @@ var FILESYSTEM = 1;
 // some JS that does, you might need this.
 var FORCE_FILESYSTEM = 0;
 
-// Enables support for the NODERAWFS filesystem backend. This is a special
-// backend as it replaces all normal filesystem access with direct Node.js
+// Enables direct OS access. This matters in a *non*-Web environment (as on
+// the Web, OS access is always indirect), where it allows directly accessing
+// local files and so forth.
+// Specifically, on Node.js this enables the NODERAWFS filesystem, a special
+// backend that replaces all normal filesystem access with direct Node.js
 // operations, without the need to do `FS.mount()`, and this backend only
 // works with Node.js. The initial working directory will be same as
 // process.cwd() instead of VFS root directory.  Because this mode directly uses
@@ -834,7 +837,11 @@ var FORCE_FILESYSTEM = 0;
 // program would be, which means that differences in how the underlying OS
 // handles permissions and errors and so forth may be noticeable.  This has
 // mostly been tested on Linux so far.
-var NODERAWFS = 0;
+// With wasm2c this also enables direct file access, allowing an executable
+// built from the C code to behave like a normal C program would. As with
+// NODERAWFS, this will be as portable as a C program would be in general -
+// underlying OS differences may be noticeable.
+var RAW_OS = 0;
 
 // This saves the compiled wasm module in a file with name
 //   $WASM_BINARY_NAME.$V8_VERSION.cached
@@ -1814,4 +1821,5 @@ var LEGACY_SETTINGS = [
   ['BINARYEN_MEM_MAX', 'MAXIMUM_MEMORY'],
   ['BINARYEN_PASSES', [''], 'Use BINARYEN_EXTRA_PASSES to add additional passes'],
   ['SWAPPABLE_ASM_MODULE', [0], 'Fully swappable asm modules are no longer supported'],
+  ['NODERAWFS', 'RAW_OS'],
 ];

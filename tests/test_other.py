@@ -8484,18 +8484,18 @@ end
     # replaced subprocess functions should not cause errors
     run_process([EMCC, path_from_root('tests', 'hello_world.c')], env=environ)
 
-  def test_noderawfs(self):
+  def test_RAW_OS(self):
     fopen_write = open(path_from_root('tests', 'asmfs', 'fopen_write.cpp')).read()
     create_test_file('main.cpp', fopen_write)
-    run_process([EMCC, 'main.cpp', '-s', 'NODERAWFS=1'])
+    run_process([EMCC, 'main.cpp', '-s', 'RAW_OS=1'])
     self.assertContained("read 11 bytes. Result: Hello data!", run_js('a.out.js'))
 
-    # NODERAWFS should directly write on OS file system
+    # RAW_OS should directly write on OS file system
     self.assertEqual("Hello data!", open('hello_file.txt').read())
 
-  def test_noderawfs_disables_embedding(self):
-    expected = '--preload-file and --embed-file cannot be used with NODERAWFS which disables virtual filesystem'
-    base = [EMCC, path_from_root('tests', 'hello_world.c'), '-s', 'NODERAWFS=1']
+  def test_RAW_OS_disables_embedding(self):
+    expected = '--preload-file and --embed-file cannot be used with RAW_OS which disables virtual filesystem'
+    base = [EMCC, path_from_root('tests', 'hello_world.c'), '-s', 'RAW_OS']
     err = self.expect_fail(base + ['--preload-file', 'somefile'])
     self.assertContained(expected, err)
     err = self.expect_fail(base + ['--embed-file', 'somefile'])
@@ -10269,6 +10269,29 @@ int main() {
     output = run_process([os.path.abspath('program.exe')], stdout=PIPE).stdout
     with open(path_from_root('tests', 'other', 'wasm2c', 'output.txt')) as f:
       self.assertEqual(output, f.read())
+
+  @no_windows('TODO: fix setjmp.h on clang on windows on ci')
+  def test_wasm2c_RAW_OS(self):
+    create_test_file('data.txt', 'hello')
+    create_test_file('main.cpp', r'''
+      #include <stdio.h>
+      int main() {
+        FILE *f = fopen("data.dat", "r");
+        if (!f) {
+          puts("failed to open file");
+          return 1;
+        }
+        char buf[6];
+        fread(buf, 1, 5, f);
+        buf[5] = 0;
+        fclose(f);
+        printf("read |%s|\n", buf);
+      }
+    ''')
+    run_process([EMCC, 'main.cpp', '-s', 'WASM2C', '-o', 'main.wasm'])
+    run_process([CLANG_CC, 'main.wasm.c', '-o', 'program.exe'])
+    output = run_process([os.path.abspath('program.exe')], stdout=PIPE).stdout
+    self.assertContained('|hello|', output)
 
   @parameterized({
     'wasm2js': (['-s', 'WASM=0'], ''),

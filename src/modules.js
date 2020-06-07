@@ -106,8 +106,8 @@ var LibraryManager = {
         'library_sockfs.js', // ok to include it by default since it's only used if the syscall is used
       ]);
 
-      if (NODERAWFS) {
-        // NODERAWFS requires NODEFS
+      if (RAW_OS) {
+        // Enable NODERAWFS, which also requires NODEFS
         if (SYSTEM_JS_LIBRARIES.indexOf('library_nodefs.js') < 0) {
           libraries.push('library_nodefs.js');
         }

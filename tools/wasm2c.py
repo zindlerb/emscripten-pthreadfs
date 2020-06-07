@@ -49,13 +49,13 @@ def do_wasm2c(infile):
   support_files = ['base']
   if Settings.AUTODEBUG:
     support_files.append('autodebug')
-  if Settings.EXPECT_MAIN:
-    # TODO: add an option for direct OS access. For now, do that when building
-    #       an executable with main, as opposed to a library
+  if Settings.RAW_OS:
     support_files.append('os')
-    support_files.append('main')
   else:
     support_files.append('os_sandboxed')
+  if Settings.EXPECT_MAIN:
+    support_files.append('main')
+  else:
     support_files.append('reactor')
     # for a reactor, also append wasmbox_* API definitions
     with open(h_file, 'a') as f:
