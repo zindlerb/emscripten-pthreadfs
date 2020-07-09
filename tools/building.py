@@ -1409,17 +1409,28 @@ def minify_wasm_imports_and_exports(js_file, wasm_file, minify_whitespace, minif
   def minify_params(js_file):
     logger.debug('minifying wasm import and export parameters')
     # run the pass
-    out = run_wasm_opt(wasm_file, wasm_file,
-                       ['--idae'],
-                       debug=debug_info,
-                       stdout=PIPE)
-    out = json.loads(out)
-    print(out)
-    if out:
-      # there are parameters to remove, do so
-      # ...
-      pass
-    return js_file
+    output = run_wasm_opt(wasm_file, wasm_file,
+                          ['--idae'],
+                          debug=debug_info,
+                          stdout=PIPE)
+    # the output is a json list of
+    #   [module, base, index of param, value for param]
+    # where the import is module.base, and the param of that index can be
+    # removed, and replaced with the constant value given.
+    output = json.loads(output)
+    if not output:
+      # nothing to do
+      return js_file
+    mapping = {}
+    print(output)
+    for module, base, index, value in output:
+      mapping.setdefault(base, []).append({ 'index': index, 'value': value })
+    # sort the indexes, low ones first
+    for value in mapping.values():
+      value.sort(key=lambda x: x['index'])
+    print(mapping)
+    extra_info = {'mapping': mapping}
+    return acorn_optimizer(js_file, ['applyImportParamChanges'], extra_info=json.dumps(extra_info))
 
   js_file = minify_params(js_file)
   js_file = minify_names(js_file)

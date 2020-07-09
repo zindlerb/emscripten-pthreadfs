@@ -1220,6 +1220,55 @@ function asanify(ast) {
   });
 }
 
+// Apply import parameter changes. We receive a list of parameters that we
+// should remove and replace with literal values.
+function applyImportParamChanges(ast) {
+  var mapping = extraInfo.mapping;
+  fullWalk(ast, function(node) {
+    if (isAsmLibraryArgAssign(node)) {
+      var assignedObject = getAsmLibraryArgValue(node);
+      assignedObject.properties.forEach(function(item) {
+        var name = item.key.value;
+        // If present, 'changes' is a list of the parameters to change, sorted.
+        var changes = mapping[name];
+        if (changes) {
+          // This is a function where we have parameters to remove and apply
+          // replacement values.
+          console.error(item);
+  // get teh func
+          var newParams = 
+          /*
+                {
+       "type": "Identifier",
+       "start": 17,
+       "end": 18,
+       "name": "y"
+      },
+*/
+          item.value = {
+            type: 'FunctionExpression',
+            id: {
+              type: 'Identifier',
+              name: name
+            },
+            expression: false,
+            generator: false,
+            async: false,
+            params: newParams,
+            body: {
+              type: 'BlockStatement',
+              body: [{
+              }]
+            }
+          };
+        }
+      });
+    }
+  });
+}
+
+// Utilities
+
 function reattachComments(ast, comments) {
   var symbols = [];
 
@@ -1332,7 +1381,8 @@ var registry = {
   dump: function() { dump(ast) },
   growableHeap: growableHeap,
   unsignPointers: unsignPointers,
-  asanify: asanify
+  asanify: asanify,
+  applyImportParamChanges: applyImportParamChanges,
 };
 
 passes.forEach(function(pass) {
