@@ -984,6 +984,7 @@ def acorn_optimizer(filename, passes, extra_info=None, return_output=False):
     next = original_filename + '.jso.js'
     configuration.get_temp_files().note(next)
     check_call(cmd, stdout=open(next, 'w'))
+    save_intermediate(next, '%s.js' % passes[0])
     return next
   output = check_call(cmd, stdout=PIPE).stdout
   return output
@@ -1366,41 +1367,63 @@ def asyncify_lazy_load_code(wasm_binary_target, debug):
 
 
 def minify_wasm_imports_and_exports(js_file, wasm_file, minify_whitespace, minify_exports, debug_info):
-  logger.debug('minifying wasm imports and exports')
-  # run the pass
-  if minify_exports:
-    # standalone wasm mode means we need to emit a wasi import module.
-    # otherwise, minify even the imported module names.
-    if Settings.MINIFY_WASM_IMPORTED_MODULES:
-      pass_name = '--minify-imports-and-exports-and-modules'
+  # minify the names of imports and exports
+  def minify_names(js_file):
+    logger.debug('minifying wasm import and export names')
+    # run the pass
+    if minify_exports:
+      # standalone wasm mode means we need to emit a wasi import module.
+      # otherwise, minify even the imported module names.
+      if Settings.MINIFY_WASM_IMPORTED_MODULES:
+        pass_name = '--minify-imports-and-exports-and-modules'
+      else:
+        pass_name = '--minify-imports-and-exports'
     else:
-      pass_name = '--minify-imports-and-exports'
-  else:
-    pass_name = '--minify-imports'
-  out = run_wasm_opt(wasm_file, wasm_file,
-                     [pass_name],
-                     debug=debug_info,
-                     stdout=PIPE)
-  # TODO this is the last tool we run, after normal opts and metadce. it
-  # might make sense to run Stack IR optimizations here or even -O (as
-  # metadce which runs before us might open up new general optimization
-  # opportunities). however, the benefit is less than 0.5%.
+      pass_name = '--minify-imports'
+    out = run_wasm_opt(wasm_file, wasm_file,
+                       [pass_name],
+                       debug=debug_info,
+                       stdout=PIPE)
+    # TODO this is the last tool we run, after normal opts and metadce. it
+    # might make sense to run Stack IR optimizations here or even -O (as
+    # metadce which runs before us might open up new general optimization
+    # opportunities). however, the benefit is less than 0.5%.
 
-  # get the mapping
-  SEP = ' => '
-  mapping = {}
-  for line in out.split('\n'):
-    if SEP in line:
-      old, new = line.strip().split(SEP)
-      assert old not in mapping, 'imports must be unique'
-      mapping[old] = new
-  # apply them
-  passes = ['applyImportAndExportNameChanges']
-  if minify_whitespace:
-    passes.append('minifyWhitespace')
-  extra_info = {'mapping': mapping}
-  return acorn_optimizer(js_file, passes, extra_info=json.dumps(extra_info))
+    # get the mapping
+    SEP = ' => '
+    mapping = {}
+    for line in out.split('\n'):
+      if SEP in line:
+        old, new = line.strip().split(SEP)
+        assert old not in mapping, 'imports must be unique'
+        mapping[old] = new
+    # apply them
+    passes = ['applyImportAndExportNameChanges']
+    if minify_whitespace:
+      passes.append('minifyWhitespace')
+    extra_info = {'mapping': mapping}
+    return acorn_optimizer(js_file, passes, extra_info=json.dumps(extra_info))
 
+  # minify the parameters of imports and exports - find ones that are not needed
+  # and remove them.
+  def minify_params(js_file):
+    logger.debug('minifying wasm import and export parameters')
+    # run the pass
+    out = run_wasm_opt(wasm_file, wasm_file,
+                       ['--idae'],
+                       debug=debug_info,
+                       stdout=PIPE)
+    out = json.loads(out)
+    print(out)
+    if out:
+      # there are parameters to remove, do so
+      # ...
+      pass
+    return js_file
+
+  js_file = minify_params(js_file)
+  js_file = minify_names(js_file)
+  return js_file
 
 def wasm2js(js_file, wasm_file, opt_level, minify_whitespace, use_closure_compiler, debug_info, symbols_file=None):
   logger.debug('wasm2js')
