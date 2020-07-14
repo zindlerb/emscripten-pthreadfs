@@ -1260,13 +1260,11 @@ function applyImportParamChanges(ast) {
           for (var i = 0; i < oldParams.length; i++) {
             if (changesMap[i]) {
               newArguments.push({
-                type: 'Identifier',
-                name: {
-                  type: 'Literal',
-                  value: parseFloat(changesMap[i]),
-                  raw: changesMap[i]
-                }
+                type: 'Literal',
+                value: parseFloat(changesMap[i]),
+                raw: changesMap[i]
               });
+              console.error('NEW', newArguments[newArguments.length - 1]);
             } else {
               newArguments.push(oldParams[i]);
             }
@@ -1276,7 +1274,7 @@ function applyImportParamChanges(ast) {
             type: 'FunctionExpression',
             id: {
               type: 'Identifier',
-              name: jsName
+              name: 'idae$' + jsName
             },
             expression: false,
             generator: false,
