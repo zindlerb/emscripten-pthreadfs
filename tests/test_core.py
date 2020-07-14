@@ -4324,7 +4324,7 @@ res64 - external 64\n''', header='''
       void call_side() {
         printf("side: jslib_x is %d.\n", jslib_x);
       }
-    ''', expected=['main: jslib_x is 148.\nside: jslib_x is 148.\n'], main_emcc_args=['--js-library', 'lib.js', '-s', 'EXPORTED_FUNCTIONS=["_main", "_jslib_x"]'])
+    ''', expected=['main: jslib_x is 148.\nside: jslib_x is 148.\n'], main_emcc_args=['--js-library', 'lib.js'])
 
   @needs_dlfcn
   def test_dylink_many_postsets(self):
@@ -7352,7 +7352,6 @@ someweirdtext
     self.emcc_args += ['--bind']
     self.do_run_from_file(path_from_root('tests', 'embind', 'test_unsigned.cpp'), path_from_root('tests', 'embind', 'test_unsigned.out'))
 
-  @no_asan('FIXME #11158')
   def test_embind_val(self):
     self.emcc_args += ['--bind']
     self.do_run_from_file(path_from_root('tests', 'embind', 'test_val.cpp'), path_from_root('tests', 'embind', 'test_val.out'))

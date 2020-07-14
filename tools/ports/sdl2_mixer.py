@@ -10,6 +10,8 @@ import logging
 TAG = 'release-2.0.1'
 HASH = '81fac757bd058adcb3eb5b2cc46addeaa44cee2cd4db653dad5d9666bdc0385cdc21bf5b72872e6dd6dd8eb65812a46d7752298827d6c61ad5ce2b6c963f7ed0'
 
+deps = ['vorbis', 'sdl2']
+
 
 def needed(settings):
   return settings.USE_SDL_MIXER == 2
@@ -53,9 +55,8 @@ def process_dependencies(settings):
   settings.USE_VORBIS = 1
 
 
-def process_args(ports, args, settings, shared):
-  get(ports, settings, shared)
-  return args
+def process_args(ports):
+  return []
 
 
 def show():

@@ -10,6 +10,8 @@ import logging
 TAG = 'version_1'
 HASH = 'a19ede8a4339f2745a490c22f3893899e1a5eae9d2b270e49d88d3a85239fbbaa26c9a352d0e6fb8bb69b4f45bd00c1ae9eff29b60cf03e79c5df45a4409992f'
 
+deps = ['zlib']
+
 
 def needed(settings):
   return settings.USE_LIBPNG
@@ -47,9 +49,8 @@ def process_dependencies(settings):
   settings.USE_ZLIB = 1
 
 
-def process_args(ports, args, settings, shared):
-  get(ports, settings, shared)
-  return args
+def process_args(ports):
+  return []
 
 
 def show():

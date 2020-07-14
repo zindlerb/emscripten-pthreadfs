@@ -1553,7 +1553,7 @@ int f() {
 
   def test_export_from_archive(self):
     export_name = 'this_is_an_entry_point'
-    full_export_name = '_' + export_name
+    full_export_name = '_this_is_an_entry_point'
 
     # The wasm backend exports symbols without the leading '_'
     if self.is_wasm_backend():
@@ -1563,10 +1563,10 @@ int f() {
 
     create_test_file('export.c', r'''
       #include <stdio.h>
-      void %s(void) {
+      void this_is_an_entry_point(void) {
         printf("Hello, world!\n");
       }
-    ''' % export_name)
+    ''')
     run_process([EMCC, 'export.c', '-c', '-o', 'export.o'])
     run_process([EMAR, 'rc', 'libexport.a', 'export.o'])
 
@@ -1580,12 +1580,7 @@ int f() {
     run_process([EMCC, 'main.c', '-L.', '-lexport'])
     self.assertFalse(self.is_exported_in_wasm(expect_export, 'a.out.wasm'))
 
-    # Sanity check: exporting without a definition does not cause it to appear.
-    # Note: exporting main prevents emcc from warning that it generated no code.
-    run_process([EMCC, 'main.c', '-s', 'ERROR_ON_UNDEFINED_SYMBOLS=0', '-s', "EXPORTED_FUNCTIONS=['_main', '%s']" % full_export_name])
-    self.assertFalse(self.is_exported_in_wasm(expect_export, 'a.out.wasm'))
-
-    # Actual test: defining symbol in library and exporting it causes it to appear in the output.
+    # Exporting it causes it to appear in the output.
     run_process([EMCC, 'main.c', '-L.', '-lexport', '-s', "EXPORTED_FUNCTIONS=['%s']" % full_export_name])
     self.assertTrue(self.is_exported_in_wasm(expect_export, 'a.out.wasm'))
 
@@ -1760,7 +1755,7 @@ int f() {
 
   def test_libpng(self):
     shutil.copyfile(path_from_root('tests', 'pngtest.png'), 'pngtest.png')
-    building.emcc(path_from_root('tests', 'pngtest.c'), ['--embed-file', 'pngtest.png', '-s', 'USE_ZLIB=1', '-s', 'USE_LIBPNG=1'], output_filename='a.out.js')
+    building.emcc(path_from_root('tests', 'pngtest.c'), ['--embed-file', 'pngtest.png', '-s', 'USE_LIBPNG=1'], output_filename='a.out.js')
     self.assertContained('TESTS PASSED', run_process(JS_ENGINES[0] + ['a.out.js'], stdout=PIPE, stderr=PIPE).stdout)
 
   def test_libjpeg(self):
@@ -1849,7 +1844,7 @@ int f() {
 ''', output)
     self.assertNotContained('warning: library.js memcpy should not be running, it is only for testing!', output)
 
-  def test_undefined_function(self):
+  def test_undefined_exported_function(self):
     cmd = [EMCC, path_from_root('tests', 'hello_world.cpp')]
     run_process(cmd)
 
@@ -1858,8 +1853,8 @@ int f() {
     err = self.expect_fail(cmd)
     self.assertContained('undefined exported function: "foobar"', err)
 
-    # setting ERROR_ON_UNDEFINED_SYMBOLS=0 suppresses error
-    cmd += ['-s', 'ERROR_ON_UNDEFINED_SYMBOLS=0']
+    # setting `-Wno-undefined` should suppress error
+    cmd += ['-Wno-undefined']
     run_process(cmd)
 
   def test_undefined_symbols(self):
@@ -2041,17 +2036,6 @@ int f() {
       self.assertGreater(post, len(js) - SLACK)
       # make sure the slack is tiny compared to the whole program
       self.assertGreater(len(js), 100 * SLACK)
-
-  @no_wasm_backend('depends on bc output')
-  def test_save_bc(self):
-    cmd = [EMCC, path_from_root('tests', 'hello_world_loop_malloc.cpp'), '--save-bc', 'my_bitcode.bc']
-    run_process(cmd)
-    assert 'hello, world!' in run_js('a.out.js')
-    self.assertExists('my_bitcode.bc')
-    try_delete('a.out.js')
-    building.llvm_dis('my_bitcode.bc', 'my_ll.ll')
-    run_process([EMCC, 'my_ll.ll', '-nostdlib', '-o', 'two.js'])
-    assert 'hello, world!' in run_js('two.js')
 
   def test_js_optimizer(self):
     ACORN_PASSES = ['JSDCE', 'AJSDCE', 'applyImportAndExportNameChanges', 'emitDCEGraph', 'applyDCEGraphRemovals', 'growableHeap', 'unsignPointers', 'asanify']
