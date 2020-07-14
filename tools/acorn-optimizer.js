@@ -1262,6 +1262,7 @@ function applyImportParamChanges(ast) {
             // actual params spelled out. So we don't have nice names for them.
             // Make them up, which we can do since we know their number at least
             // from the wasm.
+            oldParams = [];
             for (var i = 0; i < numParams; i++) {
               oldParams.push({
                 type: 'Identifier',
