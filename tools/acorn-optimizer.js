@@ -1270,10 +1270,7 @@ function applyImportParamChanges(ast) {
           }
           property.value = {
             type: 'FunctionExpression',
-            id: {
-              type: 'Identifier',
-              name: 'idae$' + jsName
-            },
+            id: null,
             expression: false,
             generator: false,
             async: false,
