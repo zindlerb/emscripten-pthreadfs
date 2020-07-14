@@ -178,7 +178,7 @@ function ignoreInnerScopes(node) {
   return map;
 }
 
-// Mark inner scopes temporarily as empty statements.
+// Converse of ignoreInnerScopes.
 function restoreInnerScopes(node, map) {
   fullWalk(node, function(node) {
     if (map.has(node)) {
@@ -1220,44 +1220,80 @@ function asanify(ast) {
   });
 }
 
+// Returns a map of function names to their AST contents.
+function getTopLevelFunctions(ast) {
+  var ret = {};
+  recursiveWalk(ast, {
+    FunctionDeclaration(node, c) {
+      ret[node.id.name] = node;
+    }
+  });
+  return ret;
+}
+
 // Apply import parameter changes. We receive a list of parameters that we
 // should remove and replace with literal values.
 function applyImportParamChanges(ast) {
   var mapping = extraInfo.mapping;
+  var topFuncs = getTopLevelFunctions(ast);  
   fullWalk(ast, function(node) {
     if (isAsmLibraryArgAssign(node)) {
-      var assignedObject = getAsmLibraryArgValue(node);
-      assignedObject.properties.forEach(function(item) {
-        var name = item.key.value;
+      var asmLibraryArg = getAsmLibraryArgValue(node);
+      asmLibraryArg.properties.forEach(function(property) {
+        // The property key may or may not be quoted, so check name or value.
+        var importName = property.key.name || property.key.value;
+        var jsName = property.value.name;
         // If present, 'changes' is a list of the parameters to change, sorted.
-        var changes = mapping[name];
+        var changes = mapping[importName];
         if (changes) {
           // This is a function where we have parameters to remove and apply
           // replacement values.
-          console.error(item);
-  // get teh func
-          var newParams = 
-          /*
-                {
-       "type": "Identifier",
-       "start": 17,
-       "end": 18,
-       "name": "y"
-      },
-*/
-          item.value = {
+          var changesMap = {};
+          for (var change of changes) {
+            changesMap[change.index] = change.value;
+          }
+          var funcAst = topFuncs[jsName];
+          assert(funcAst, 'must find function');
+          var oldParams = funcAst.params;
+          var newArguments = [];
+          console.error('waka1', importName, jsName, oldParams);
+          for (var i = 0; i < oldParams.length; i++) {
+            if (changesMap[i]) {
+              newArguments.push({
+                type: 'Identifier',
+                name: {
+                  type: 'Literal',
+                  value: parseFloat(changesMap[i]),
+                  raw: changesMap[i]
+                }
+              });
+            } else {
+              newArguments.push(oldParams[i]);
+            }
+          }
+          console.error('waka2', newArguments);
+          property.value = {
             type: 'FunctionExpression',
             id: {
               type: 'Identifier',
-              name: name
+              name: jsName
             },
             expression: false,
             generator: false,
             async: false,
-            params: newParams,
+            params: oldParams,
             body: {
               type: 'BlockStatement',
               body: [{
+                type: 'ReturnStatement',
+                argument: {
+                  type: 'CallExpression',
+                  callee: {
+                    type: 'Identifier',
+                    name: jsName
+                  },
+                  arguments: newArguments
+                }
               }]
             }
           };
