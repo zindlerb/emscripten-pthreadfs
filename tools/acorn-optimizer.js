@@ -242,7 +242,6 @@ function hasSideEffects(node) {
         // safe if on Math (or other familiar objects, TODO)
         if (node.object.type !== 'Identifier' ||
             node.object.name !== 'Math') {
-          //console.error('because member on ' + node.object.name);
           has = true;
         }
         break;
@@ -1255,8 +1254,8 @@ function applyImportParamChanges(ast) {
           var funcAst = topFuncs[jsName];
           assert(funcAst, 'must find function');
           var oldParams = funcAst.params;
+          var newParams = [];
           var newArguments = [];
-          console.error('waka1', importName, jsName, oldParams);
           for (var i = 0; i < oldParams.length; i++) {
             if (changesMap[i]) {
               newArguments.push({
@@ -1264,12 +1263,11 @@ function applyImportParamChanges(ast) {
                 value: parseFloat(changesMap[i]),
                 raw: changesMap[i]
               });
-              console.error('NEW', newArguments[newArguments.length - 1]);
             } else {
               newArguments.push(oldParams[i]);
+              newParams.push(oldParams[i]);
             }
           }
-          console.error('waka2', newArguments);
           property.value = {
             type: 'FunctionExpression',
             id: {
@@ -1279,7 +1277,7 @@ function applyImportParamChanges(ast) {
             expression: false,
             generator: false,
             async: false,
-            params: oldParams,
+            params: newParams,
             body: {
               type: 'BlockStatement',
               body: [{
