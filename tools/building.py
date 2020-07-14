@@ -1432,7 +1432,8 @@ def minify_wasm_imports_and_exports(js_file, wasm_file, minify_whitespace, minif
     extra_info = {'mapping': mapping}
     return acorn_optimizer(js_file, ['applyImportParamChanges'], extra_info=json.dumps(extra_info))
 
-  js_file = minify_params(js_file)
+  if Settings.WASM_BACKEND:
+    js_file = minify_params(js_file)
   js_file = minify_names(js_file)
   return js_file
 
