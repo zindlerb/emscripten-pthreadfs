@@ -1423,8 +1423,12 @@ def minify_wasm_imports_and_exports(js_file, wasm_file, minify_whitespace, minif
       return js_file
     mapping = {}
     print(output)
-    for module, base, index, value in output:
-      mapping.setdefault(base, []).append({ 'index': index, 'value': value })
+    for module, base, index, value, total in output:
+      mapping.setdefault(base, []).append({
+        'index': index,
+        'value': value,
+        'total': total
+      })
     # sort the indexes, low ones first
     for value in mapping.values():
       value.sort(key=lambda x: x['index'])

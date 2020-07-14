@@ -1247,13 +1247,28 @@ function applyImportParamChanges(ast) {
         if (changes) {
           // This is a function where we have parameters to remove and apply
           // replacement values.
+          // Map a change index to its value.
           var changesMap = {};
           for (var change of changes) {
             changesMap[change.index] = change.value;
           }
+          var numParams = changes[0].total;
+          assert(numParams > 0);
           var funcAst = topFuncs[jsName];
           assert(funcAst, 'must find function');
           var oldParams = funcAst.params;
+          if (oldParams.length != numParams) {
+            // The JS function may be using arguments, and does not have the
+            // actual params spelled out. So we don't have nice names for them.
+            // Make them up, which we can do since we know their number at least
+            // from the wasm.
+            for (var i = 0; i < numParams; i++) {
+              oldParams.push({
+                type: 'Identifier',
+                name: 'a' + i
+              });
+            }
+          }
           var newParams = [];
           var newArguments = [];
           for (var i = 0; i < oldParams.length; i++) {
