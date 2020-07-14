@@ -1239,9 +1239,16 @@ function applyImportParamChanges(ast) {
     if (isAsmLibraryArgAssign(node)) {
       var asmLibraryArg = getAsmLibraryArgValue(node);
       asmLibraryArg.properties.forEach(function(property) {
+        if (property.value.type !== 'Identifier') {
+          // This isn't |importName: jsName|, it's something like
+          // |importName: 5| or some other value that isn't an identifier;
+          // ignore it.
+          return;
+        }
         // The property key may or may not be quoted, so check name or value.
         var importName = property.key.name || property.key.value;
         var jsName = property.value.name;
+        assert(jsName, 'must have a clear JS name');
         // If present, 'changes' is a list of the parameters to change, sorted.
         var changes = mapping[importName];
         if (changes) {
@@ -1254,14 +1261,14 @@ function applyImportParamChanges(ast) {
           }
           var numParams = changes[0].total;
           assert(numParams > 0);
+          // Look for the function in the AST, so we can use nice names for the
+          // params. However, we may not find the function, or it may use
+          // |arguments| and not actually have parameter names, so this is
+          // optional. (We know their number at least from the wasm.)
           var funcAst = topFuncs[jsName];
-          assert(funcAst, 'must find function');
-          var oldParams = funcAst.params;
+          var oldParams = funcAst ? funcAst.params : [];
           if (oldParams.length != numParams) {
-            // The JS function may be using arguments, and does not have the
-            // actual params spelled out. So we don't have nice names for them.
-            // Make them up, which we can do since we know their number at least
-            // from the wasm.
+            // The function exists, but may use |arguments|, so make up names.
             oldParams = [];
             for (var i = 0; i < numParams; i++) {
               oldParams.push({
