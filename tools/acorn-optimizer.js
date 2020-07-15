@@ -1231,7 +1231,31 @@ function getTopLevelFunctions(ast) {
 }
 
 // Apply import parameter changes. We receive a list of parameters that we
-// should remove and replace with literal values.
+// should remove and replace with literal values. That is, we replace things
+// like
+//
+// var asmLibraryArg = {
+//   "foo": foo,
+//   ..
+// };
+//
+// with
+//
+// var asmLibraryArg = {
+//   "foo": function(y) {
+//     return foo(10, y, 30);
+//   },
+//   ..
+// };
+//
+// In this example, the original params were x, y, z and we replaced the first
+// with 10 and the last with 30.
+//
+// Adding another function expression + call here increases code size, but
+// this is safe against the rare case of the function being used in another
+// place (so we can't modify the function itself), and in the common case
+// closure compiler inlines and gets rid of the extra call, applies the constant
+// values, etc.
 function applyImportParamChanges(ast) {
   var mapping = extraInfo.mapping;
   var topFuncs = getTopLevelFunctions(ast);
