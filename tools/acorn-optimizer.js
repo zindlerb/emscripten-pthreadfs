@@ -1234,7 +1234,7 @@ function getTopLevelFunctions(ast) {
 // should remove and replace with literal values.
 function applyImportParamChanges(ast) {
   var mapping = extraInfo.mapping;
-  var topFuncs = getTopLevelFunctions(ast);  
+  var topFuncs = getTopLevelFunctions(ast);
   fullWalk(ast, function(node) {
     if (isAsmLibraryArgAssign(node)) {
       var asmLibraryArg = getAsmLibraryArgValue(node);
