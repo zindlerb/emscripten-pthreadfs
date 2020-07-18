@@ -5227,6 +5227,9 @@ main( int argv, char ** argc ) {
   def test_unistd_ttyname(self):
     self.do_runf(path_from_root('tests', 'unistd', 'ttyname.c'), 'success')
 
+  def test_unistd_fsync_stdout(self):
+    self.do_run_in_out_file_test('tests', 'unistd', 'fsync_stdout.c')
+
   @also_with_noderawfs
   def test_unistd_pipe(self):
     self.do_runf(path_from_root('tests', 'unistd', 'pipe.c'), 'success')
