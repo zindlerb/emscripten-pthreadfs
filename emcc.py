@@ -1935,6 +1935,10 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
 
       if sanitize:
         shared.Settings.USE_OFFSET_CONVERTER = 1
+        if shared.Settings.USE_PTHREADS:
+          # Pthreads needs to access resetPrototype from the external worker.js
+          # file.
+          shared.Settings.EXTRA_EXPORTED_RUNTIME_METHODS += ['resetPrototype']
         shared.Settings.EXPORTED_FUNCTIONS += ['_memalign', '_emscripten_builtin_memalign',
                                                '_emscripten_builtin_malloc', '_emscripten_builtin_free',
                                                '___data_end', '___heap_base', '___global_base']

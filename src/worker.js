@@ -48,10 +48,10 @@ Module['instantiateWasm'] = function(info, receiveInstance) {
   // We don't need the module anymore; new threads will be spawned from the main thread.
   Module['wasmModule'] = null;
 #if LOAD_SOURCE_MAP
-  wasmSourceMap = resetPrototype(WasmSourceMap, wasmSourceMapData);
+  wasmSourceMap = Module['resetPrototype'](WasmSourceMap, wasmSourceMapData);
 #endif
 #if USE_OFFSET_CONVERTER
-  wasmOffsetConverter = resetPrototype(WasmOffsetConverter, wasmOffsetData);
+  wasmOffsetConverter = Module['resetPrototype'](WasmOffsetConverter, wasmOffsetData);
 #endif
   receiveInstance(instance); // The second 'module' parameter is intentionally null here, we don't need to keep a ref to the Module object from here.
   return instance.exports;
