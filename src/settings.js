@@ -1638,7 +1638,7 @@ var MIN_IE_VERSION = 0x7FFFFFFF;
 // flavor) to target. E.g. pass -s MIN_EDGE_VERSION=40 to drop support for
 // EdgeHTML 39 and older.
 // Edge 44.17763 was released on November 13, 2018
-var MIN_EDGE_VERSION = 44;
+var MIN_EDGE_VERSION = 80;
 
 // Specifies the oldest version of Chrome. E.g. pass -s MIN_CHROME_VERSION=58 to
 // drop support for Chrome 57 and older.

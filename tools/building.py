@@ -34,7 +34,10 @@ from .shared import get_emscripten_temp_dir, exe_suffix, WebAssembly, which, is_
 
 logger = logging.getLogger('building')
 
-#  Building
+# Used in Settings.MIN_X_VERSION
+UNSUPPORTED_BROWSER = 0x7FFFFFFF
+
+# Building
 multiprocessing_pool = None
 binaryen_checked = False
 
@@ -1137,8 +1140,17 @@ def closure_compiler(filename, pretty=True, advanced=True, extra_closure_args=No
       CLOSURE_EXTERNS += [path_from_root('src', 'minimal_runtime_worker_externs.js')]
     outfile = filename + '.cc.js'
 
+    language = 'ECMASCRIPT5'
+    # use modern JS when possible
+    # https://caniuse.com/#search=ecmascript%202015
+    if Settings.MIN_IE_VERSION == UNSUPPORTED_BROWSER and \
+       Settings.MIN_FIREFOX_VERSION >= 54 and \
+       Settings.MIN_CHROME_VERSION >= 51 and \
+       Settings.MIN_SAFARI_VERSION >= 100000 and \
+       Settings.MIN_EDGE_VERSION >= 79:
+      language = 'ECMASCRIPT6'
     args = ['--compilation_level', 'ADVANCED_OPTIMIZATIONS' if advanced else 'SIMPLE_OPTIMIZATIONS',
-            '--language_in', 'ECMASCRIPT5']
+            '--language_in', language, '--language_out', language]
     for e in CLOSURE_EXTERNS:
       args += ['--externs', e]
     args += ['--js_output_file', outfile]
