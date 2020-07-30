@@ -1209,6 +1209,15 @@ def closure_compiler(filename, pretty=True, advanced=True, extra_closure_args=No
       if Settings.CLOSURE_WARNINGS == 'error':
         exit_with_error('closure compiler produced warnings and -s CLOSURE_WARNINGS=error enabled')
 
+    with open(outfile) as f:
+      js = f.read()
+      # license gets in the way :(
+      print('waka1', js[:200])
+      if re.match(r'''^\s*'use strict';''', js):
+        print('waka2')
+        js = js[js.index(';') + 1:]
+        with open(outfile, 'w') as f:
+          f.write(js)
     return outfile
 
 
