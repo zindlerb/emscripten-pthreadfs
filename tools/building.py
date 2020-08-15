@@ -1246,14 +1246,18 @@ def metadce(js_file, wasm_file, minify_whitespace, debug_info):
         export = asmjs_mangle(export)
       if export in user_requested_exports or Settings.EXPORT_ALL:
         item['root'] = True
-  # in standalone wasm, always export the memory
   if Settings.STANDALONE_WASM:
+    # in standalone wasm, always export the memory
     graph.append({
       'export': 'memory',
       'name': 'emcc$export$memory',
       'reaches': [],
       'root': True
     })
+    # in standalone mode we emit a wasm that doesn't depend on JS, so we can
+    # ignore JS references into wasm. delete them all here, leaving only the
+    # wasm's own imports and exports.
+    graph = [item for item in graph if 'import' in item or 'export' in item]
   # fix wasi imports TODO: support wasm stable with an option?
   WASI_IMPORTS = set([
     'environ_get',
