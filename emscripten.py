@@ -1874,7 +1874,9 @@ def add_standard_wasm_imports(send_items_map):
       memory_import += " || Module['wasmMemory']"
     send_items_map['memory'] = memory_import
 
+    # TODO: dedup
     send_items_map['table'] = 'wasmTable'
+    send_items_map['__indirect_function_table'] = 'wasmTable'
 
   # With the wasm backend __memory_base and __table_base and only needed for
   # relocatable output.

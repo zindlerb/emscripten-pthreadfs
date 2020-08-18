@@ -1304,7 +1304,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
     # -s ASSERTIONS=1 implies the heaviest stack overflow check mode. Set the implication here explicitly to avoid having to
     # do preprocessor "#if defined(ASSERTIONS) || defined(STACK_OVERFLOW_CHECK)" in .js files, which is not supported.
     if shared.Settings.ASSERTIONS:
-      shared.Settings.STACK_OVERFLOW_CHECK = 2
+      shared.Settings.STACK_OVERFLOW_CHECK = 1 # FIXME
 
     if shared.Settings.LLD_REPORT_UNDEFINED or shared.Settings.STANDALONE_WASM:
       # Reporting undefined symbols at wasm-ld time requires us to know if we have a `main` function
