@@ -16,6 +16,7 @@ import os
 import json
 import subprocess
 import re
+import shutil
 import time
 import logging
 import pprint
@@ -1703,12 +1704,15 @@ def finalize_wasm(temp_files, infile, outfile, memfile, DEBUG):
 
   args = ['--detect-features']
 
+  # if we don't need to modify the wasm, don't tell finalize to emit a wasm file
+  need_modified_wasm = False
+
   write_source_map = shared.Settings.DEBUG_LEVEL >= 4
   if write_source_map:
     building.emit_wasm_source_map(base_wasm, base_wasm + '.map')
     building.save_intermediate(base_wasm + '.map', 'base_wasm.map')
     args += ['--output-source-map-url=' + shared.Settings.SOURCE_MAP_BASE + os.path.basename(shared.Settings.WASM_BINARY_FILE) + '.map']
-
+    need_modified_wasm = True
   # tell binaryen to look at the features section, and if there isn't one, to use MVP
   # (which matches what llvm+lld has given us)
   if shared.Settings.DEBUG_LEVEL >= 2 or shared.Settings.PROFILING_FUNCS or shared.Settings.EMIT_SYMBOL_MAP or shared.Settings.ASYNCIFY_ONLY or shared.Settings.ASYNCIFY_REMOVE or shared.Settings.ASYNCIFY_ADD:
@@ -1717,10 +1721,14 @@ def finalize_wasm(temp_files, infile, outfile, memfile, DEBUG):
     args.append('--bigint')
   if shared.Settings.LEGALIZE_JS_FFI != 1:
     args.append('--no-legalize-javascript-ffi')
+  else:
+    need_modified_wasm = True
   if not shared.Settings.MEM_INIT_IN_WASM:
     args.append('--separate-data-segments=' + memfile)
+    need_modified_wasm = True
   if shared.Settings.SIDE_MODULE:
     args.append('--side-module')
+    need_modified_wasm = True
   else:
     # --global-base is used by wasm-emscripten-finalize to calculate the size
     # of the static data used.  The argument we supply here needs to match the
@@ -1733,22 +1741,28 @@ def finalize_wasm(temp_files, infile, outfile, memfile, DEBUG):
       args.append('--global-base=0')
     else:
       args.append('--global-base=%s' % shared.Settings.GLOBAL_BASE)
-  if shared.Settings.WASM_BACKEND and shared.Settings.STACK_OVERFLOW_CHECK >= 2:
-    args.append('--check-stack-overflow')
+  #if shared.Settings.WASM_BACKEND and shared.Settings.STACK_OVERFLOW_CHECK >= 2:
+  #  args.append('--check-stack-overflow')
+  #  need_modified_wasm = True
   if shared.Settings.STANDALONE_WASM:
     args.append('--standalone-wasm')
+    need_modified_wasm = True
   # When we dynamically link our JS loader adds functions from wasm modules to
   # the table. It must add the original versions of them, not legalized ones,
   # so that indirect calls have the right type, so export those.
   if shared.Settings.RELOCATABLE:
     args.append('--pass-arg=legalize-js-interface-export-originals')
+    need_modified_wasm = True
   if shared.Settings.DEBUG_LEVEL >= 3:
     args.append('--dwarf')
-  stdout = building.run_binaryen_command('wasm-emscripten-finalize',
-                                         infile=base_wasm,
-                                         outfile=wasm,
-                                         args=args,
-                                         stdout=subprocess.PIPE)
+  stdout = building.run_binaryen_command(
+      'wasm-emscripten-finalize',
+      infile=base_wasm,
+      outfile=wasm if need_modified_wasm else None,
+      args=args,
+      stdout=subprocess.PIPE)
+  if not need_modified_wasm:
+    shutil.copyfile(base_wasm, wasm)
   if write_source_map:
     building.save_intermediate(wasm + '.map', 'post_finalize.map')
   building.save_intermediate(wasm, 'post_finalize.wasm')

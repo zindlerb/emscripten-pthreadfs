@@ -1648,6 +1648,17 @@ var WASM2C = 0;
 // in a custom location.
 var SEPARATE_DWARF_URL = '';
 
+// Emscripten runs wasm-ld to link, and in some cases will do further changes to
+// the wasm afterwards, like running wasm-opt to optimize the binary in
+// optimized builds. However, in some builds no wasm changes are necessary after
+// link. This can make the entire link step faster, and can also be important
+// for other reasons, like in debugging if the wasm is not modified then the
+// DWARF info from LLVM is preserved (wasm-opt can rewrite it in some cases, but
+// not in others like split-dwarf).
+// When this flag is turned on, we error at link time if the build requires any
+// changes to the wasm after link.
+var ERROR_ON_WASM_CHANGES_AFTER_LINK = 0;
+
 //===========================================
 // Internal, used for testing only, from here
 //===========================================

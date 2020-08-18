@@ -1660,6 +1660,8 @@ def run_binaryen_command(tool, infile, outfile=None, args=[], debug=False, stdou
     cmd += [infile]
   if outfile:
     cmd += ['-o', outfile]
+    if Settings.ERROR_ON_WASM_CHANGES_AFTER_LINK:
+      exit_with_error('changes to the wasm are required after link: ' + str(cmd) + ' but disallowed by ERROR_ON_WASM_CHANGES_AFTER_LINK')
   if debug:
     cmd += ['-g'] # preserve the debug info
   # if the features are not already handled, handle them
