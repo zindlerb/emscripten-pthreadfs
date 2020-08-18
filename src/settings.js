@@ -1657,6 +1657,8 @@ var SEPARATE_DWARF_URL = '';
 // not in others like split-dwarf).
 // When this flag is turned on, we error at link time if the build requires any
 // changes to the wasm after link.
+// TEST WITH
+//    ./emcc tests/hello_world.c -s ERROR_ON_WASM_CHANGES_AFTER_LINK -s WASM_BIGINT
 var ERROR_ON_WASM_CHANGES_AFTER_LINK = 0;
 
 //===========================================
