@@ -9340,15 +9340,17 @@ int main() {
 
   def test_immutable_after_link(self):
     # some builds are guaranteed to not require any binaryen work after wasm-ld
-    def ok(args):
+    def ok(args, filename='hello_world.cpp'):
       args += ['-sERROR_ON_WASM_CHANGES_AFTER_LINK']
-      self.run_process([EMCC, path_from_root('tests', 'hello_world.cpp')] + args)
+      self.run_process([EMCC, path_from_root('tests', filename)] + args)
       self.assertContained('hello, world!', self.run_js('a.out.js'))
 
     # -O0 with BigInt support (to avoid the need for legalization)
     ok(['-sWASM_BIGINT'])
     # Same with DWARF
     ok(['-sWASM_BIGINT', '-g'])
+    # Even exceptions (using dynCall/invoke) work
+    ok(filename='hello_libcxx.cpp', args=['-sWASM_BIGINT'])
 
     # other builds fail with a standard message + extra details
     def fail(args, details):
