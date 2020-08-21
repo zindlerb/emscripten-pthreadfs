@@ -1637,7 +1637,11 @@ def run_binaryen_command(tool, infile, outfile=None, args=[], debug=False, stdou
   if outfile:
     cmd += ['-o', outfile]
     if Settings.ERROR_ON_WASM_CHANGES_AFTER_LINK:
-      exit_with_error('changes to the wasm are required after link: ' + str(cmd) + ' but disallowed by ERROR_ON_WASM_CHANGES_AFTER_LINK')
+      # emit some extra helpful text for common issues
+      extra = ''
+      if shared.Settings.LEGALIZE_JS_FFI:
+        extra += ' (to disable legalization, use -s WASM_BIGINT)'
+      exit_with_error('changes to the wasm are required after link, but disallowed by ERROR_ON_WASM_CHANGES_AFTER_LINK: ' + str(cmd) + extra)
   if debug:
     cmd += ['-g'] # preserve the debug info
   # if the features are not already handled, handle them

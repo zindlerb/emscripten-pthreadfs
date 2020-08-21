@@ -559,7 +559,7 @@ def finalize_wasm(temp_files, infile, outfile, memfile, DEBUG):
     args.append('-g')
   if shared.Settings.WASM_BIGINT:
     args.append('--bigint')
-  if shared.Settings.LEGALIZE_JS_FFI != 1:
+  if not shared.Settings.LEGALIZE_JS_FFI:
     args.append('--no-legalize-javascript-ffi')
   else:
     need_modified_wasm = True
@@ -581,9 +581,9 @@ def finalize_wasm(temp_files, infile, outfile, memfile, DEBUG):
       args.append('--global-base=0')
     else:
       args.append('--global-base=%s' % shared.Settings.GLOBAL_BASE)
-  #if shared.Settings.WASM_BACKEND and shared.Settings.STACK_OVERFLOW_CHECK >= 2:
-  #  args.append('--check-stack-overflow')
-  #  need_modified_wasm = True
+  if shared.Settings.WASM_BACKEND and shared.Settings.STACK_OVERFLOW_CHECK >= 2:
+    args.append('--check-stack-overflow')
+    need_modified_wasm = True
   if shared.Settings.STANDALONE_WASM:
     args.append('--standalone-wasm')
     need_modified_wasm = True
@@ -595,7 +595,6 @@ def finalize_wasm(temp_files, infile, outfile, memfile, DEBUG):
     need_modified_wasm = True
   if shared.Settings.DEBUG_LEVEL >= 3:
     args.append('--dwarf')
-  args.append('--minimize-wasm-changes')
   stdout = building.run_binaryen_command(
       'wasm-emscripten-finalize',
       infile=base_wasm,

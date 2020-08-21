@@ -9411,6 +9411,30 @@ int main() {
     self.assertContained('invalid output filename: `-foo`', err)
     self.assertNotExists('-foo')
 
+  def test_immutable_after_link(self):
+    # some builds are guaranteed to not require any binaryen work after wasm-ld
+    def ok(args):
+      args += ['-sERROR_ON_WASM_CHANGES_AFTER_LINK']
+      self.run_process([EMCC, path_from_root('tests', 'hello_world.cpp')] + args)
+      self.assertContained('hello, world!', self.run_js('a.out.js'))
+
+    # -O0 with BigInt support (to avoid the need for legalization)
+    ok(['-sWASM_BIGINT'])
+    # Same with DWARF
+    ok(['-sWASM_BIGINT', '-g'])
+
+    # other builds fail with a standard message + extra details
+    def fail(args, details):
+      args += ['-sERROR_ON_WASM_CHANGES_AFTER_LINK']
+      err = self.expect_fail([EMCC, path_from_root('tests', 'hello_world.cpp')] + args)
+      self.assertContained('changes to the wasm are required after link, but disallowed by ERROR_ON_WASM_CHANGES_AFTER_LINK', err)
+      self.assertContained(details, err)
+
+    # plain -O0
+    fail([], 'to disable legalization, use -s WASM_BIGINT')
+    # optimized builds even without legalization
+    fail(['-O2', '-sWASM_BIGINT'], '-O2')
+
   def test_output_to_nowhere(self):
     self.run_process([EMCC, path_from_root('tests', 'hello_world.cpp'), '-o', os.devnull, '-c'])
 
