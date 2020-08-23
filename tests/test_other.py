@@ -9375,8 +9375,8 @@ int main() {
     ok(['-sWASM_BIGINT'])
     # Same with DWARF
     ok(['-sWASM_BIGINT', '-g'])
-    # Even exceptions (which require dynCall/invoke) work
-    ok(filename='hello_libcxx.cpp', args=['-sWASM_BIGINT', '-fexceptions'])
+    # TODO # Even exceptions (which require dynCall/invoke) work
+    # TODO ok(filename='hello_libcxx.cpp', args=['-sWASM_BIGINT', '-fexceptions'])
 
     # other builds fail with a standard message + extra details
     def fail(args, details):
