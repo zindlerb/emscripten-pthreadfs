@@ -1644,7 +1644,7 @@ def run_binaryen_command(tool, infile, outfile=None, args=[], debug=False, stdou
         # legalization. it's important to show an error here since finalize
         # will legalize by default, so there is nothing obvious in the flags
         # passed to it (which we print) that explains the issue.
-        extra += ' (to disable legalization, use -s WASM_BIGINT)'
+        extra += '\nnote: to disable legalization (which requires changes after link) use -s WASM_BIGINT'
       exit_with_error('changes to the wasm are required after link, but disallowed by ERROR_ON_WASM_CHANGES_AFTER_LINK: ' + str(cmd) + extra)
   if debug:
     cmd += ['-g'] # preserve the debug info

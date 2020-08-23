@@ -1618,9 +1618,7 @@ var SEPARATE_DWARF_URL = '';
 // DWARF info from LLVM is preserved (wasm-opt can rewrite it in some cases, but
 // not in others like split-dwarf).
 // When this flag is turned on, we error at link time if the build requires any
-// changes to the wasm after link.
-// TEST WITH
-//    ./emcc tests/hello_world.c -s ERROR_ON_WASM_CHANGES_AFTER_LINK -s WASM_BIGINT
+// changes to the wasm after link. This can be useful in testing, for example.
 var ERROR_ON_WASM_CHANGES_AFTER_LINK = 0;
 
 //===========================================

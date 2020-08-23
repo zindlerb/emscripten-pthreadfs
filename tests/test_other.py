@@ -9386,7 +9386,7 @@ int main() {
       self.assertContained(details, err)
 
     # plain -O0
-    fail([], 'to disable legalization, use -s WASM_BIGINT')
+    fail([], 'to disable legalization (which requires changes after link) use -s WASM_BIGINT')
     # optimized builds even without legalization
     fail(['-O2', '-sWASM_BIGINT'], '-O2')
 
