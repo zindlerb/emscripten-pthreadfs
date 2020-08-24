@@ -435,6 +435,7 @@ function loadWebAssemblyModule(binary, flags) {
     var memoryBase;
     var proxyHandler = {
       'get': function(obj, prop) {
+      console.log('proxy get', prop);
         // symbols that should be local to this module
         switch (prop) {
           case '__memory_base':
@@ -526,8 +527,6 @@ function loadWebAssemblyModule(binary, flags) {
 #endif
       var exports = relocateExports(instance.exports, memoryBase, tableBase, moduleLocal);
       // initialize the module
-      var init = exports['__post_instantiate'];
-      if (init) init();
       return exports;
     }
 
@@ -541,9 +540,14 @@ function loadWebAssemblyModule(binary, flags) {
         console.log('compiled, but waiting for init');
         addOnInit(function() {
           console.log('GOTT a OnInit!!!');
-          var result = postInstantiation(new WebAssembly.Instance(module, info), moduleLocal);
+          var instance = new WebAssembly.Instance(module, info);
+          console.log('GOTT a instance...');
+          for (var k in instance.exports) console.log('   ', k);
+          var result = postInstantiation(instance, moduleLocal);
           console.log('GOTT b postinst result', result);
           loadingDynamicLibraries[flags.lib](result);
+          var init = instance.exports['__post_instantiate'];
+          if (init) init();
         });
         console.log('remove run dep');
         removeRunDependency('dylib_' + flags.lib);
