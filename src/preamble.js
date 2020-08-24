@@ -584,6 +584,7 @@ function getUniqueRunDependency(id) {
 }
 
 function addRunDependency(id) {
+console.log('add', id);
 #if USE_PTHREADS
   // We should never get here in pthreads (could no-op this out if called in pthreads, but that might indicate a bug in caller side,
   // so good to be very explicit)
@@ -629,6 +630,7 @@ function addRunDependency(id) {
 }
 
 function removeRunDependency(id) {
+console.log('remove', id);
   runDependencies--;
 
 #if expectToReceiveOnModule('monitorRunDependencies')
@@ -718,14 +720,11 @@ function abort(what) {
 })()
 }}}
 
-addRunDependency('preload_dynamicLibraries');
-
 Promise.all(Module['dynamicLibraries'].map(function(lib) {
+  // TODO comment
+  addRunDependency('dylib_' + lib);
   return loadDynamicLibrary(lib, {loadAsync: true, global: true, nodelete: true});
-})).then(function() {
-  // we got them all, wonderful
-  removeRunDependency('preload_dynamicLibraries');
-});
+}));
 
 #if ASSERTIONS
 function lookupSymbol(ptr) { // for a pointer, print out all symbols that resolve to it

@@ -157,8 +157,10 @@ function loadDynamicLibrary(lib, flags) {
   // libModule <- libData
   function createLibModule(libData) {
 #if WASM
+    flags.lib = lib;
     var ret = loadWebAssemblyModule(libData, flags)
     console.log('LWM gave us', ret);
+
     return ret;
 #else
     var libModule = /**@type{function(...)}*/(eval(libData))(
@@ -195,7 +197,9 @@ function loadDynamicLibrary(lib, flags) {
 
     // module not preloaded - load lib data and create new module from it
     if (flags.loadAsync) {
+    console.log('gLM in async mode');
       return loadLibData(lib).then(function(libData) {
+    console.log('  gLM in async mode then');
         return createLibModule(libData);
       });
     }
@@ -242,16 +246,20 @@ function loadDynamicLibrary(lib, flags) {
   }
 
   if (flags.loadAsync) {
-    return getLibModule().then(function(libModule) {
-    console.log('gLM promise fave us', libModule);
-      moduleLoaded(libModule);
-      return handle;
-    })
+console.log('IT"s a loadAsyc');
+    var ret = getLibModule();
+    // moduleLoaded() will be called during runtime initialization (we can't
+    // use the normal async promise behavior because at that point we are sync).
+    loadingDynamicLibraries[lib] = moduleLoaded;
+    return ret;
   }
 console.log('haka');
   moduleLoaded(getLibModule());
   return handle;
 }
+
+// lib name => continuation to call
+var loadingDynamicLibraries = {};
 
 #if WASM
 // Applies relocations to exported things.
@@ -529,14 +537,17 @@ function loadWebAssemblyModule(binary, flags) {
       return WebAssembly.compile(binary).then(function(module) {
         // Wait until the runtime is initialized so that we can malloc() room
         // for ourselves.
+        assert(flags.lib);
         console.log('compiled, but waiting for init');
-        return new Promise(function(resolve) {
-          addOnInit(function() {
-            var result = postInstantiation(new WebAssembly.Instance(module, info));
-            console.log('postinst result', result, moduleLocal);
-            resolve(result);
-          });
+        addOnInit(function() {
+          console.log('GOTT OnInit!!!');
+          var result = postInstantiation(new WebAssembly.Instance(module, info), moduleLocal);
+          console.log('postinst result', result);
+          loadingDynamicLibraries[flags.lib](result);
         });
+        console.log('remove run dep');
+        removeRunDependency('dylib_' + flags.lib);
+        return ret;
       });
     } else {
       var instance = new WebAssembly.Instance(new WebAssembly.Module(binary), info);
