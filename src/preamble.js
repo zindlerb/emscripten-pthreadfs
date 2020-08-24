@@ -282,7 +282,9 @@ function allocate(slab, types, allocator, ptr) {
   return ret;
 }
 
-// Allocate memory during any stage of startup - static memory early on, dynamic memory later, malloc when ready
+// TODO: remove this. it was helpful for allocating memory during any stage of
+// startup (static memory early on, dynamic memory later, malloc when ready)
+// in the past.
 function getMemory(size) {
   if (!runtimeInitialized) throw "runtime is not ready yet!";
   return _malloc(size);
@@ -711,8 +713,8 @@ function abort(what) {
   return '';
 })()
 }}}
-
-addOnPreRun(function() {
+{{{
+addAtInit(`
   function loadDynamicLibraries(libs) {
     if (libs) {
       libs.forEach(function(lib) {
@@ -722,9 +724,9 @@ addOnPreRun(function() {
     }
   }
   // if we can load dynamic libraries synchronously, do so, otherwise, preload
-#if WASM
   if (Module['dynamicLibraries'] && Module['dynamicLibraries'].length > 0 && !readBinary) {
     // we can't read binary data synchronously, so preload
+    // FIXME this surely must be before ATINIT, as it uses a run dep!
     addRunDependency('preload_dynamicLibraries');
     Promise.all(Module['dynamicLibraries'].map(function(lib) {
       return loadDynamicLibrary(lib, {loadAsync: true, global: true, nodelete: true});
@@ -732,11 +734,11 @@ addOnPreRun(function() {
       // we got them all, wonderful
       removeRunDependency('preload_dynamicLibraries');
     });
-    return;
+  } else {
+    loadDynamicLibraries(Module['dynamicLibraries']);
   }
-#endif
-  loadDynamicLibraries(Module['dynamicLibraries']);
-});
+`), ''
+}}}
 
 #if ASSERTIONS
 function lookupSymbol(ptr) { // for a pointer, print out all symbols that resolve to it

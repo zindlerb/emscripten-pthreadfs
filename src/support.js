@@ -351,7 +351,7 @@ function loadWebAssemblyModule(binary, flags) {
     assert(tableAlign === 1, 'invalid tableAlign ' + tableAlign);
 #endif
     // prepare memory
-    var memoryBase = alignMemory(getMemory(memorySize + memoryAlign), memoryAlign); // TODO: add to cleanups
+    var memoryBase = alignMemory(_malloc(memorySize + memoryAlign), memoryAlign); // TODO: add to cleanups
     // prepare env imports
     var env = asmLibraryArg;
     // TODO: use only __memory_base and __table_base, need to update asm.js backend
