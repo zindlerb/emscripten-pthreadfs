@@ -1306,11 +1306,11 @@ LibraryManager.library = {
   },
 
   // Statically allocated time struct.
-  __tm_current: '{{{ makeStaticAlloc(C_STRUCTS.tm.__size__) }}}',
+  __tm_current: function() { return makeStaticAlloc(C_STRUCTS.tm.__size__) },
   // Statically allocated copy of the string "GMT" for gmtime() to point to
   __tm_timezone: '{{{ makeStaticString("GMT") }}}',
   // Statically allocated time strings.
-  __tm_formatted: '{{{ makeStaticAlloc(C_STRUCTS.tm.__size__) }}}',
+  __tm_formatted: function() { return makeStaticAlloc(C_STRUCTS.tm.__size__) },
   mktime__deps: ['tzset'],
   mktime__sig: 'ii',
   mktime: function(tmPtr) {
@@ -2592,10 +2592,8 @@ LibraryManager.library = {
   // netinet/in.h
   // ==========================================================================
 
-  in6addr_any:
-    '{{{ makeStaticAlloc(16) }}}',
-  in6addr_loopback:
-    '{{{ makeStaticAlloc(16) }}}',
+  in6addr_any: function() { return makeStaticAlloc(16) },
+  in6addr_loopback: function() { return makeStaticAlloc(16) },
 
   // ==========================================================================
   // netdb.h
