@@ -74,6 +74,10 @@ function asmjsMangle(x) {
 // - if flags.loadAsync=true, the loading is performed asynchronously and
 //   loadDynamicLibrary returns corresponding promise.
 //
+// - if flags.mainStillInitializating then the main module is still in its
+//   initialization phase, and we should queue our global constructors to be
+//   called later together with the main module's.
+//
 // - if flags.fs is provided, it is used as FS-like interface to load library data.
 //   By default, when flags.fs=undefined, native loading capabilities of the
 //   environment are used.
@@ -508,10 +512,10 @@ function loadWebAssemblyModule(binary, flags) {
       // initialize the module
       var init = exports['__post_instantiate'];
       if (init) {
-        if (runtimeInitialized) {
+        if (!flags.mainStillInitializating) {
           init();
         } else {
-          // we aren't ready to run compiled code yet
+          // we aren't ready to run our constructors yet
           __ATINIT__.push(init);
         }
       }

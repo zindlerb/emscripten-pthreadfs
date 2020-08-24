@@ -719,7 +719,11 @@ addAtInit(`
     if (libs) {
       libs.forEach(function(lib) {
         // libraries linked to main never go away
-        loadDynamicLibrary(lib, {global: true, nodelete: true});
+        loadDynamicLibrary(lib, {
+          global: true,
+          nodelete: true,
+          mainStillInitializating: true
+        });
       });
     }
   }
