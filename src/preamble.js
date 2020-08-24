@@ -713,36 +713,28 @@ function abort(what) {
   return '';
 })()
 }}}
-{{{
-addAtInit(`
-  function loadDynamicLibraries(libs) {
-    if (libs) {
-      libs.forEach(function(lib) {
-        // libraries linked to main never go away
-        loadDynamicLibrary(lib, {
-          global: true,
-          nodelete: true,
-          mainStillInitializating: true
-        });
+
+function loadDynamicLibraries(libs) {
+  if (libs) {
+    libs.forEach(function(lib) {
+      // libraries linked to main never go away
+      loadDynamicLibrary(lib, {
+        global: true,
+        nodelete: true,
+        mainStillInitializating: true
       });
-    }
-  }
-  // if we can load dynamic libraries synchronously, do so, otherwise, preload
-  if (Module['dynamicLibraries'] && Module['dynamicLibraries'].length > 0 && !readBinary) {
-    // we can't read binary data synchronously, so preload
-    // FIXME this surely must be before ATINIT, as it uses a run dep!
-    addRunDependency('preload_dynamicLibraries');
-    Promise.all(Module['dynamicLibraries'].map(function(lib) {
-      return loadDynamicLibrary(lib, {loadAsync: true, global: true, nodelete: true});
-    })).then(function() {
-      // we got them all, wonderful
-      removeRunDependency('preload_dynamicLibraries');
     });
-  } else {
-    loadDynamicLibraries(Module['dynamicLibraries']);
   }
-`), ''
-}}}
+}
+
+addRunDependency('preload_dynamicLibraries');
+
+Promise.all(Module['dynamicLibraries'].map(function(lib) {
+  return loadDynamicLibrary(lib, {loadAsync: true, global: true, nodelete: true});
+})).then(function() {
+  // we got them all, wonderful
+  removeRunDependency('preload_dynamicLibraries');
+});
 
 #if ASSERTIONS
 function lookupSymbol(ptr) { // for a pointer, print out all symbols that resolve to it

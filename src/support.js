@@ -45,14 +45,20 @@ var LDSO = {
 }
 
 // fetchBinary fetches binaray data @ url. (async)
+// TODO: merge with getBinaryPromise
 function fetchBinary(url) {
-  return fetch(url, { credentials: 'same-origin' }).then(function(response) {
-    if (!response['ok']) {
-      throw "failed to load binary file at '" + url + "'";
-    }
-    return response['arrayBuffer']();
-  }).then(function(buffer) {
-    return new Uint8Array(buffer);
+  if (typeof fetch !== 'undefined') {
+    return fetch(url, { credentials: 'same-origin' }).then(function(response) {
+      if (!response['ok']) {
+        throw "failed to load binary file at '" + url + "'";
+      }
+      return response['arrayBuffer']();
+    }).then(function(buffer) {
+      return new Uint8Array(buffer);
+    });
+  }
+  return Promise.resolve().then(function() {
+    return readBinary(url);
   });
 }
 
