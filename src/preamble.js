@@ -189,8 +189,7 @@ function cwrap(ident, returnType, argTypes, opts) {
 
 var ALLOC_NORMAL = 0; // Tries to use _malloc()
 var ALLOC_STACK = 1; // Lives for the duration of the current function call
-var ALLOC_DYNAMIC = 2; // Cannot be freed except through sbrk
-var ALLOC_NONE = 3; // Do not allocate
+var ALLOC_NONE = 2; // Do not allocate
 
 // allocate(): This is for internal use. You can use it yourself as well, but the interface
 //             is a little tricky (see docs right below). The reason is that it is optimized
@@ -224,11 +223,11 @@ function allocate(slab, types, allocator, ptr) {
   } else {
     ret = [_malloc,
 #if DECLARE_ASM_MODULE_EXPORTS
-    stackAlloc,
+      stackAlloc
 #else
-    typeof stackAlloc !== 'undefined' ? stackAlloc : null,
+      typeof stackAlloc !== 'undefined' ? stackAlloc : null
 #endif
-    dynamicAlloc][allocator](Math.max(size, singleType ? 1 : types.length));
+    ][allocator](Math.max(size, singleType ? 1 : types.length));
   }
 
   if (zeroinit) {
@@ -285,7 +284,7 @@ function allocate(slab, types, allocator, ptr) {
 
 // Allocate memory during any stage of startup - static memory early on, dynamic memory later, malloc when ready
 function getMemory(size) {
-  if (!runtimeInitialized) return dynamicAlloc(size);
+  if (!runtimeInitialized) throw "runtime is not ready yet!";
   return _malloc(size);
 }
 

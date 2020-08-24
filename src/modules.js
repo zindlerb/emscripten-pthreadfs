@@ -428,7 +428,6 @@ function exportRuntime() {
     'FS_createLink',
     'FS_createDevice',
     'FS_unlink',
-    'dynamicAlloc',
     'loadDynamicLibrary',
     'loadWebAssemblyModule',
     'getLEB',
@@ -523,7 +522,6 @@ function exportRuntime() {
   var runtimeNumbers = [
     'ALLOC_NORMAL',
     'ALLOC_STACK',
-    'ALLOC_DYNAMIC',
     'ALLOC_NONE',
   ];
   if (ASSERTIONS) {
