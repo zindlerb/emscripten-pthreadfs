@@ -720,11 +720,13 @@ function abort(what) {
 })()
 }}}
 
-Promise.all(Module['dynamicLibraries'].map(function(lib) {
-  // TODO comment
-  addRunDependency('dylib_' + lib);
-  return loadDynamicLibrary(lib, {loadAsync: true, global: true, nodelete: true});
-}));
+if (Module['dynamicLibraries']) {
+  Promise.all(Module['dynamicLibraries'].map(function(lib) {
+    // TODO comment
+    addRunDependency('dylib_' + lib);
+    return loadDynamicLibrary(lib, {loadAsync: true, global: true, nodelete: true});
+  }));
+}
 
 #if ASSERTIONS
 function lookupSymbol(ptr) { // for a pointer, print out all symbols that resolve to it

@@ -540,9 +540,9 @@ function loadWebAssemblyModule(binary, flags) {
         assert(flags.lib);
         console.log('compiled, but waiting for init');
         addOnInit(function() {
-          console.log('GOTT OnInit!!!');
+          console.log('GOTT a OnInit!!!');
           var result = postInstantiation(new WebAssembly.Instance(module, info), moduleLocal);
-          console.log('postinst result', result);
+          console.log('GOTT b postinst result', result);
           loadingDynamicLibraries[flags.lib](result);
         });
         console.log('remove run dep');

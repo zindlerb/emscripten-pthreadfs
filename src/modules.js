@@ -372,8 +372,12 @@ function exportRuntime() {
     }
     // do not export it. but if ASSERTIONS, emit a
     // stub with an error, so the user gets a message
-    // if it is used, that they should export it
-    if (ASSERTIONS) {
+    // if it is used, that they should export it.
+    // (don't do this with dynamic linking - it can make
+    // things extremely confusing, because dynamic linking
+    // itself will dynamically add things to the Module
+    // object)
+    if (ASSERTIONS && !RELOCATABLE) {
       // check if it already exists, to support EXPORT_ALL and other cases
       // (we could optimize this, but in ASSERTIONS mode code size doesn't
       // matter anyhow)
