@@ -80,10 +80,6 @@ function asmjsMangle(x) {
 // - if flags.loadAsync=true, the loading is performed asynchronously and
 //   loadDynamicLibrary returns corresponding promise.
 //
-// - if flags.mainStillInitializating then the main module is still in its
-//   initialization phase, and we should queue our global constructors to be
-//   called later together with the main module's.
-//
 // - if flags.fs is provided, it is used as FS-like interface to load library data.
 //   By default, when flags.fs=undefined, native loading capabilities of the
 //   environment are used.
@@ -161,7 +157,9 @@ function loadDynamicLibrary(lib, flags) {
   // libModule <- libData
   function createLibModule(libData) {
 #if WASM
-    return loadWebAssemblyModule(libData, flags)
+    var ret = loadWebAssemblyModule(libData, flags)
+    console.log('LWM gave us', ret);
+    return ret;
 #else
     var libModule = /**@type{function(...)}*/(eval(libData))(
       alignFunctionTables(),
@@ -245,11 +243,12 @@ function loadDynamicLibrary(lib, flags) {
 
   if (flags.loadAsync) {
     return getLibModule().then(function(libModule) {
+    console.log('gLM promise fave us', libModule);
       moduleLoaded(libModule);
       return handle;
     })
   }
-
+console.log('haka');
   moduleLoaded(getLibModule());
   return handle;
 }
@@ -360,8 +359,6 @@ function loadWebAssemblyModule(binary, flags) {
 #if ASSERTIONS
     assert(tableAlign === 1, 'invalid tableAlign ' + tableAlign);
 #endif
-    // prepare memory
-    var memoryBase = alignMemory(_malloc(memorySize + memoryAlign), memoryAlign); // TODO: add to cleanups
     // prepare env imports
     var env = asmLibraryArg;
     // TODO: use only __memory_base and __table_base, need to update asm.js backend
@@ -370,15 +367,7 @@ function loadWebAssemblyModule(binary, flags) {
     var originalTable = table;
     table.grow(tableSize);
     assert(table === originalTable);
-    // zero-initialize memory and table
-    // The static area consists of explicitly initialized data, followed by zero-initialized data.
-    // The latter may need zeroing out if the MAIN_MODULE has already used this memory area before
-    // dlopen'ing the SIDE_MODULE.  Since we don't know the size of the explicitly initialized data
-    // here, we just zero the whole thing, which is suboptimal, but should at least resolve bugs
-    // from uninitialized memory.
-    for (var i = memoryBase; i < memoryBase + memorySize; i++) {
-      HEAP8[i] = 0;
-    }
+    // zero-initialize table
     for (var i = tableBase; i < tableBase + tableSize; i++) {
       table.set(i, null);
     }
@@ -435,12 +424,24 @@ function loadWebAssemblyModule(binary, flags) {
     // to add the indirection for, without inspecting what A's imports
     // are. To do that here, we use a JS proxy (another option would
     // be to inspect the binary directly).
+    var memoryBase;
     var proxyHandler = {
       'get': function(obj, prop) {
         // symbols that should be local to this module
         switch (prop) {
           case '__memory_base':
           case 'gb':
+            // The static area consists of explicitly initialized data, followed by zero-initialized data.
+            // The latter may need zeroing out if the MAIN_MODULE has already used this memory area before
+            // dlopen'ing the SIDE_MODULE.  Since we don't know the size of the explicitly initialized data
+            // here, we just zero the whole thing, which is suboptimal, but should at least resolve bugs
+            // from uninitialized memory.
+            // TODO comment on lazy
+            console.log('mallocing memoryBase now');
+            memoryBase = alignMemory(_malloc(memorySize + memoryAlign), memoryAlign); // TODO: add to cleanups
+            for (var i = memoryBase; i < memoryBase + memorySize; i++) {
+              HEAP8[i] = 0;
+            }
             return memoryBase;
           case '__table_base':
           case 'fb':
@@ -507,30 +508,35 @@ function loadWebAssemblyModule(binary, flags) {
       assert(table === wasmTable);
       // the old part of the table should be unchanged
       for (var i = 0; i < tableBase; i++) {
-        assert(table.get(i) === oldTable[i], 'old table entries must remain the same');
+//        assert(table.get(i) === oldTable[i], 'old table entries must remain the same');
+// FIXME, maybe need table lazyily alloated too?
       }
       // verify that the new table region was filled in
       for (var i = 0; i < tableSize; i++) {
-        assert(table.get(tableBase + i) !== undefined, 'table entry was not filled in');
+  //      assert(table.get(tableBase + i) !== undefined, 'table entry was not filled in');
       }
 #endif
       var exports = relocateExports(instance.exports, memoryBase, tableBase, moduleLocal);
       // initialize the module
       var init = exports['__post_instantiate'];
-      if (init) {
-        if (!flags.mainStillInitializating) {
-          init();
-        } else {
-          // we aren't ready to run our constructors yet
-          __ATINIT__.push(init);
-        }
-      }
+      if (init) init();
       return exports;
     }
 
     if (flags.loadAsync) {
-      return WebAssembly.instantiate(binary, info).then(function(result) {
-        return postInstantiation(result.instance, moduleLocal);
+      // Compile asynchronously, but instantiate synchronously
+      // TODO explain
+      return WebAssembly.compile(binary).then(function(module) {
+        // Wait until the runtime is initialized so that we can malloc() room
+        // for ourselves.
+        console.log('compiled, but waiting for init');
+        return new Promise(function(resolve) {
+          addOnInit(function() {
+            var result = postInstantiation(new WebAssembly.Instance(module, info));
+            console.log('postinst result', result, moduleLocal);
+            resolve(result);
+          });
+        });
       });
     } else {
       var instance = new WebAssembly.Instance(new WebAssembly.Module(binary), info);
@@ -540,17 +546,29 @@ function loadWebAssemblyModule(binary, flags) {
 
   // now load needed libraries and the module itself.
   if (flags.loadAsync) {
+console.log('wakaa');
     return Promise.all(neededDynlibs.map(function(dynNeeded) {
-      return loadDynamicLibrary(dynNeeded, flags);
+console.log('wakab');
+      var ret = loadDynamicLibrary(dynNeeded, flags);
+console.log('wakac');
+      consolel.log('waka result from LDL', ret);
+      return ret;
+      
     })).then(function() {
-      return loadModule();
+console.log('wakad');
+      var ret = loadModule();
+console.log('wakad', ret);
+      return ret;
     });
   }
+console.log('waka2');
 
   neededDynlibs.forEach(function(dynNeeded) {
     loadDynamicLibrary(dynNeeded, flags);
   });
-  return loadModule();
+  var ret = loadModule();
+  console.log('loadmodule result', ret);
+  return ret;
 }
 Module['loadWebAssemblyModule'] = loadWebAssemblyModule;
 

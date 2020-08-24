@@ -470,6 +470,7 @@ function preRun() {
 }
 
 function initRuntime() {
+console.log('init runtime1');
 #if STACK_OVERFLOW_CHECK
   checkStackCookie();
 #endif
@@ -477,8 +478,11 @@ function initRuntime() {
   assert(!runtimeInitialized);
 #endif
   runtimeInitialized = true;
+console.log('init runtime2');
   {{{ getQuoted('ATINITS') }}}
+console.log('init runtime3');
   callRuntimeCallbacks(__ATINIT__);
+console.log('init runtime4');
 }
 
 function preMain() {
@@ -713,19 +717,6 @@ function abort(what) {
   return '';
 })()
 }}}
-
-function loadDynamicLibraries(libs) {
-  if (libs) {
-    libs.forEach(function(lib) {
-      // libraries linked to main never go away
-      loadDynamicLibrary(lib, {
-        global: true,
-        nodelete: true,
-        mainStillInitializating: true
-      });
-    });
-  }
-}
 
 addRunDependency('preload_dynamicLibraries');
 
