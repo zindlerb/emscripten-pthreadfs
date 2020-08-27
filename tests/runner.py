@@ -49,14 +49,8 @@ import tempfile
 import time
 import unittest
 import webbrowser
-
-if sys.version_info.major == 2:
-  from BaseHTTPServer import HTTPServer
-  from SimpleHTTPServer import SimpleHTTPRequestHandler
-  from urllib import unquote, unquote_plus
-else:
-  from http.server import HTTPServer, SimpleHTTPRequestHandler
-  from urllib.parse import unquote, unquote_plus
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+from urllib.parse import unquote, unquote_plus
 
 # Setup
 
@@ -110,7 +104,7 @@ EMTEST_SKIP_SLOW = os.getenv('EMTEST_SKIP_SLOW')
 
 EMTEST_LACKS_NATIVE_CLANG = os.getenv('EMTEST_LACKS_NATIVE_CLANG')
 
-EMTEST_VERBOSE = int(os.getenv('EMTEST_VERBOSE', '0'))
+EMTEST_VERBOSE = int(os.getenv('EMTEST_VERBOSE', '0')) or shared.DEBUG
 
 if EMTEST_VERBOSE:
   logging.root.setLevel(logging.DEBUG)
@@ -367,10 +361,9 @@ class RunnerMeta(type):
     else:
       resulting_test.__name__ = name
 
-    # On python 3, functions have __qualname__ as well. This is a full dot-separated path to the function.
-    # We add the suffix to it as well.
-    if hasattr(func, '__qualname__'):
-      resulting_test.__qualname__ = f'{func.__qualname__}_{suffix}'
+    # On python 3, functions have __qualname__ as well. This is a full dot-separated path to the
+    # function.  We add the suffix to it as well.
+    resulting_test.__qualname__ = f'{func.__qualname__}_{suffix}'
 
     return resulting_test.__name__, resulting_test
 
@@ -395,21 +388,7 @@ class RunnerMeta(type):
     return type.__new__(mcs, name, bases, new_attrs)
 
 
-# This is a hack to make the metaclass work on both python 2 and python 3.
-#
-# On python 3, the code should be:
-#   class RunnerCore(unittest.TestCase, metaclass=RunnerMeta):
-#     ...
-#
-# On python 2, the code should be:
-#   class RunnerCore(unittest.TestCase):
-#     __metaclass__ = RunnerMeta
-#     ...
-#
-# To be compatible with both python 2 and python 3, we create a class by directly invoking the
-# metaclass, which is done in the same way on both python 2 and 3, and inherit from it,
-# since a class inherits the metaclass by default.
-class RunnerCore(RunnerMeta('TestCase', (unittest.TestCase,), {})):
+class RunnerCore(unittest.TestCase, metaclass=RunnerMeta):
   # default temporary directory settings. set_temp_dir may be called later to
   # override these
   temp_dir = TEMP_DIR
@@ -595,7 +574,7 @@ class RunnerCore(RunnerMeta('TestCase', (unittest.TestCase,), {})):
     dirname, basename = os.path.split(filename)
     output = shared.unsuffixed(basename) + suffix
     cmd = [compiler, filename, '-o', output] + self.get_emcc_args(main_file=True) + \
-        ['-I' + dirname, '-I' + os.path.join(dirname, 'include')] + \
+        ['-I.', '-I' + dirname, '-I' + os.path.join(dirname, 'include')] + \
         ['-I' + include for include in includes] + \
         libraries
 
@@ -1062,9 +1041,12 @@ class RunnerCore(RunnerMeta('TestCase', (unittest.TestCase,), {})):
         f.write(src)
     self._build_and_run(filename, expected_output, **kwargs)
 
+  def do_runf(self, filename, expected_output, **kwargs):
+    self._build_and_run(filename, expected_output, **kwargs)
+
   ## Just like `do_run` but with filename of expected output
-  def do_run_from_file(self, filename, expected_output, **kwargs):
-    self._build_and_run(filename, open(expected_output).read(), **kwargs)
+  def do_run_from_file(self, filename, expected_output_filename, **kwargs):
+    self._build_and_run(filename, open(expected_output_filename).read(), **kwargs)
 
   def do_run_in_out_file_test(self, *path, **kwargs):
     srcfile = path_from_root(*path)
@@ -1431,17 +1413,14 @@ class BrowserCore(RunnerCore):
       print('(moving on..)')
 
   def with_report_result(self, user_code):
-    return '''
-#define EMTEST_PORT_NUMBER %(port)d
-#include "%(report_header)s"
-%(report_main)s
-%(user_code)s
-''' % {
-      'port': self.port,
-      'report_header': path_from_root('tests', 'report_result.h'),
-      'report_main': open(path_from_root('tests', 'report_result.cpp')).read(),
-      'user_code': user_code
-    }
+    report_header = path_from_root('tests', 'report_result.h')
+    report_main = open(path_from_root('tests', 'report_result.cpp')).read()
+    return f'''
+#define EMTEST_PORT_NUMBER {self.port}
+#include "{report_header}"
+{report_main}
+{user_code}
+'''
 
   # @manually_trigger If set, we do not assume we should run the reftest when main() is done.
   #                   Instead, call doReftest() in JS yourself at the right time.

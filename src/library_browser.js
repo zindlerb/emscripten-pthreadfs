@@ -6,7 +6,7 @@
 
 // Utilities for browser environments
 var LibraryBrowser = {
-  $Browser__deps: ['emscripten_set_main_loop', 'emscripten_set_main_loop_timing'],
+  $Browser__deps: ['$setMainLoop', 'emscripten_set_main_loop_timing'],
   $Browser__postset: 'Module["requestFullscreen"] = function Module_requestFullscreen(lockPointer, resizeCanvas) { Browser.requestFullscreen(lockPointer, resizeCanvas) };\n' + // exports
 #if ASSERTIONS
                      'Module["requestFullScreen"] = function Module_requestFullScreen() { Browser.requestFullScreen() };\n' +
@@ -41,7 +41,7 @@ var LibraryBrowser = {
         var timingValue = Browser.mainLoop.timingValue;
         var func = Browser.mainLoop.func;
         Browser.mainLoop.func = null;
-        _emscripten_set_main_loop(func, 0, false, Browser.mainLoop.arg, true /* do not set timing and call scheduler, we will do it on the next lines */);
+        setMainLoop(func, 0, false, Browser.mainLoop.arg, true /* do not set timing and call scheduler, we will do it on the next lines */);
         _emscripten_set_main_loop_timing(timingMode, timingValue);
         Browser.mainLoop.scheduler();
       },
@@ -859,6 +859,36 @@ var LibraryBrowser = {
     );
   },
 
+  $funcWrappers: {},
+
+  $getFuncWrapper__deps: ['$funcWrappers'],
+  $getFuncWrapper: function(func, sig) {
+    if (!func) return; // on null pointer, return undefined
+    assert(sig);
+    if (!funcWrappers[sig]) {
+      funcWrappers[sig] = {};
+    }
+    var sigCache = funcWrappers[sig];
+    if (!sigCache[func]) {
+      // optimize away arguments usage in common cases
+      if (sig.length === 1) {
+        sigCache[func] = function dynCall_wrapper() {
+          return dynCall(sig, func);
+        };
+      } else if (sig.length === 2) {
+        sigCache[func] = function dynCall_wrapper(arg) {
+          return dynCall(sig, func, [arg]);
+        };
+      } else {
+        // general case
+        sigCache[func] = function dynCall_wrapper() {
+          return dynCall(sig, func, Array.prototype.slice.call(arguments));
+        };
+      }
+    }
+    return sigCache[func];
+  },
+
   emscripten_async_wget_data__proxy: 'sync',
   emscripten_async_wget_data__sig: 'viiii',
   emscripten_async_wget_data: function(url, arg, onload, onerror) {
@@ -1077,6 +1107,7 @@ var LibraryBrowser = {
   },
 
   // TODO: currently not callable from a pthread, but immediately calls onerror() if not on main thread.
+  emscripten_async_load_script__deps: ['$getFuncWrapper'],
   emscripten_async_load_script: function(url, onload, onerror) {
     onload = getFuncWrapper(onload, 'v');
     onerror = getFuncWrapper(onerror, 'v');
@@ -1165,31 +1196,26 @@ var LibraryBrowser = {
     return 0;
   },
 
-  // Runs natively in pthread, no __proxy needed.
-#if OFFSCREEN_FRAMEBUFFER
-  emscripten_set_main_loop__deps: ['emscripten_set_main_loop_timing', 'emscripten_get_now', 'emscripten_webgl_commit_frame'],
-#else
-  emscripten_set_main_loop__deps: ['emscripten_set_main_loop_timing', 'emscripten_get_now'],
-#endif
+  emscripten_set_main_loop__deps: ['$setMainLoop'],
   emscripten_set_main_loop__docs: '/** @param {number|boolean=} noSetTiming */',
   emscripten_set_main_loop: function(func, fps, simulateInfiniteLoop, arg, noSetTiming) {
+    var browserIterationFunc = function() { {{{ makeDynCall('v') }}}(func); };
+    setMainLoop(browserIterationFunc, fps, simulateInfiniteLoop, arg, noSetTiming);
+  },
+
+  // Runs natively in pthread, no __proxy needed.
+#if OFFSCREEN_FRAMEBUFFER
+  $setMainLoop__deps: ['emscripten_set_main_loop_timing', 'emscripten_get_now', 'emscripten_webgl_commit_frame'],
+#else
+  $setMainLoop__deps: ['emscripten_set_main_loop_timing', 'emscripten_get_now'],
+#endif
+  $setMainLoop: function(browserIterationFunc, fps, simulateInfiniteLoop, arg, noSetTiming) {
     noExitRuntime = true;
 
     assert(!Browser.mainLoop.func, 'emscripten_set_main_loop: there can only be one main loop function at once: call emscripten_cancel_main_loop to cancel the previous one before setting a new one with different parameters.');
 
-    Browser.mainLoop.func = func;
+    Browser.mainLoop.func = browserIterationFunc;
     Browser.mainLoop.arg = arg;
-
-    var browserIterationFunc;
-    if (typeof arg !== 'undefined') {
-      browserIterationFunc = function() {
-        Module['dynCall_vi'](func, arg);
-      };
-    } else {
-      browserIterationFunc = function() {
-        Module['dynCall_v'](func);
-      };
-    }
 
 #if USE_CLOSURE_COMPILER
     // Closure compiler bug(?): Closure does not see that the assignment
@@ -1306,9 +1332,10 @@ var LibraryBrowser = {
   },
 
   // Runs natively in pthread, no __proxy needed.
-  emscripten_set_main_loop_arg__deps: ['emscripten_set_main_loop'],
+  emscripten_set_main_loop_arg__deps: ['$setMainLoop'],
   emscripten_set_main_loop_arg: function(func, arg, fps, simulateInfiniteLoop) {
-    _emscripten_set_main_loop(func, fps, simulateInfiniteLoop, arg);
+    var browserIterationFunc = function() { {{{ makeDynCall('vi') }}}(func, arg); };
+    setMainLoop(browserIterationFunc, fps, simulateInfiniteLoop, arg);
   },
 
   // Runs natively in pthread, no __proxy needed.
@@ -1355,7 +1382,7 @@ var LibraryBrowser = {
     noExitRuntime = true;
 
     function wrapper() {
-      getFuncWrapper(func, 'vi')(arg);
+      {{{ makeDynCall('vi') }}}(func, arg);
     }
 
     if (millis >= 0) {
@@ -1494,6 +1521,7 @@ var LibraryBrowser = {
     Browser.workers[id] = null;
   },
 
+  emscripten_call_worker__deps: ['$getFuncWrapper'],
   emscripten_call_worker__proxy: 'sync',
   emscripten_call_worker__sig: 'viiiiii',
   emscripten_call_worker: function(id, funcName, data, size, callback, arg) {

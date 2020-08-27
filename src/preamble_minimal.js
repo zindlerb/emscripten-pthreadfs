@@ -201,27 +201,6 @@ var wasmOffsetConverter;
 #endif
 
 #if EXIT_RUNTIME
-
-function callRuntimeCallbacks(callbacks) {
-  while(callbacks.length > 0) {
-    var callback = callbacks.shift();
-    if (typeof callback == 'function') {
-      callback();
-      continue;
-    }
-    var func = callback.func;
-    if (typeof func === 'number') {
-      if (callback.arg === undefined) {
-        dynCall_v(func);
-      } else {
-        dynCall_vi(func, callback.arg);
-      }
-    } else {
-      func(callback.arg === undefined ? null : callback.arg);
-    }
-  }
-}
-
 var __ATEXIT__    = []; // functions called during shutdown
 #endif
 
@@ -231,11 +210,6 @@ var runtimeInitialized = false;
 // This is always false in minimal_runtime - the runtime does not have a concept of exiting (keeping this variable here for now since it is referenced from generated code)
 var runtimeExited = false;
 #endif
-
-/** @param {number|boolean=} ignore */
-{{{ unSign }}}
-/** @param {number|boolean=} ignore */
-{{{ reSign }}}
 
 #include "runtime_math.js"
 
