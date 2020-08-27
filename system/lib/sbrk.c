@@ -29,6 +29,23 @@
 #define SET_ERRNO()
 #endif
 
+static intptr_t sbrk_val = 0;
+
+intptr_t* emscripten_get_sbrk_ptr() {
+  extern size_t __heap_base;
+  intptr_t* sbrk_ptr = &sbrk_val;
+#if __EMSCRIPTEN_PTHREADS__
+  if (__c11_atomic_load((_Atomic(intptr_t)*)sbrk_ptr, __ATOMIC_SEQ_CST) == 0) {
+    __c11_atomic_store((_Atomic(intptr_t)*)sbrk_ptr, (intptr_t)&__heap_base, __ATOMIC_SEQ_CST);
+  }
+#else
+  if (sbrk_val == 0) {
+    sbrk_val = (intptr_t)&__heap_base;
+  }
+#endif
+  return &sbrk_val;
+}
+
 void *sbrk(intptr_t increment) {
   uintptr_t old_size;
   // Enforce preserving a minimal 4-byte alignment for sbrk.
@@ -41,7 +58,6 @@ void *sbrk(intptr_t increment) {
   intptr_t expected;
   while (1) {
 #endif // __EMSCRIPTEN_PTHREADS__
-
     intptr_t* sbrk_ptr = emscripten_get_sbrk_ptr();
 #if __EMSCRIPTEN_PTHREADS__
     intptr_t old_brk = __c11_atomic_load((_Atomic(intptr_t)*)sbrk_ptr, __ATOMIC_SEQ_CST);

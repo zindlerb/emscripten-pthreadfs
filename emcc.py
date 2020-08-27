@@ -1262,6 +1262,14 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
     if shared.Settings.RELOCATABLE:
       shared.Settings.ALLOW_TABLE_GROWTH = 1
 
+    # various settings require sbrk() access
+    if shared.Settings.DETERMINISTIC or \
+       shared.Settings.EMSCRIPTEN_TRACING or \
+       shared.Settings.MALLOC == 'emmalloc' or \
+       shared.Settings.SAFE_HEAP or \
+       shared.Settings.MEMORYPROFILER:
+      shared.Settings.EXPORTED_FUNCTIONS += ['_sbrk']
+
     # Reconfigure the cache now that settings have been applied. Some settings
     # such as LTO and SIDE_MODULE/MAIN_MODULE effect which cache directory we use.
     shared.reconfigure_cache()
@@ -1458,8 +1466,9 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       shared.Settings.GLOBAL_BASE = 1024
 
     if shared.Settings.SAFE_HEAP:
-      # SAFE_HEAP check includes calling emscripten_get_sbrk_ptr().
-      shared.Settings.DEFAULT_LIBRARY_FUNCS_TO_INCLUDE += ['emscripten_get_sbrk_ptr', '$unSign']
+      # SAFE_HEAP check includes calling emscripten_get_sbrk_ptr() from wasm
+      shared.Settings.EXPORTED_FUNCTIONS += ['_emscripten_get_sbrk_ptr']
+      shared.Settings.DEFAULT_LIBRARY_FUNCS_TO_INCLUDE += ['$unSign']
 
     if not shared.Settings.DECLARE_ASM_MODULE_EXPORTS:
       shared.Settings.DEFAULT_LIBRARY_FUNCS_TO_INCLUDE += ['$exportAsmFunctions']
@@ -1512,7 +1521,6 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
         ]
 
       shared.Settings.EXPORTED_RUNTIME_METHODS += [
-        'getMemory',
         'addRunDependency',
         'removeRunDependency',
       ]
@@ -2589,20 +2597,6 @@ def do_binaryen(target, asm_target, options, memfile, wasm_binary_target,
   intermediate_debug_info = bool(debug_info or options.emit_symbol_map or shared.Settings.ASYNCIFY_ONLY or shared.Settings.ASYNCIFY_REMOVE or shared.Settings.ASYNCIFY_ADD)
 
   if options.binaryen_passes:
-    if '--post-emscripten' in options.binaryen_passes and not shared.Settings.SIDE_MODULE:
-      if not shared.Settings.RELOCATABLE:
-        # With the wasm backend stack point value is baked in at link time.  However, emscripten's
-        # JS compiler can allocate more static data which then shifts the stack pointer.
-        # See `makeStaticAlloc` in the JS compiler.
-        options.binaryen_passes += ['--pass-arg=stack-pointer@%d' % shared.Settings.STACK_BASE]
-      # the value of the sbrk pointer has been computed by the JS compiler, and we can apply it in the wasm
-      # (we can't add this value when we placed post-emscripten in the proper position in the list of
-      # passes because that was before the value was computed)
-      # note that we don't pass this for a side module, as the value can't be applied - it must be
-      # imported
-      options.binaryen_passes += ['--pass-arg=emscripten-sbrk-ptr@%d' % shared.Settings.DYNAMICTOP_PTR]
-      if shared.Settings.STANDALONE_WASM:
-        options.binaryen_passes += ['--pass-arg=emscripten-sbrk-val@%d' % shared.Settings.DYNAMIC_BASE]
     building.save_intermediate(wasm_binary_target, 'pre-byn.wasm')
     args = options.binaryen_passes
     building.run_wasm_opt(wasm_binary_target,
