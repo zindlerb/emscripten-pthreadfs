@@ -555,8 +555,6 @@ def backend_binaryen_passes():
   if shared.Settings.OPT_LEVEL > 0:
     if shared.Settings.DEBUG_LEVEL < 3:
       passes += ['--strip-debug']
-    if not shared.Settings.EMIT_PRODUCERS_SECTION:
-      passes += ['--strip-producers']
   if shared.Settings.AUTODEBUG:
     # adding '--flatten' here may make these even more effective
     passes += ['--instrument-locals']
@@ -1137,6 +1135,15 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       # we also do not support standalone mode in fastcomp.
       shared.Settings.STANDALONE_WASM = 1
 
+    if shared.Settings.WASM2C:
+      # wasm2c only makes sense with standalone wasm - there will be no JS,
+      # just wasm and then C
+      shared.Settings.STANDALONE_WASM = 1
+      # wasm2c doesn't need any special handling of i64, we have proper i64
+      # handling on the FFI boundary, which is exactly like the case of JS with
+      # BigInt support
+      shared.Settings.WASM_BIGINT = 1
+
     if options.no_entry:
       shared.Settings.EXPECT_MAIN = 0
     elif shared.Settings.STANDALONE_WASM:
@@ -1269,6 +1276,12 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
        shared.Settings.SAFE_HEAP or \
        shared.Settings.MEMORYPROFILER:
       shared.Settings.EXPORTED_FUNCTIONS += ['_sbrk']
+
+    if shared.Settings.ASYNCIFY:
+      # See: https://github.com/emscripten-core/emscripten/issues/12065
+      # See: https://github.com/emscripten-core/emscripten/issues/12066
+      shared.Settings.USE_LEGACY_DYNCALLS = 1
+      shared.Settings.DEFAULT_LIBRARY_FUNCS_TO_INCLUDE += ['$getDynCaller']
 
     # Reconfigure the cache now that settings have been applied. Some settings
     # such as LTO and SIDE_MODULE/MAIN_MODULE effect which cache directory we use.
@@ -1525,19 +1538,20 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
         'removeRunDependency',
       ]
 
-    if not shared.Settings.MINIMAL_RUNTIME or (shared.Settings.USE_PTHREADS or shared.Settings.EXIT_RUNTIME):
+    if not shared.Settings.MINIMAL_RUNTIME or shared.Settings.EXIT_RUNTIME:
       # MINIMAL_RUNTIME only needs callRuntimeCallbacks in certain cases, but the normal runtime
       # always does.
-      shared.Settings.DEFAULT_LIBRARY_FUNCS_TO_INCLUDE += ['$callRuntimeCallbacks']
+      shared.Settings.DEFAULT_LIBRARY_FUNCS_TO_INCLUDE += ['$callRuntimeCallbacks', '$dynCall']
 
     if shared.Settings.USE_PTHREADS:
       # memalign is used to ensure allocated thread stacks are aligned.
       shared.Settings.EXPORTED_FUNCTIONS += ['_memalign', '_malloc']
 
-      # dynCall_ii is used to call pthread entry points in worker.js (as
+      # dynCall is used to call pthread entry points in worker.js (as
       # metadce does not consider worker.js, which is external, we must
-      # consider it a user export, i.e., one which can never be removed).
-      building.user_requested_exports += ['dynCall_ii']
+      # consider it an export, i.e., one which can never be removed).
+      shared.Settings.DEFAULT_LIBRARY_FUNCS_TO_INCLUDE += ['$dynCall']
+      shared.Settings.EXPORTED_FUNCTIONS += ['dynCall']
 
       if shared.Settings.MINIMAL_RUNTIME:
         building.user_requested_exports += ['exit']
@@ -1780,9 +1794,6 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
 
     if shared.Settings.USE_PTHREADS:
       newargs.append('-pthread')
-
-    if not shared.Settings.LEGALIZE_JS_FFI:
-      assert building.is_wasm_only(), 'LEGALIZE_JS_FFI incompatible with RUNNING_JS_OPTS.'
 
     # check if we can address the 2GB mark and higher: either if we start at
     # 2GB, or if we allow growth to either any amount or to 2GB or more.
@@ -2597,12 +2608,24 @@ def do_binaryen(target, asm_target, options, memfile, wasm_binary_target,
   intermediate_debug_info = bool(debug_info or options.emit_symbol_map or shared.Settings.ASYNCIFY_ONLY or shared.Settings.ASYNCIFY_REMOVE or shared.Settings.ASYNCIFY_ADD)
 
   if options.binaryen_passes:
-    building.save_intermediate(wasm_binary_target, 'pre-byn.wasm')
-    args = options.binaryen_passes
-    building.run_wasm_opt(wasm_binary_target,
-                          wasm_binary_target,
-                          args=args,
-                          debug=intermediate_debug_info)
+    # run wasm-opt if we have work for it
+    if options.binaryen_passes:
+      # if we need to strip the producers section, and we have wasm-opt passes
+      # to run, do it with them.
+      if not shared.Settings.EMIT_PRODUCERS_SECTION:
+        options.binaryen_passes += ['--strip-producers']
+      building.save_intermediate(wasm_binary_target, 'pre-byn.wasm')
+      building.run_wasm_opt(wasm_binary_target,
+                            wasm_binary_target,
+                            args=options.binaryen_passes,
+                            debug=intermediate_debug_info)
+    else:
+      # we are not running wasm-opt. if we need to strip the producers section
+      # then do so using llvm-objcpy which is faster and does not rewrite the
+      # code (which is better for debug info)
+      if not shared.Settings.EMIT_PRODUCERS_SECTION:
+        building.save_intermediate(wasm_binary_target, 'pre-noprosec.wasm')
+        building.strip_producers(wasm_binary_target, wasm_binary_target)
 
   if shared.Settings.BINARYEN_SCRIPTS:
     binaryen_scripts = os.path.join(shared.BINARYEN_ROOT, 'scripts')

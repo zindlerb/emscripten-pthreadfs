@@ -40,18 +40,14 @@ var LibraryPThread = {
         PThread.allocateUnusedWorker();
       }
 #endif
-
-      // In asm.js we do not need to wait for Wasm Module to compile on the main thread, so can load
-      // up each Worker immediately. (in asm.js mode ignore PTHREAD_POOL_DELAY_LOAD altogether for
-      // simplicity, as multithreading performance optimizations are not interesting there)
-#if !WASM && PTHREAD_POOL_SIZE
-      addOnPreRun(function() { addRunDependency('pthreads'); });
-      var numWorkersToLoad = PThread.unusedWorkers.length;
-      PThread.unusedWorkers.forEach(function(w) { PThread.loadWasmModuleToWorker(w, function() {
-        // PTHREAD_POOL_DELAY_LOAD==0: we wanted to synchronously wait until the Worker pool
-        // has loaded up. If all Workers have finished loading up the Wasm Module, proceed with main()
-        if (!--numWorkersToLoad) removeRunDependency('pthreads');
-      })});
+    },
+    initRuntime: function() {
+#if USE_ASAN || USE_LSAN
+      // When sanitizers are enabled, malloc is normally instrumented to call
+      // sanitizer code that checks some things about pthreads. As we are just
+      // setting up the main thread here, and are not ready for such calls,
+      // call malloc directly.
+      withBuiltinMalloc(function () {
 #endif
     },
     initRuntime: function() {
@@ -580,6 +576,9 @@ var LibraryPThread = {
   },
 
   emscripten_num_logical_cores: function() {
+#if ENVIRONMENT_MAY_BE_NODE
+    if (ENVIRONMENT_IS_NODE) return require('os').cpus().length;
+#endif
     return navigator['hardwareConcurrency'];
   },
 
@@ -1102,7 +1101,7 @@ var LibraryPThread = {
 
   pthread_cleanup_push__sig: 'vii',
   pthread_cleanup_push: function(routine, arg) {
-    PThread.threadExitHandlers.push(function() { {{{ makeDynCall('vi') }}}(routine, arg) });
+    PThread.threadExitHandlers.push(function() { {{{ makeDynCall('vi', 'routine') }}}(arg) });
   },
 
   pthread_cleanup_pop: function(execute) {
