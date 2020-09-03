@@ -5851,7 +5851,6 @@ return malloc(size);
       src = open(path_from_root('tests', 'mmap_file.c')).read()
       self.do_run(src, '*\n' + s[0:20] + '\n' + s[4096:4096 + 20] + '\n*\n')
 
-  @also_with_wasm_bigint
   def test_cubescript(self):
     # uses register keyword
     self.emcc_args.append('-std=c++03')
@@ -6427,6 +6426,7 @@ return malloc(size);
     self.do_run_in_out_file_test('tests', 'core', 'EXTRA_EXPORTED_RUNTIME_METHODS.c')
 
   @no_minimal_runtime('MINIMAL_RUNTIME does not blindly export all symbols to Module to save code size')
+  @also_with_wasm_bigint
   def test_dyncall_specific(self):
     emcc_args = self.emcc_args[:]
     for which, exported_runtime_methods in [
@@ -6436,6 +6436,8 @@ return malloc(size);
       ]:
       print(which)
       self.emcc_args = emcc_args + ['-D' + which]
+      if self.get_setting('WASM_BIGINT'):
+        self.emcc_args = self.emcc_args + ['-DBIGINT']
       self.set_setting('EXTRA_EXPORTED_RUNTIME_METHODS', exported_runtime_methods)
       self.do_run_in_out_file_test('tests', 'core', 'dyncall_specific.c')
 
