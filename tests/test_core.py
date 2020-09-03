@@ -61,6 +61,7 @@ def also_with_wasm_bigint(f):
     f(self)
     if self.get_setting('WASM'):
       self.set_setting('WASM_BIGINT', 1)
+      print('bigint')
       with js_engines_modify([NODE_JS + ['--experimental-wasm-bigint']]):
         f(self)
   return decorated
@@ -5850,6 +5851,7 @@ return malloc(size);
       src = open(path_from_root('tests', 'mmap_file.c')).read()
       self.do_run(src, '*\n' + s[0:20] + '\n' + s[4096:4096 + 20] + '\n*\n')
 
+  @also_with_wasm_bigint
   def test_cubescript(self):
     # uses register keyword
     self.emcc_args.append('-std=c++03')
