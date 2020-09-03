@@ -9380,6 +9380,7 @@ int main() {
   def test_immutable_after_link(self):
     # some builds are guaranteed to not require any binaryen work after wasm-ld
     def ok(args, filename='hello_world.cpp'):
+      print('ok', args, filename)
       args += ['-sERROR_ON_WASM_CHANGES_AFTER_LINK']
       self.run_process([EMCC, path_from_root('tests', filename)] + args)
       self.assertContained('hello, world!', self.run_js('a.out.js'))
@@ -9388,13 +9389,16 @@ int main() {
     ok(['-sWASM_BIGINT'])
     # Same with DWARF
     ok(['-sWASM_BIGINT', '-g'])
+    # Function pointer calls from JS work too
+    ok(['-sWASM_BIGINT'], filename='hello_world_main_loop.cpp')
     # Even exceptions (which require dynCall/invoke) work
     # dyncalls are done, but awaiting invoke on the LLVM side,
     # https://github.com/WebAssembly/binaryen/issues/3081
-    # TODO ok(filename='hello_libcxx.cpp', args=['-sWASM_BIGINT', '-fexceptions'])
+    # ok(['-sWASM_BIGINT', '-fexceptions'], filename='hello_libcxx.cpp')
 
     # other builds fail with a standard message + extra details
     def fail(args, details):
+      print('fail', args, details)
       args += ['-sERROR_ON_WASM_CHANGES_AFTER_LINK']
       err = self.expect_fail([EMCC, path_from_root('tests', 'hello_world.cpp')] + args)
       self.assertContained('changes to the wasm are required after link, but disallowed by ERROR_ON_WASM_CHANGES_AFTER_LINK', err)
