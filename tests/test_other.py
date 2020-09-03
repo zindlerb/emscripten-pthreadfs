@@ -9388,7 +9388,9 @@ int main() {
     ok(['-sWASM_BIGINT'])
     # Same with DWARF
     ok(['-sWASM_BIGINT', '-g'])
-    # TODO # Even exceptions (which require dynCall/invoke) work
+    # Even exceptions (which require dynCall/invoke) work
+    # dyncalls are done, but awaiting invoke on the LLVM side,
+    # https://github.com/WebAssembly/binaryen/issues/3081
     # TODO ok(filename='hello_libcxx.cpp', args=['-sWASM_BIGINT', '-fexceptions'])
 
     # other builds fail with a standard message + extra details
