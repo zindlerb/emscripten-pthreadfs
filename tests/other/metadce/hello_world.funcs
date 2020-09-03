@@ -25,9 +25,12 @@ $dlfree
 $dlmalloc
 $dynCall_jiji
 <<<<<<< HEAD
+<<<<<<< HEAD
 $dynCall_vii
 =======
 $emscripten_get_sbrk_ptr
+>>>>>>> origin/master
+=======
 >>>>>>> origin/master
 $fflush
 $fmt_fp

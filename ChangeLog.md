@@ -18,6 +18,11 @@ See docs/process.md for how version tagging works.
 Current Trunk
 -------------
 - Remove `ALLOC_DYNAMIC` and deprecate `dynamicAlloc`.
+- Remove `ALLOC_DYNAMIC` and deprecate `dynamicAlloc`. (#12057, which also
+  removes the internal `DYNAMICTOP_PTR` API.)
+
+2.0.2: 09/02/2020
+-----------------
 - Simplify Fetch C API error handling: we used to check if the error code was
   0 and switch that to 404, but that only really helps `file://` URLs, which
   are not very useful for testing anyhow for other reasons (like not working

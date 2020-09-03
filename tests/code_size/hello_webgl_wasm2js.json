@@ -2,6 +2,7 @@
   "a.html": 588,
   "a.html.gz": 386,
 <<<<<<< HEAD
+<<<<<<< HEAD
   "a.js": 21692,
   "a.js.gz": 8325,
   "a.mem": 3168,
@@ -15,5 +16,13 @@
   "a.mem.gz": 2711,
   "total": 25359,
   "total_gz": 11390
+>>>>>>> origin/master
+=======
+  "a.js": 21611,
+  "a.js.gz": 8305,
+  "a.mem": 3168,
+  "a.mem.gz": 2711,
+  "total": 25374,
+  "total_gz": 11402
 >>>>>>> origin/master
 }

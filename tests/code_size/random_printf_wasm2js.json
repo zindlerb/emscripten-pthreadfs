@@ -1,5 +1,6 @@
 {
 <<<<<<< HEAD
+<<<<<<< HEAD
   "a.html": 19379,
   "a.html.gz": 8065,
   "total": 19379,
@@ -9,5 +10,11 @@
   "a.html.gz": 8070,
   "total": 19387,
   "total_gz": 8070
+>>>>>>> origin/master
+=======
+  "a.html": 19359,
+  "a.html.gz": 8042,
+  "total": 19368,
+  "total_gz": 8042
 >>>>>>> origin/master
 }
