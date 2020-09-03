@@ -49,15 +49,6 @@ var LibraryPThread = {
       // call malloc directly.
       withBuiltinMalloc(function () {
 #endif
-    },
-    initRuntime: function() {
-#if USE_ASAN || USE_LSAN
-      // When sanitizers are enabled, malloc is normally instrumented to call
-      // sanitizer code that checks some things about pthreads. As we are just
-      // setting up the main thread here, and are not ready for such calls,
-      // call malloc directly.
-      withBuiltinMalloc(function () {
-#endif
 
       PThread.mainThreadBlock = _malloc({{{ C_STRUCTS.pthread.__size__ }}});
 
