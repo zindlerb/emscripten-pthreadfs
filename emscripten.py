@@ -536,7 +536,7 @@ def finalize_wasm(temp_files, infile, outfile, memfile, DEBUG):
   base_wasm = infile
   building.save_intermediate(infile, 'base.wasm')
 
-  args = ['--detect-features']
+  args = ['--detect-features', '--minimize-wasm-changes']
 
   # if we don't need to modify the wasm, don't tell finalize to emit a wasm file
   need_modified_wasm = False
@@ -672,9 +672,6 @@ def add_standard_wasm_imports(send_items_map):
       # Module scope, so lookup via Module as well.
       memory_import += " || Module['wasmMemory']"
     send_items_map['memory'] = memory_import
-
-    # TODO: dedup
-    send_items_map['table'] = 'wasmTable'
     send_items_map['__indirect_function_table'] = 'wasmTable'
 
   # With the wasm backend __memory_base and __table_base are only needed for
