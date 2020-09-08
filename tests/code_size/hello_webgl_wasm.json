@@ -1,28 +1,10 @@
 {
   "a.html": 563,
   "a.html.gz": 377,
-<<<<<<< HEAD
-<<<<<<< HEAD
-  "a.js": 4529,
-  "a.js.gz": 2223,
-  "a.wasm": 10943,
-  "a.wasm.gz": 6952,
-  "total": 16035,
-  "total_gz": 9552
-=======
-  "a.js": 4545,
-  "a.js.gz": 2235,
-  "a.wasm": 10893,
-  "a.wasm.gz": 6922,
-  "total": 16001,
-  "total_gz": 9534
->>>>>>> origin/master
-=======
-  "a.js": 4518,
-  "a.js.gz": 2218,
+  "a.js": 4519,
+  "a.js.gz": 2219,
   "a.wasm": 10918,
   "a.wasm.gz": 6940,
-  "total": 16015,
-  "total_gz": 9535
->>>>>>> origin/master
+  "total": 16000,
+  "total_gz": 9536
 }

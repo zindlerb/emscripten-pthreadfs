@@ -1,28 +1,10 @@
 {
   "a.html": 588,
   "a.html.gz": 386,
-<<<<<<< HEAD
-<<<<<<< HEAD
-  "a.js": 22203,
-  "a.js.gz": 8489,
-  "a.mem": 3168,
-  "a.mem.gz": 2711,
-  "total": 25959,
-  "total_gz": 11586
-=======
-  "a.js": 22114,
-  "a.js.gz": 8453,
-  "a.mem": 3168,
-  "a.mem.gz": 2711,
-  "total": 25870,
-  "total_gz": 11550
->>>>>>> origin/master
-=======
   "a.js": 22122,
   "a.js.gz": 8469,
   "a.mem": 3168,
   "a.mem.gz": 2711,
-  "total": 25885,
+  "total": 25878,
   "total_gz": 11566
->>>>>>> origin/master
 }
