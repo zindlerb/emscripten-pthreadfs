@@ -538,6 +538,12 @@ def finalize_wasm(temp_files, infile, outfile, memfile, DEBUG):
   # if we don't need to modify the wasm, don't tell finalize to emit a wasm file
   modify_wasm = False
 
+  # When optimizing, we want to modify the wasm so that we optimize invokes
+  # (which we can handle in an unoptimal way otherwise, using a Proxy, which is
+  # good enough for -O0).
+  if shared.Settings.OPT_LEVEL > 0:
+    modify_wasm = True
+
   write_source_map = shared.Settings.DEBUG_LEVEL >= 4
   if write_source_map:
     building.emit_wasm_source_map(base_wasm, base_wasm + '.map')

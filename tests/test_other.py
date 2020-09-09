@@ -9398,7 +9398,7 @@ int main() {
     # Even exceptions (which require dynCall/invoke) work
     # dyncalls are done, but awaiting invoke on the LLVM side,
     # https://github.com/WebAssembly/binaryen/issues/3081
-    # ok(['-sWASM_BIGINT', '-fexceptions'], filename='hello_libcxx.cpp')
+    ok(['-sWASM_BIGINT', '-fexceptions'], filename='hello_libcxx.cpp')
 
     # other builds fail with a standard message + extra details
     def fail(args, details):

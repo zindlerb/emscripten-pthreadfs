@@ -876,6 +876,107 @@ var wasmOffsetConverter;
 // Receives the wasm imports, returns the exports.
 function createWasm() {
   // prepare imports
+#if OPT_LEVEL == 0
+  // Handle invoke imports automatically using a proxy. In optimized builds we
+  // instead always optimize this after link.
+  var originalAsmLibraryArg = asmLibraryArg;
+  asmLibraryArg = new Proxy(originalAsmLibraryArg, {
+    'get': function(obj, prop) {
+      if (prop in obj) {
+        return obj[prop]; // already present
+      }
+      console.log('wtf is', prop);
+      var prefix = '__invoke_';
+      if (prop.startsWith(prefix)) {
+        // This is an invoke. The name is the LLVM IR name, which we need to
+        // connect to the invoke_$SIG function where $SIG is the signature of
+        // wasm types. For example,
+        //
+        //  __invoke_void_%"class.std::__2::ios_base"*
+        //
+        // should be connected to invoke_vi (return void, one i32 param).
+        var pos = prefix.length;
+        // Parse the next LLVM type, from location "pos", while updating "pos".
+        // Returns the wasm signature of the type.
+        function parseLLVMType() {
+          console.log('parse', prop.substr(pos));
+          function checkPointer() {
+            var pointer = false;
+            while (pos < prop.length && prop[pos] == '*') {
+              pos++;
+              pointer = true;
+            }
+            return pointer;
+          }
+          if (prop[pos] == '%') {
+            // A pointer to some LLVM type.
+            if (prop[pos + 1] == '"') {
+              // A quoted type name, like %"foo<bar>"*
+              pos = prop.indexOf('"', pos + 2);
+              pos++;
+            } else {
+              // An unquoted type name, like %struct.foo*
+              pos = prop.indexOf('*', pos + 1);
+            }
+            var pointer = checkPointer();
+            assert(pointer);
+            return 'i';
+          }
+          if (prop[pos] == 'v') {
+            // Void.
+            assert(prop.substr(pos, 4) == 'void');
+            pos += 4;
+            return 'v';
+          }
+          if (prop[pos] == '.') {
+            // ... indicating varargs
+            assert(prop[pos + 1] == '.');
+            assert(prop[pos + 2] == '.');
+            pos += 3;
+            return 'i';
+          }
+          if (prop[pos] == 'i' || prop[pos] == 'f' || prop[pos] == 'd') {
+            // iX, float, or double
+            var start = pos;
+            while (pos < prop.length && /^[a-z0-9]$/i.test(prop[pos])) {
+              pos++;
+            }
+            var type = prop.substring(start, pos);
+            var pointer = checkPointer();
+            console.log('basic type', type, pointer);
+            if (pointer || type == 'i1' || type == 'i8' || type == 'i16' || type == 'i32') {
+              return 'i';
+            }
+            if (type == 'i64') {
+              return 'j';
+            }
+            if (type == 'float') {
+              return 'f';
+            }
+            if (type == 'double') {
+              return 'd';
+            }
+            if (type == 'fp128') {
+              return 'ii'; // WTF
+            }
+            abort('unknown type: ' + type);
+          }
+        }
+        // There must be a type for the result.
+        var sig = parseLLVMType();
+        // There may also be a number of "_" separated params.
+        while (pos < prop.length) {
+          assert(prop[pos] == '_');
+          pos++;
+          sig += parseLLVMType();
+        }
+        console.log('parsed', prop, sig);
+        return sig;
+      }
+      abort('missing import: ' + prop);
+    }
+  });
+#endif
   var info = {
 #if MINIFY_WASM_IMPORTED_MODULES
     'a': asmLibraryArg,
