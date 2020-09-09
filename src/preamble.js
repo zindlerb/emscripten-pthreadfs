@@ -908,6 +908,25 @@ function createWasm() {
             }
             return pointer;
           }
+          function skipParens() {
+            // Start from an open paren, skip all nested parens until we find
+            // the matching close.
+            assert(prop[pos] == '(');
+            var nesting = 0;
+            while (1) {
+              if (prop[pos] == '(') {
+                nesting++;
+              } else if (prop[pos] == ')') {
+                nesting--;
+              } else {
+                assert(prop[pos] != '_'); // can't reach the end yet
+              }
+              pos++;
+              if (nesting == 0) {
+                return;
+              }
+            }
+          }
           if (prop[pos] == '%') {
             // A pointer to some LLVM type.
             if (prop[pos + 1] == '"') {
@@ -926,6 +945,15 @@ function createWasm() {
             // Void.
             assert(prop.substr(pos, 4) == 'void');
             pos += 4;
+            // May be void()* etc., that is, a function pointer.
+            if (pos < prop.length && prop[pos] != '_') {
+              assert(prop[pos] == '(');
+              skipParens();
+              var pointer = checkPointer();
+              assert(pointer);
+              return 'i';
+            }
+            // Just a plain void.
             return 'v';
           }
           if (prop[pos] == '.') {
