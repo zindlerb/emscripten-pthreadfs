@@ -1255,15 +1255,16 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
         shared.Settings.LINKABLE = 1
         shared.Settings.EXPORT_ALL = 1
       shared.Settings.RELOCATABLE = 1
+
+    if shared.Settings.RELOCATABLE:
       assert not options.use_closure_compiler, 'cannot use closure compiler on shared modules'
       # shared modules need memory utilities to allocate their memory
       shared.Settings.EXPORTED_RUNTIME_METHODS += [
         'allocate',
         'getMemory',
       ]
-
-    if shared.Settings.RELOCATABLE:
       shared.Settings.ALLOW_TABLE_GROWTH = 1
+      shared.Settings.DEFAULT_LIBRARY_FUNCS_TO_INCLUDE += ['$loadDynamicLibrary', '$preloadDylibs']
 
     # various settings require sbrk() access
     if shared.Settings.DETERMINISTIC or \
@@ -1493,7 +1494,7 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       if shared.Settings.USE_PTHREADS == 2:
         exit_with_error('USE_PTHREADS=2 is not longer supported')
       if shared.Settings.ALLOW_MEMORY_GROWTH:
-        logging.warning('USE_PTHREADS + ALLOW_MEMORY_GROWTH may run non-wasm code slowly, see https://github.com/WebAssembly/design/issues/1271')
+        diagnostics.warning('pthreads-mem-growth', 'USE_PTHREADS + ALLOW_MEMORY_GROWTH may run non-wasm code slowly, see https://github.com/WebAssembly/design/issues/1271')
       # UTF8Decoder.decode doesn't work with a view of a SharedArrayBuffer
       shared.Settings.TEXTDECODER = 0
       shared.Settings.SYSTEM_JS_LIBRARIES.append((0, shared.path_from_root('src', 'library_pthread.js')))
