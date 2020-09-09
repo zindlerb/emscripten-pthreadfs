@@ -9411,7 +9411,8 @@ int main() {
     # plain -O0
     fail([], 'to disable legalization (which requires changes after link) use -s WASM_BIGINT')
     # optimized builds even without legalization
-    fail(['-O2', '-sWASM_BIGINT'], '-O2')
+    fail(['-O1', '-sWASM_BIGINT'], 'optimizations always require changes, build with -O0 instead')
+    fail(['-O2', '-sWASM_BIGINT'], 'optimizations always require changes, build with -O0 instead')
 
   def test_output_to_nowhere(self):
     self.run_process([EMCC, path_from_root('tests', 'hello_world.cpp'), '-o', os.devnull, '-c'])

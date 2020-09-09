@@ -999,7 +999,11 @@ function createWasm() {
           sig += parseLLVMType();
         }
         console.log('parsed', prop, sig);
-        return sig;
+        // The proper invoke should be present on the imports, with the wasm
+        // type name.
+        var invoke = obj[prop] = originalAsmLibraryArg['invoke_' + sig];
+        assert(invoke);
+        return invoke;
       }
       abort('missing import: ' + prop);
     }
