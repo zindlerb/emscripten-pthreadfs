@@ -543,7 +543,9 @@ def finalize_wasm(temp_files, infile, outfile, memfile, DEBUG):
   # good enough for -O0).
   if shared.Settings.OPT_LEVEL > 0:
     modify_wasm = True
-
+  if shared.Settings.WASM2JS:
+    # wasm2js requires full legalization and processing
+    modify_wasm = True
   write_source_map = shared.Settings.DEBUG_LEVEL >= 4
   if write_source_map:
     building.emit_wasm_source_map(base_wasm, base_wasm + '.map')

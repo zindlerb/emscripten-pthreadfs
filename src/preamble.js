@@ -876,12 +876,112 @@ var wasmOffsetConverter;
 // Receives the wasm imports, returns the exports.
 function createWasm() {
   // prepare imports
-#if OPT_LEVEL == 0
+#if OPT_LEVEL == 0 && !WASM2JS
   // Handle invoke imports automatically using a proxy. In optimized builds we
   // instead always optimize this after link.
   var originalAsmLibraryArg = asmLibraryArg;
   asmLibraryArg = new Proxy(originalAsmLibraryArg, {
     'get': function(obj, prop) {
+      // Parse the next LLVM type, from location "pos", while updating "pos".
+      // Returns the wasm signature of the type.
+      function parseLLVMType(isParam) {
+        //console.log('parse', prop.substr(pos));
+        function checkPointer() {
+          var pointer = false;
+          while (pos < prop.length && prop[pos] == '*') {
+            pos++;
+            pointer = true;
+          }
+          return pointer;
+        }
+        function skipParens() {
+          // Start from an open paren, skip all nested parens until we find
+          // the matching close.
+          assert(prop[pos] == '(');
+          var nesting = 0;
+          while (1) {
+            if (prop[pos] == '(') {
+              nesting++;
+            } else if (prop[pos] == ')') {
+              nesting--;
+            } else {
+              assert(prop[pos] != '_'); // can't reach the end yet
+            }
+            pos++;
+            if (nesting == 0) {
+              return;
+            }
+          }
+        }
+        if (prop[pos] == '%') {
+          // A pointer to some LLVM type.
+          if (prop[pos + 1] == '"') {
+            // A quoted type name, like %"foo<bar>"*
+            pos = prop.indexOf('"', pos + 2);
+            pos++;
+          } else {
+            // An unquoted type name, like %struct.foo*
+            pos = prop.indexOf('*', pos + 1);
+          }
+          var pointer = checkPointer();
+          assert(pointer);
+          return 'i';
+        }
+        if (prop[pos] == 'v') {
+          // Void.
+          assert(prop.substr(pos, 4) == 'void');
+          pos += 4;
+          // May be void()* etc., that is, a function pointer.
+          if (pos < prop.length && prop[pos] != '_') {
+            assert(prop[pos] == '(');
+            skipParens();
+            var pointer = checkPointer();
+            assert(pointer);
+            return 'i';
+          }
+          // Just a plain void.
+          return 'v';
+        }
+        if (prop[pos] == '.') {
+          // ... indicating varargs
+          assert(prop[pos + 1] == '.');
+          assert(prop[pos + 2] == '.');
+          pos += 3;
+          return 'i';
+        }
+        if (prop[pos] == 'i' || prop[pos] == 'f' || prop[pos] == 'd') {
+          // iX, float, or double
+          var start = pos;
+          while (pos < prop.length && /^[a-z0-9]$/i.test(prop[pos])) {
+            pos++;
+          }
+          var type = prop.substring(start, pos);
+          var pointer = checkPointer();
+          //console.log('basic type', type, pointer);
+          if (pointer || type == 'i1' || type == 'i8' || type == 'i16' || type == 'i32') {
+            return 'i';
+          }
+          if (type == 'i64') {
+            return 'j';
+          }
+          if (type == 'float') {
+            return 'f';
+          }
+          if (type == 'double') {
+            return 'd';
+          }
+          if (type == 'fp128') {
+            if (isParam) {
+              return 'i';
+            } else {
+              // Returning an fp128 is via an extra out param.
+              extraParam = 'i';
+              return 'v';
+            }
+          }
+          abort('unknown type: ' + type);
+        }
+      }
       if (prop in obj) {
         return obj[prop]; // already present
       }
@@ -898,106 +998,6 @@ function createWasm() {
         var pos = prefix.length;
         // We may need an extra out param for special return types.
         var extraParam = '';
-        // Parse the next LLVM type, from location "pos", while updating "pos".
-        // Returns the wasm signature of the type.
-        function parseLLVMType(isParam) {
-          //console.log('parse', prop.substr(pos));
-          function checkPointer() {
-            var pointer = false;
-            while (pos < prop.length && prop[pos] == '*') {
-              pos++;
-              pointer = true;
-            }
-            return pointer;
-          }
-          function skipParens() {
-            // Start from an open paren, skip all nested parens until we find
-            // the matching close.
-            assert(prop[pos] == '(');
-            var nesting = 0;
-            while (1) {
-              if (prop[pos] == '(') {
-                nesting++;
-              } else if (prop[pos] == ')') {
-                nesting--;
-              } else {
-                assert(prop[pos] != '_'); // can't reach the end yet
-              }
-              pos++;
-              if (nesting == 0) {
-                return;
-              }
-            }
-          }
-          if (prop[pos] == '%') {
-            // A pointer to some LLVM type.
-            if (prop[pos + 1] == '"') {
-              // A quoted type name, like %"foo<bar>"*
-              pos = prop.indexOf('"', pos + 2);
-              pos++;
-            } else {
-              // An unquoted type name, like %struct.foo*
-              pos = prop.indexOf('*', pos + 1);
-            }
-            var pointer = checkPointer();
-            assert(pointer);
-            return 'i';
-          }
-          if (prop[pos] == 'v') {
-            // Void.
-            assert(prop.substr(pos, 4) == 'void');
-            pos += 4;
-            // May be void()* etc., that is, a function pointer.
-            if (pos < prop.length && prop[pos] != '_') {
-              assert(prop[pos] == '(');
-              skipParens();
-              var pointer = checkPointer();
-              assert(pointer);
-              return 'i';
-            }
-            // Just a plain void.
-            return 'v';
-          }
-          if (prop[pos] == '.') {
-            // ... indicating varargs
-            assert(prop[pos + 1] == '.');
-            assert(prop[pos + 2] == '.');
-            pos += 3;
-            return 'i';
-          }
-          if (prop[pos] == 'i' || prop[pos] == 'f' || prop[pos] == 'd') {
-            // iX, float, or double
-            var start = pos;
-            while (pos < prop.length && /^[a-z0-9]$/i.test(prop[pos])) {
-              pos++;
-            }
-            var type = prop.substring(start, pos);
-            var pointer = checkPointer();
-            //console.log('basic type', type, pointer);
-            if (pointer || type == 'i1' || type == 'i8' || type == 'i16' || type == 'i32') {
-              return 'i';
-            }
-            if (type == 'i64') {
-              return 'j';
-            }
-            if (type == 'float') {
-              return 'f';
-            }
-            if (type == 'double') {
-              return 'd';
-            }
-            if (type == 'fp128') {
-              if (isParam) {
-                return 'i';
-              } else {
-                // Returning an fp128 is via an extra out param.
-                extraParam = 'i';
-                return 'v';
-              }
-            }
-            abort('unknown type: ' + type);
-          }
-        }
         // There must be a type for the result.
         var sig = parseLLVMType(false /* isParam */);
         // There may also be a number of "_" separated params.
