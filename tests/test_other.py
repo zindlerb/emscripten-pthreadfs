@@ -9351,11 +9351,11 @@ int main() {
 
   def test_immutable_after_link(self):
     # some builds are guaranteed to not require any binaryen work after wasm-ld
-    def ok(args, filename='hello_world.cpp'):
+    def ok(args, filename='hello_world.cpp', expected='hello, world!'):
       print('ok', args, filename)
       args += ['-sERROR_ON_WASM_CHANGES_AFTER_LINK']
       self.run_process([EMCC, path_from_root('tests', filename)] + args)
-      self.assertContained('hello, world!', self.run_js('a.out.js'))
+      self.assertContained(expected, self.run_js('a.out.js'))
 
     # -O0 with BigInt support (to avoid the need for legalization)
     ok(['-sWASM_BIGINT'])
@@ -9363,7 +9363,10 @@ int main() {
     ok(['-sWASM_BIGINT', '-g'])
     # Function pointer calls from JS work too
     ok(['-sWASM_BIGINT'], filename='hello_world_main_loop.cpp')
-    # Even exceptions (which require dynCall/invoke) work
+    # setjmp/longjmp should not require special renamings in wasm-emscripten-finalize
+    ok(['-sWASM_BIGINT'], filename=os.path.join('core', 'test_longjmp.c'),
+                          expected='result: 2 -1')
+    # Exceptions also require dynCall/invoke work.
     # dyncalls are done, but awaiting invoke on the LLVM side,
     # https://github.com/WebAssembly/binaryen/issues/3081
     ok(['-sWASM_BIGINT', '-fexceptions'], filename='hello_libcxx.cpp')
