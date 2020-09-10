@@ -2977,6 +2977,9 @@ def generate_traditional_runtime_html(target, options, js_target, target_basenam
 
 
 def minify_html(filename, options):
+  if shared.Settings.DEBUG_LEVEL >= 2:
+    return
+
   opts = []
   # -g1 and greater retain whitespace and comments in source
   if shared.Settings.DEBUG_LEVEL == 0:
@@ -3006,16 +3009,10 @@ def minify_html(filename, options):
   # '--remove-empty-elements': removes all elements with empty contents.
   #                            (Breaks at least browser.test_asm_swapping)
 
-  if shared.Settings.DEBUG_LEVEL >= 2:
-    return
-
   logger.debug('minifying HTML file ' + filename)
   size_before = os.path.getsize(filename)
   start_time = time.time()
-  try:
-    run_process([shared.path_from_root('node_modules', '.bin', 'html-minifier-terser' + ('.cmd' if WINDOWS else '')), filename, '-o', filename] + opts, env=shared.env_with_node_in_path())
-  except OSError:
-    exit_with_error('html-minifier-terser was not found! Please run "npm install" in Emscripten root directory to set up npm dependencies!')
+  shared.check_call(shared.get_npm_cmd('html-minifier-terser') + [filename, '-o', filename] + opts, env=shared.env_with_node_in_path())
 
   elapsed_time = time.time() - start_time
   size_after = os.path.getsize(filename)

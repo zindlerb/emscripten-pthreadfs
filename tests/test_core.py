@@ -20,7 +20,7 @@ if __name__ == '__main__':
   raise Exception('do not run this file directly; do something like: tests/runner.py')
 
 from tools.shared import try_delete, PIPE
-from tools.shared import NODE_JS, V8_ENGINE, JS_ENGINES, SPIDERMONKEY_ENGINE, PYTHON, EMCC, EMAR, WINDOWS, MACOS, AUTODEBUGGER, LLVM_ROOT
+from tools.shared import NODE_JS, V8_ENGINE, JS_ENGINES, SPIDERMONKEY_ENGINE, PYTHON, EMCC, EMAR, WINDOWS, MACOS, LLVM_ROOT
 from tools import shared, building
 from runner import RunnerCore, path_from_root, requires_native_clang
 from runner import skip_if, no_wasm_backend, needs_dlfcn, no_windows, no_asmjs, is_slow_test, create_test_file, parameterized
@@ -5206,6 +5206,7 @@ main( int argv, char ** argc ) {
       self.do_run_in_out_file_test('tests', 'core', 'test_istream.cpp')
 
   def test_fs_base(self):
+    self.uses_es6 = True
     # TODO(sbc): It seems that INCLUDE_FULL_LIBRARY will generally generate
     # undefined symbols at link time so perhaps have it imply this setting?
     self.set_setting('WARN_ON_UNDEFINED_SYMBOLS', 0)
@@ -5268,6 +5269,7 @@ main( int argv, char ** argc ) {
     self.do_runf(path_from_root('tests', 'fs', 'test_append.c'), 'success')
 
   def test_fs_mmap(self):
+    self.uses_es6 = True
     orig_compiler_opts = self.emcc_args[:]
     for fs in ['MEMFS', 'NODEFS']:
       src = path_from_root('tests', 'fs', 'test_mmap.c')
@@ -5313,7 +5315,7 @@ main( int argv, char ** argc ) {
 
   @no_windows('https://github.com/emscripten-core/emscripten/issues/8882')
   def test_unistd_access(self):
-    self.clear()
+    self.uses_es6 = True
     orig_compiler_opts = self.emcc_args[:]
     for fs in ['MEMFS', 'NODEFS']:
       self.emcc_args = orig_compiler_opts + ['-D' + fs]
@@ -5327,6 +5329,7 @@ main( int argv, char ** argc ) {
       self.do_run_in_out_file_test('tests', 'unistd', 'access.c', js_engines=[NODE_JS])
 
   def test_unistd_curdir(self):
+    self.uses_es6 = True
     self.do_run_in_out_file_test('tests', 'unistd', 'curdir.c')
 
   @also_with_noderawfs
@@ -5351,7 +5354,7 @@ main( int argv, char ** argc ) {
     self.do_run_in_out_file_test('tests', 'unistd', 'pathconf.c')
 
   def test_unistd_truncate(self):
-    self.clear()
+    self.uses_es6 = True
     orig_compiler_opts = self.emcc_args[:]
     for fs in ['MEMFS', 'NODEFS']:
       self.emcc_args = orig_compiler_opts + ['-D' + fs]
@@ -6298,28 +6301,6 @@ return malloc(size);
     self.emcc_args += ['-flto']
 
     run_all('lto')
-
-  def test_autodebug_bitcode(self):
-    if '-flto' not in self.get_emcc_args():
-      return self.skipTest('must use bitcode object files for bitcode autodebug')
-
-    self.emcc_args += ['--llvm-opts', '0']
-
-    # Run a test that should work, generating some code
-    test_path = path_from_root('tests', 'core', 'test_structs.c')
-    src = test_path + '.c'
-    output = test_path + '.out'
-    self.do_run_from_file(src, output)
-
-    filename = 'out'
-    self.run_process([EMCC, '-c', src, '-o', filename + '.o'] + self.get_emcc_args())
-
-    # Autodebug the code
-    objfile = filename + '.o'
-    building.llvm_dis(objfile, filename + '.ll')
-    self.run_process([PYTHON, AUTODEBUGGER, filename + '.ll', filename + '.auto.ll'])
-    building.llvm_as(filename + '.auto.ll', objfile)
-    self.do_run_object(objfile, 'AD:-1,1')
 
   @also_with_standalone_wasm(wasm2c=True, impure=True)
   @no_asan('autodebug logging interferes with asan')
