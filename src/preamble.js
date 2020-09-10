@@ -895,9 +895,11 @@ function createWasm() {
           return pointer;
         }
         function skipParens() {
+          if (pos == prop.length || prop[pos] != '(') {
+            return;
+          }
           // Start from an open paren, skip all nested parens until we find
           // the matching close.
-          assert(prop[pos] == '(');
           var nesting = 0;
           while (1) {
             if (prop[pos] == '(') {
@@ -923,20 +925,18 @@ function createWasm() {
             // An unquoted type name, like %struct.foo*
             pos = prop.indexOf('*', pos + 1);
           }
-          var pointer = checkPointer();
-          assert(pointer);
-          return 'i';
+          skipParens();
+          if (checkPointer()) {
+            return 'i';
+          }
+          abort('% type must be a pointer');
         }
         if (prop[pos] == 'v') {
           // Void.
           assert(prop.substr(pos, 4) == 'void');
           pos += 4;
-          // May be void()* etc., that is, a function pointer.
-          if (pos < prop.length && prop[pos] != '_') {
-            assert(prop[pos] == '(');
-            skipParens();
-            var pointer = checkPointer();
-            assert(pointer);
+          skipParens();
+          if (checkPointer()) {
             return 'i';
           }
           // Just a plain void.
