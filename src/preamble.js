@@ -885,7 +885,7 @@ function createWasm() {
       if (prop in obj) {
         return obj[prop]; // already present
       }
-      console.log('wtf is', prop);
+      //console.log('wtf is', prop);
       var prefix = '__invoke_';
       if (prop.startsWith(prefix)) {
         // This is an invoke. The name is the LLVM IR name, which we need to
@@ -896,10 +896,12 @@ function createWasm() {
         //
         // should be connected to invoke_vi (return void, one i32 param).
         var pos = prefix.length;
+        // We may need an extra out param for special return types.
+        var extraParam = '';
         // Parse the next LLVM type, from location "pos", while updating "pos".
         // Returns the wasm signature of the type.
-        function parseLLVMType() {
-          console.log('parse', prop.substr(pos));
+        function parseLLVMType(isParam) {
+          //console.log('parse', prop.substr(pos));
           function checkPointer() {
             var pointer = false;
             while (pos < prop.length && prop[pos] == '*') {
@@ -971,7 +973,7 @@ function createWasm() {
             }
             var type = prop.substring(start, pos);
             var pointer = checkPointer();
-            console.log('basic type', type, pointer);
+            //console.log('basic type', type, pointer);
             if (pointer || type == 'i1' || type == 'i8' || type == 'i16' || type == 'i32') {
               return 'i';
             }
@@ -985,25 +987,37 @@ function createWasm() {
               return 'd';
             }
             if (type == 'fp128') {
-              return 'ii'; // WTF
+              if (isParam) {
+                return 'i';
+              } else {
+                // Returning an fp128 is via an extra out param.
+                extraParam = 'i';
+                return 'v';
+              }
             }
             abort('unknown type: ' + type);
           }
         }
         // There must be a type for the result.
-        var sig = parseLLVMType();
+        var sig = parseLLVMType(false /* isParam */);
         // There may also be a number of "_" separated params.
         while (pos < prop.length) {
           assert(prop[pos] == '_');
           pos++;
-          sig += parseLLVMType();
+          sig += parseLLVMType(true /* isParam */);
         }
+        sig += extraParam;
         console.log('parsed', prop, sig);
         // The proper invoke should be present on the imports, with the wasm
         // type name.
-        var invoke = obj[prop] = originalAsmLibraryArg['invoke_' + sig];
+        var invoke = originalAsmLibraryArg['invoke_' + sig];
         assert(invoke);
-        return invoke;
+        // Convert to a wasm function. This lets the wasm VM verify the type is
+        // correct, which would catch any bugs in the above parsing. Note that
+        // here we need the signature of the invoke itself, which includes the
+        // function pointer, as opposed to the signature of the indirect call.
+        invoke = convertJsFunctionToWasm(invoke, sig[0] + 'i' + sig.substr(1));
+        return obj[prop] = invoke;
       }
       abort('missing import: ' + prop);
     }
