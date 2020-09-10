@@ -885,12 +885,16 @@ function createWasm() {
       // Parse the next LLVM type, from location "pos", while updating "pos".
       // Returns the wasm signature of the type.
       function parseLLVMType(isParam) {
-        //console.log('parse', prop.substr(pos));
+        console.log('parse', prop.substr(pos));
         function checkPointer() {
           var pointer = false;
           while (pos < prop.length && prop[pos] == '*') {
             pos++;
             pointer = true;
+          }
+          if (pointer) {
+            // May also be a function pointer.
+            skipParens();
           }
           return pointer;
         }
@@ -906,13 +910,25 @@ function createWasm() {
               nesting++;
             } else if (prop[pos] == ')') {
               nesting--;
-            } else {
-              assert(prop[pos] != '_'); // can't reach the end yet
             }
             pos++;
             if (nesting == 0) {
               return;
             }
+          }
+        }
+        function moreInThisType() {
+          return pos < prop.length && prop[pos] != '_';
+        }
+        function skipWhatMustBeAPointer() {
+          while (1) {
+            var old = pos;
+            skipParens();
+            if (pos != old) continue;
+            var old = pos;
+            checkPointer();
+            if (pos != old) continue;
+            return 'i';
           }
         }
         if (prop[pos] == '%') {
@@ -925,11 +941,8 @@ function createWasm() {
             // An unquoted type name, like %struct.foo*
             pos = prop.indexOf('*', pos + 1);
           }
-          skipParens();
-          if (checkPointer()) {
-            return 'i';
-          }
-          abort('% type must be a pointer');
+          skipWhatMustBeAPointer();
+          return 'i';
         }
         if (prop[pos] == 'v') {
           // Void.
@@ -956,9 +969,11 @@ function createWasm() {
             pos++;
           }
           var type = prop.substring(start, pos);
-          var pointer = checkPointer();
-          //console.log('basic type', type, pointer);
-          if (pointer || type == 'i1' || type == 'i8' || type == 'i16' || type == 'i32') {
+          if (moreInThisType()) {
+            skipWhatMustBeAPointer();
+            return 'i';
+          }
+          if (type == 'i1' || type == 'i8' || type == 'i16' || type == 'i32') {
             return 'i';
           }
           if (type == 'i64') {
