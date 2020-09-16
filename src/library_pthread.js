@@ -293,6 +293,7 @@ var LibraryPThread = {
       worker.onmessage = function(e) {
         var d = e['data'];
         var cmd = d['cmd'];
+//        console.log('got cmd', cmd);
         // Sometimes we need to backproxy events to the calling thread (e.g. HTML5 DOM events handlers such as emscripten_set_mousemove_callback()), so keep track in a globally accessible variable about the thread that initiated the proxying.
         if (worker.pthread) PThread.currentProxiedOperationCallerThread = worker.pthread.threadInfoStruct;
 
@@ -1307,6 +1308,7 @@ var LibraryPThread = {
 #if ASSERTIONS
     assert(func.length == numCallArgs, 'Call args mismatch in emscripten_receive_on_main_thread_js');
 #endif
+//    console.log('emscripten_receive_on_main_thread_js');
     return func.apply(null, _emscripten_receive_on_main_thread_js_callArgs);
   },
 

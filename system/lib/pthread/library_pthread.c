@@ -120,9 +120,12 @@ void emscripten_thread_sleep(double msecs) {
   double now = emscripten_get_now();
   double target = now + msecs;
 
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 18; });
+
   __pthread_testcancel(); // pthreads spec: sleep is a cancellation point, so must test if this
                           // thread is cancelled during the sleep.
   emscripten_current_thread_process_queued_calls();
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 19; });
 
   // If we have less than this many msecs left to wait, busy spin that instead.
   const double minimumTimeSliceToSleep = 0.1;
@@ -134,10 +137,12 @@ void emscripten_thread_sleep(double msecs) {
     EM_THREAD_STATUS_RUNNING, EM_THREAD_STATUS_SLEEPING);
   now = emscripten_get_now();
   while (now < target) {
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 20; });
     // Keep processing the main loop of the calling thread.
     __pthread_testcancel(); // pthreads spec: sleep is a cancellation point, so must test if this
                             // thread is cancelled during the sleep.
     emscripten_current_thread_process_queued_calls();
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 21; });
 
     now = emscripten_get_now();
     double msecsToSleep = target - now;
@@ -150,6 +155,7 @@ void emscripten_thread_sleep(double msecs) {
 
   emscripten_conditional_set_current_thread_status(
     EM_THREAD_STATUS_SLEEPING, EM_THREAD_STATUS_RUNNING);
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 30; });
 }
 
 int nanosleep(const struct timespec* req, struct timespec* rem) {
@@ -174,6 +180,7 @@ static em_queued_call* em_queued_call_malloc() {
     call->operationDone = 0;
     call->functionPtr = 0;
     call->satelliteData = 0;
+    call->targetThread = 0;
   }
   return call;
 }
@@ -410,20 +417,40 @@ static CallQueue* GetOrAllocateQueue(
 }
 
 EMSCRIPTEN_RESULT emscripten_wait_for_call_v(em_queued_call* call, double timeoutMSecs) {
+if (timeoutMSecs != INFINITY) abort();
   int r;
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 50; });
 
   int done = emscripten_atomic_load_u32(&call->operationDone);
   if (!done) {
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 51; });
     double now = emscripten_get_now();
     double waitEndTime = now + timeoutMSecs;
     emscripten_set_current_thread_status(EM_THREAD_STATUS_WAITPROXY);
     while (!done && now < waitEndTime) {
-      r = emscripten_futex_wait(&call->operationDone, 0, waitEndTime - now);
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 53; });
+      // Wait at most one second in each loop iteration. That keeps CPU load low
+      // while also avoids a possible race condition, as call->operationDone
+      // can be set *after* we checked it but *before* we do the futex_wait. The
+      // futex_wait is not aware of call->operationDone which means if we wait
+      // forever there we'd never return to the loop and get another chance to
+      // check.
+      // FIXME: this does mean we can end up with an almost 1 second wait that
+      // is unnecessary in some cases. Exponential backoff may make more sense.
+      double currWait = fmin(waitEndTime - now, 1000);
+//EM_ASM({ console.log(typeof importScripts, $0) }, currWait);
+   
+      r = emscripten_futex_wait(&call->operationDone, 0, currWait);
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 54; });
       done = emscripten_atomic_load_u32(&call->operationDone);
+      if (!done) {
+        _emscripten_notify_thread_queue(call->targetThread, emscripten_main_browser_thread_id());
+      }
       now = emscripten_get_now();
     }
     emscripten_set_current_thread_status(EM_THREAD_STATUS_RUNNING);
   }
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 55; });
   if (done)
     return EMSCRIPTEN_RESULT_SUCCESS;
   else
@@ -451,6 +478,7 @@ pthread_t EMSCRIPTEN_KEEPALIVE emscripten_main_browser_thread_id() {
 
 int EMSCRIPTEN_KEEPALIVE do_emscripten_dispatch_to_thread(
   pthread_t target_thread, em_queued_call* call) {
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 1; });
   assert(call);
 
   // #if PTHREADS_DEBUG // TODO: Create a debug version of pthreads library
@@ -468,33 +496,50 @@ int EMSCRIPTEN_KEEPALIVE do_emscripten_dispatch_to_thread(
   // If we are the target recipient of this message, we can just call the operation directly.
   if (target_thread == EM_CALLBACK_THREAD_CONTEXT_CALLING_THREAD ||
       target_thread == pthread_self()) {
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 2; });
     _do_call(call);
     return 1;
   }
 
+//EM_ASM({ HEAP32[1] = $0 + 4  }, &call_queue_lock); // will be 0 before lock, 10 after
+
   // Add the operation to the call queue of the main runtime thread.
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 3; }); // last seen!
+//EM_ASM({ throw "waka " + HEAP32[$0 + 4 >> 2] }, &call_queue_lock); // will be 0 before locking
   pthread_mutex_lock(&call_queue_lock);
+//EM_ASM({ assert(HEAP32[HEAP32[1] >> 2] == 10, 'locky'); });
+//EM_ASM({ throw "wazka " + HEAP32[$0 + 4 >> 2] }, &call_queue_lock); // will be 10 after locking
+EM_ASM({ HEAP8[2 + (typeof importScripts === "undefined" ? 0 : 1)] = 1; });
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 4; });
   CallQueue* q = GetOrAllocateQueue(target_thread);
   if (!q->call_queue)
     q->call_queue = malloc(
       sizeof(em_queued_call*) * CALL_QUEUE_SIZE); // Shared data synchronized by call_queue_lock.
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 5; });
 
   int head = emscripten_atomic_load_u32((void*)&q->call_queue_head);
   int tail = emscripten_atomic_load_u32((void*)&q->call_queue_tail);
   int new_tail = (tail + 1) % CALL_QUEUE_SIZE;
 
   while (new_tail == head) { // Queue is full?
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 6; });
+EM_ASM({ HEAP8[2 + (typeof importScripts === "undefined" ? 0 : 1)] = 5; });
     pthread_mutex_unlock(&call_queue_lock);
 
     // If queue of the main browser thread is full, then we wait. (never drop messages for the main
     // browser thread)
     if (target_thread == emscripten_main_browser_thread_id()) {
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 7; });
       emscripten_futex_wait((void*)&q->call_queue_head, head, INFINITY);
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 8; });
       pthread_mutex_lock(&call_queue_lock);
+EM_ASM({ HEAP8[2 + (typeof importScripts === "undefined" ? 0 : 1)] = 2; });
       head = emscripten_atomic_load_u32((void*)&q->call_queue_head);
       tail = emscripten_atomic_load_u32((void*)&q->call_queue_tail);
       new_tail = (tail + 1) % CALL_QUEUE_SIZE;
     } else {
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 9; });
+abort();
       // For the queues of other threads, just drop the message.
       // #if DEBUG TODO: a debug build of pthreads library?
       //			EM_ASM(console.error('Pthread queue overflowed, dropping queued
@@ -504,6 +549,7 @@ int EMSCRIPTEN_KEEPALIVE do_emscripten_dispatch_to_thread(
       return 0;
     }
   }
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 10; });
 
   q->call_queue[tail] = call;
 
@@ -511,18 +557,27 @@ int EMSCRIPTEN_KEEPALIVE do_emscripten_dispatch_to_thread(
   // so send a message to it to ensure that it wakes up to start processing the command we have
   // posted.
   if (head == tail) {
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 11; });
     int success = _emscripten_notify_thread_queue(target_thread, emscripten_main_browser_thread_id());
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 12; });
     // Failed to dispatch the thread, delete the crafted message.
     if (!success) {
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 13; });
+      abort();
       em_queued_call_free(call);
+EM_ASM({ HEAP8[2 + (typeof importScripts === "undefined" ? 0 : 1)] = 6; });
       pthread_mutex_unlock(&call_queue_lock);
       return 0;
     }
   }
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 14; });
 
   emscripten_atomic_store_u32((void*)&q->call_queue_tail, new_tail);
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 15; });
 
+EM_ASM({ HEAP8[2 + (typeof importScripts === "undefined" ? 0 : 1)] = 7; });
   pthread_mutex_unlock(&call_queue_lock);
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 16; });
 
   return 0;
 }
@@ -532,10 +587,13 @@ void EMSCRIPTEN_KEEPALIVE emscripten_async_run_in_main_thread(em_queued_call* ca
 }
 
 void EMSCRIPTEN_KEEPALIVE emscripten_sync_run_in_main_thread(em_queued_call* call) {
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 45; }); // last seen?
   emscripten_async_run_in_main_thread(call);
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 46; });
 
   // Enter to wait for the operation to complete.
   emscripten_wait_for_call_v(call, INFINITY);
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 47; });
 }
 
 void* EMSCRIPTEN_KEEPALIVE emscripten_sync_run_in_main_thread_0(int function) {
@@ -674,9 +732,13 @@ void EMSCRIPTEN_KEEPALIVE emscripten_current_thread_process_queued_calls() {
     bool_main_thread_inside_nested_process_queued_calls = 1;
   }
 
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 10; });
   pthread_mutex_lock(&call_queue_lock);
+EM_ASM({ HEAP8[2 + (typeof importScripts === "undefined" ? 0 : 1)] = 3; });
   CallQueue* q = GetQueue(pthread_self());
   if (!q) {
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 11; });
+EM_ASM({ HEAP8[2 + (typeof importScripts === "undefined" ? 0 : 1)] = 8; });
     pthread_mutex_unlock(&call_queue_lock);
     if (emscripten_is_main_browser_thread())
       bool_main_thread_inside_nested_process_queued_calls = 0;
@@ -688,28 +750,48 @@ void EMSCRIPTEN_KEEPALIVE emscripten_current_thread_process_queued_calls() {
   while (head != tail) {
     // Assume that the call is heavy, so unlock access to the call queue while it is being
     // performed.
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 12; });
+EM_ASM({ HEAP8[2 + (typeof importScripts === "undefined" ? 0 : 1)] = 9; });
     pthread_mutex_unlock(&call_queue_lock);
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 13; });
     _do_call(q->call_queue[head]);
     pthread_mutex_lock(&call_queue_lock);
+EM_ASM({ HEAP8[2 + (typeof importScripts === "undefined" ? 0 : 1)] = 4; });
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 14; });
 
     head = (head + 1) % CALL_QUEUE_SIZE;
     emscripten_atomic_store_u32((void*)&q->call_queue_head, head);
     tail = emscripten_atomic_load_u32((void*)&q->call_queue_tail);
   }
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 15; });
+EM_ASM({ HEAP8[2 + (typeof importScripts === "undefined" ? 0 : 1)] = 10; });
   pthread_mutex_unlock(&call_queue_lock);
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 16; });
 
   // If the queue was full and we had waiters pending to get to put data to queue, wake them up.
   emscripten_futex_wake((void*)&q->call_queue_head, 0x7FFFFFFF);
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 17; });
 
   if (emscripten_is_main_browser_thread())
     bool_main_thread_inside_nested_process_queued_calls = 0;
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 18; });
 }
 
 void EMSCRIPTEN_KEEPALIVE emscripten_main_thread_process_queued_calls() {
   if (!emscripten_is_main_runtime_thread())
     return;
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 22; });
+
+EM_ASM({
+if (!Module.waka) {
+  Module.waka = 1;
+  setInterval(() => {console.log("I... live")}, 1000);
+}
+});
 
   emscripten_current_thread_process_queued_calls();
+  EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 23; });
+
 }
 
 int emscripten_sync_run_in_main_runtime_thread_(EM_FUNC_SIGNATURE sig, void* func_ptr, ...) {
@@ -750,10 +832,12 @@ EMSCRIPTEN_KEEPALIVE double emscripten_run_in_main_runtime_thread_js(int index, 
     c = &q;
   } else {
     c = em_queued_call_malloc();
+    if (!c) abort();
   }
   c->calleeDelete = 1-sync;
   c->functionEnum = EM_PROXIED_JS_FUNCTION;
   c->functionPtr = (void*)index;
+  c->targetThread = emscripten_main_browser_thread_id();
   // We write out the JS doubles into args[], which must be of appropriate size - JS will assume that.
   assert(sizeof(em_variant_val) == sizeof(double));
   assert(num_args+1 <= EM_QUEUED_JS_CALL_MAX_ARGS);
@@ -763,12 +847,16 @@ EMSCRIPTEN_KEEPALIVE double emscripten_run_in_main_runtime_thread_js(int index, 
   }
 
   if (sync) {
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 43; }); // last seen?
     emscripten_sync_run_in_main_thread(&q);
+EM_ASM({ HEAP8[typeof importScripts === "undefined" ? 0 : 1] = 44; });
     return q.returnValue.d;
   } else {
     // 'async' runs are fire and forget, where the caller detaches itself from the call object after
     // returning here, and it is the callee's responsibility to free up the memory after the call
     // has been performed.
+    abort();
+//    EM_ASM({ console.log('async run in main') });
     emscripten_async_run_in_main_thread(c);
     return 0;
   }
@@ -781,6 +869,7 @@ void emscripten_async_run_in_main_runtime_thread_(EM_FUNC_SIGNATURE sig, void* f
     return;
   q->functionEnum = sig;
   q->functionPtr = func_ptr;
+  q->targetThread = emscripten_main_browser_thread_id();
 
   EM_FUNC_SIGNATURE argumentsType = sig & EM_FUNC_SIG_ARGUMENTS_TYPE_MASK;
   va_list args;
@@ -818,6 +907,7 @@ em_queued_call* emscripten_async_waitable_run_in_main_runtime_thread_(
     return NULL;
   q->functionEnum = sig;
   q->functionPtr = func_ptr;
+  q->targetThread = emscripten_main_browser_thread_id();
 
   EM_FUNC_SIGNATURE argumentsType = sig & EM_FUNC_SIG_ARGUMENTS_TYPE_MASK;
   va_list args;
@@ -864,6 +954,7 @@ int EMSCRIPTEN_KEEPALIVE _emscripten_call_on_thread(
   q->functionEnum = sig;
   q->functionPtr = func_ptr;
   q->satelliteData = satellite;
+  q->targetThread = targetThread;
 
   EM_FUNC_SIGNATURE argumentsType = sig & EM_FUNC_SIG_ARGUMENTS_TYPE_MASK;
   va_list args;

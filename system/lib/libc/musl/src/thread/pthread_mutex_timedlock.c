@@ -1,3 +1,4 @@
+#include <emscripten.h>
 #include "pthread_impl.h"
 
 int __pthread_mutex_timedlock(pthread_mutex_t *restrict m, const struct timespec *restrict at)
@@ -10,7 +11,15 @@ int __pthread_mutex_timedlock(pthread_mutex_t *restrict m, const struct timespec
 
 	r = pthread_mutex_trylock(m);
 	if (r != EBUSY) return r;
-	
+
+#ifdef __EMSCRIPTEN__
+	// 
+	struct timespec default_at = {.tv_sec = 1, .tv_nsec = 0};
+	if (!at) at = &default_at;
+#endif
+
+//EM_ASM({ console.log("tricky locky", typeof importScripts) });	
+
 	int spins = 100;
 	while (spins-- && m->_m_lock && !m->_m_waiters) a_spin();
 
@@ -21,10 +30,13 @@ int __pthread_mutex_timedlock(pthread_mutex_t *restrict m, const struct timespec
 		 && (r&0x7fffffff) == __pthread_self()->tid)
 			return EDEADLK;
 
+
 		a_inc(&m->_m_waiters);
 		t = r | 0x80000000;
 		a_cas(&m->_m_lock, r, t);
+EM_ASM({ console.log("diabolical locky", typeof importScripts) });
 		r = __timedwait(&m->_m_lock, t, CLOCK_REALTIME, at, priv);
+EM_ASM({ console.log("angelical", typeof importScripts, $0) }, r);	
 		a_dec(&m->_m_waiters);
 		if (r && r != EINTR) break;
 	}
