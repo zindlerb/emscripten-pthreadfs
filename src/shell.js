@@ -140,10 +140,29 @@ function locateFile(path) {
 }
 
 // Hooks that are implemented differently in different runtime environments.
-var read_,
-    readAsync,
+var readAsync,
     readBinary,
     setWindowTitle;
+
+function readSync(url, binary) {
+#if SUPPORT_BASE64_EMBEDDING
+  try {
+#endif
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, /* async = */ false);
+    if (binary) xhr.responseType = 'arraybuffer';
+    xhr.send(null);
+    return xhr.responseText;
+#if SUPPORT_BASE64_EMBEDDING
+  } catch (err) {
+    var data = tryParseAsDataURI(url);
+    if (data) {
+      return intArrayToString(data);
+    }
+    throw err;
+  }
+#endif
+}
 
 #if ENVIRONMENT_MAY_BE_NODE
 var nodeFS;
@@ -160,6 +179,8 @@ if (ENVIRONMENT_IS_NODE) {
   } else {
     scriptDirectory = __dirname + '/';
   }
+
+#include "environment/node.js"
 
 #include "node_shell_read.js"
 
@@ -320,6 +341,8 @@ if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
   // be done differently.
 #if USE_PTHREADS && ENVIRONMENT_MAY_BE_NODE
   if (ENVIRONMENT_IS_NODE) {
+
+#include "environment/node.js"
 
 #include "node_shell_read.js"
 

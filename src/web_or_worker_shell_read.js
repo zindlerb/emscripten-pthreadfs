@@ -4,25 +4,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-  read_ = function shell_read(url) {
-#if SUPPORT_BASE64_EMBEDDING
-    try {
-#endif
-      var xhr = new XMLHttpRequest();
-      xhr.open('GET', url, false);
-      xhr.send(null);
-      return xhr.responseText;
-#if SUPPORT_BASE64_EMBEDDING
-    } catch (err) {
-      var data = tryParseAsDataURI(url);
-      if (data) {
-        return intArrayToString(data);
-      }
-      throw err;
-    }
-#endif
-  };
-
   if (ENVIRONMENT_IS_WORKER) {
     readBinary = function readBinary(url) {
 #if SUPPORT_BASE64_EMBEDDING
