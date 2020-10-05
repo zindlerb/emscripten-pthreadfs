@@ -36,6 +36,20 @@ if (!Module) /** @suppress{checkTypes}*/Module = {"__EMSCRIPTEN_PRIVATE_MODULE_E
 var Module = typeof {{{ EXPORT_NAME }}} !== 'undefined' ? {{{ EXPORT_NAME }}} : {};
 #endif // USE_CLOSURE_COMPILER
 
+#if ASSERTIONS
+// Error if Module is a function. This can happen if there is a
+//   function Module()
+// This is bad as we will find Module.arguments and possible other things there,
+// with values that are unintended and unexpected.
+if (typeof Module === 'function') {
+#if MODULARIZE
+  throw "Module was received as a function, when it should be an object. Using EXPORT_NAME may help avoid this.";
+#else
+  throw "Module was received as a function, when it should be an object.";
+#endif // MODULARIZE
+}
+#endif // ASSERTIONS
+
 #if ((MAYBE_WASM2JS && WASM != 2) || MODULARIZE) && (MIN_CHROME_VERSION < 33 || MIN_EDGE_VERSION < 12 || MIN_FIREFOX_VERSION < 29 || MIN_IE_VERSION != TARGET_NOT_SUPPORTED || MIN_SAFARI_VERSION < 80000) // https://caniuse.com/#feat=promises
 // Include a Promise polyfill for legacy browsers. This is needed either for
 // wasm2js, where we polyfill the wasm API which needs Promises, or when using
