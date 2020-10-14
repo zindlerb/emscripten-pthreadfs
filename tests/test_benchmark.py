@@ -204,7 +204,7 @@ class EmscriptenBenchmarker(Benchmarker):
       OPTIMIZATIONS,
       '-s', 'INITIAL_MEMORY=256MB',
       '-s', 'FILESYSTEM=0',
-      '--closure', '1',
+      '--closure', '0',
       '-s', 'MINIMAL_RUNTIME=1',
       '-s', 'BENCHMARK=%d' % (1 if IGNORE_COMPILATION and not has_output_parser else 0),
       '-o', final
@@ -240,8 +240,9 @@ class EmscriptenBenchmarker(Benchmarker):
 
 
 class EmscriptenWasm2CBenchmarker(EmscriptenBenchmarker):
-  def __init__(self, name):
-    super(EmscriptenWasm2CBenchmarker, self).__init__(name, 'no engine needed')
+  def __init__(self, name, cc, extra_args=[]):
+    self.cc = [cc] if type(cc) is not list else cc
+    super(EmscriptenWasm2CBenchmarker, self).__init__(name, 'no engine needed', extra_args=extra_args)
 
   def build(self, parent, filename, args, shared_args, emcc_args, native_args, native_exec, lib_builder, has_output_parser):
     # wasm2c doesn't want minimal runtime which the normal emscripten
@@ -268,7 +269,7 @@ class EmscriptenWasm2CBenchmarker(EmscriptenBenchmarker):
     c = base + '.wasm.c'
     native = base + '.exe'
 
-    run_process(['clang', c, '-o', native, OPTIMIZATIONS, '-lm',
+    run_process(self.cc + [c, '-o', native, OPTIMIZATIONS, '-lm',
                  '-DWASM_RT_MAX_CALL_STACK_DEPTH=8000'])  # for havlak
 
     self.filename = native
@@ -352,8 +353,9 @@ class CheerpBenchmarker(Benchmarker):
 # Benchmarkers
 
 benchmarkers = [
-  # NativeBenchmarker('clang', shared.CLANG_CC, shared.CLANG_CXX),
-  # NativeBenchmarker('gcc',   'gcc',    'g++')
+  NativeBenchmarker('clang', 'clang', 'clang++'),
+  # NativeBenchmarker('sdkclang', shared.CLANG_CC, shared.CLANG_CXX),
+  NativeBenchmarker('gcc',   'gcc',    'g++')
 ]
 
 if V8_ENGINE and V8_ENGINE in shared.JS_ENGINES:
@@ -363,9 +365,11 @@ if V8_ENGINE and V8_ENGINE in shared.JS_ENGINES:
   aot_v8 = V8_ENGINE + ['--no-liftoff']
   default_v8_name = os.environ.get('EMBENCH_NAME') or 'v8'
   benchmarkers += [
-    EmscriptenBenchmarker(default_v8_name, aot_v8),
-    EmscriptenBenchmarker(default_v8_name + '-lto', aot_v8, ['-flto']),
-    # EmscriptenWasm2CBenchmarker('wasm2c')
+    #EmscriptenBenchmarker(default_v8_name, aot_v8),
+    #EmscriptenBenchmarker(default_v8_name + '-lto', aot_v8, ['-flto']),
+    EmscriptenWasm2CBenchmarker('wasm2c-full', shared.CLANG_CC),
+    EmscriptenWasm2CBenchmarker('wasm2c-mask', shared.CLANG_CC, ['-s', 'WASM2C_SANDBOXING=mask']),
+    EmscriptenWasm2CBenchmarker('wasm2c-none', shared.CLANG_CC, ['-s', 'WASM2C_SANDBOXING=none']),
   ]
   if os.path.exists(CHEERP_BIN):
     benchmarkers += [
@@ -1032,7 +1036,7 @@ class benchmark(runner.RunnerCore):
                       emcc_args=['-s', 'FILESYSTEM=1', '-s', 'MINIMAL_RUNTIME=0'], # not minimal because of files
                       force_c=True)
 
-  def test_zzz_poppler(self):
+  def ztest_zzz_poppler(self):
     with open('pre.js', 'w') as f:
       f.write('''
         var benchmarkArgument = %s;
