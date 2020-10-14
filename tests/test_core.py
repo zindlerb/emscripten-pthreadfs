@@ -14,6 +14,7 @@ import shutil
 import sys
 import time
 import unittest
+from subprocess import PIPE, STDOUT
 from functools import wraps
 from textwrap import dedent
 
@@ -21,28 +22,14 @@ from textwrap import dedent
 if __name__ == '__main__':
   raise Exception('do not run this file directly; do something like: tests/runner.py')
 
-from tools.shared import Building, STDOUT, PIPE, run_js, run_process, try_delete
+from tools.shared import run_js, run_process, try_delete
 from tools.shared import NODE_JS, V8_ENGINE, JS_ENGINES, SPIDERMONKEY_ENGINE, PYTHON, EMCC, EMAR, WINDOWS, MACOS, AUTODEBUGGER, LLVM_ROOT
-from tools import jsrun, shared
+from tools import jsrun, shared, building
 from runner import RunnerCore, path_from_root
 from runner import skip_if, no_wasm_backend, no_fastcomp, needs_dlfcn, no_windows, no_asmjs, is_slow_test, create_test_file, parameterized
 from runner import js_engines_modify, wasm_engines_modify, env_modify, with_env_modify
 
 # decorators for limiting which modes a test can run in
-
-
-def asm_simd(f):
-  assert callable(f)
-
-  def decorated(self):
-    if self.is_wasm_backend():
-      self.skipTest('asm.js simd not compatible with wasm backend yet')
-    if self.get_setting('WASM'):
-      self.skipTest('asm.js simd not compatible with asm2wasm')
-    self.emcc_args.append('-Wno-almost-asm')
-    self.use_all_engines = True # checks both native in spidermonkey and polyfill in others
-    f(self)
-  return decorated
 
 
 def wasm_simd(f):
@@ -53,7 +40,7 @@ def wasm_simd(f):
       self.skipTest('wasm simd only supported in d8 for now')
     if self.is_wasm_backend() and not self.get_setting('WASM'):
       self.skipTest('wasm2js only supports MVP for now')
-    self.set_setting('SIMD', 1)
+    self.emcc_args.append('-msimd128')
     self.emcc_args.append('-fno-lax-vector-conversions')
     with js_engines_modify([V8_ENGINE + ['--experimental-wasm-simd']]):
       f(self)
@@ -168,7 +155,12 @@ def also_with_standalone_wasm(func):
     if can_do_standalone(self):
       print('standalone')
       self.set_setting('STANDALONE_WASM', 1)
-      func(self)
+      # we will not legalize the JS ffi interface, so we must use BigInt
+      # support in order for JS to have a chance to run this without trapping
+      # when it sees an i64 on the ffi.
+      self.set_setting('WASM_BIGINT', 1)
+      with js_engines_modify([NODE_JS + ['--experimental-wasm-bigint']]):
+        func(self)
 
   return decorated
 
@@ -181,12 +173,16 @@ def also_with_standalone_wasm_and_wasm2c(func):
     if can_do_standalone(self):
       print('standalone')
       self.set_setting('STANDALONE_WASM', 1)
-      func(self)
-      print('wasm2c')
-      self.set_setting('STANDALONE_WASM', 1)
-      self.set_setting('WASM2C', 1)
-      with wasm_engines_modify([]):
+      # we will not legalize the JS ffi interface, so we must use BigInt
+      # support in order for JS to have a chance to run this without trapping
+      # when it sees an i64 on the ffi.
+      self.set_setting('WASM_BIGINT', 1)
+      with js_engines_modify([NODE_JS + ['--experimental-wasm-bigint']]):
         func(self)
+        print('wasm2c')
+        self.set_setting('WASM2C', 1)
+        with wasm_engines_modify([]):
+          func(self)
 
   return decorated
 
@@ -251,24 +247,6 @@ def also_with_only_standalone_wasm(func):
       self.set_setting('STANDALONE_WASM', 1)
       with js_engines_modify([]):
         func(self)
-  return decorated
-
-
-def also_with_only_standalone_wasm_and_wasm2c(func):
-  def decorated(self):
-    func(self)
-    # Standalone mode is only supported in the wasm backend, and not in all
-    # modes there.
-    if can_do_standalone(self):
-      with js_engines_modify([]):
-        print('standalone (only; no js runtimes)')
-        self.set_setting('STANDALONE_WASM', 1)
-        func(self)
-        print('wasm2c')
-        self.set_setting('STANDALONE_WASM', 1)
-        self.set_setting('WASM2C', 1)
-        with wasm_engines_modify([]):
-          func(self)
   return decorated
 
 
@@ -881,7 +859,7 @@ class TestCoreBase(RunnerCore):
   # No compiling from C/C++ - just process an existing .o/.ll/.bc file.
   def do_run_object(self, obj_file, expected_output=None, **kwargs):
     js_file = os.path.basename(obj_file) + '.js'
-    Building.emcc(obj_file, self.get_emcc_args(), js_file)
+    building.emcc(obj_file, self.get_emcc_args(), js_file)
     self.do_run(js_file, expected_output, no_build=True, **kwargs)
 
   def do_ll_run(self, filename, expected_output=None, **kwargs):
@@ -903,16 +881,16 @@ class TestCoreBase(RunnerCore):
       }
     ''')
 
-    Building.emcc('a1.c')
-    Building.emcc('a2.c')
-    Building.emcc('b1.c')
-    Building.emcc('b2.c')
-    Building.emcc('main.c')
+    building.emcc('a1.c')
+    building.emcc('a2.c')
+    building.emcc('b1.c')
+    building.emcc('b2.c')
+    building.emcc('main.c')
 
-    Building.emar('cr', 'liba.a', ['a1.c.o', 'a2.c.o'])
-    Building.emar('cr', 'libb.a', ['b1.c.o', 'b2.c.o'])
+    building.emar('cr', 'liba.a', ['a1.c.o', 'a2.c.o'])
+    building.emar('cr', 'libb.a', ['b1.c.o', 'b2.c.o'])
 
-    Building.link_to_object(['main.c.o', 'liba.a', 'libb.a'], 'all.o')
+    building.link_to_object(['main.c.o', 'liba.a', 'libb.a'], 'all.o')
 
     self.do_run_object('all.o', 'result: 1')
 
@@ -3769,7 +3747,7 @@ ok
     if isinstance(side, list):
       # side is just a library
       try_delete('liblib.cpp.o.' + side_suffix)
-      run_process([PYTHON, EMCC] + side + self.get_emcc_args() + ['-o', os.path.join(self.get_dir(), 'liblib.cpp.o.' + side_suffix)])
+      run_process([EMCC] + side + self.get_emcc_args() + ['-o', os.path.join(self.get_dir(), 'liblib.cpp.o.' + side_suffix)])
     else:
       base = 'liblib.cpp' if not force_c else 'liblib.c'
       try_delete(base + '.o.' + side_suffix)
@@ -3792,7 +3770,7 @@ ok
     if isinstance(main, list):
       # main is just a library
       try_delete('src.cpp.o.js')
-      run_process([PYTHON, EMCC] + main + self.emcc_args + self.serialize_settings() + ['-o', 'src.cpp.o.js'])
+      run_process([EMCC] + main + self.emcc_args + self.serialize_settings() + ['-o', 'src.cpp.o.js'])
       self.do_run(None, expected, no_build=True, **kwargs)
     else:
       self.do_run(main, expected, force_c=force_c, **kwargs)
@@ -4600,7 +4578,7 @@ res64 - external 64\n''', header='''
       libname = 'third.wasm'
     else:
       libname = 'third.js'
-    run_process([PYTHON, EMCC, 'third.cpp', '-o', libname, '-s', 'SIDE_MODULE', '-s', 'EXPORT_ALL'] + self.get_emcc_args())
+    run_process([EMCC, 'third.cpp', '-o', libname, '-s', 'SIDE_MODULE', '-s', 'EXPORT_ALL'] + self.get_emcc_args())
 
     self.dylink_test(main=r'''
       #include <stdio.h>
@@ -4657,9 +4635,9 @@ res64 - external 64\n''', header='''
     create_test_file('third.cpp', 'extern "C" int sidef() { return 36; }')
     create_test_file('fourth.cpp', 'extern "C" int sideg() { return 17; }')
 
-    run_process([PYTHON, EMCC, '-c', 'third.cpp', '-o', 'third.o'] + self.get_emcc_args())
-    run_process([PYTHON, EMCC, '-c', 'fourth.cpp', '-o', 'fourth.o'] + self.get_emcc_args())
-    run_process([PYTHON, EMAR, 'rc', 'libfourth.a', 'fourth.o'])
+    run_process([EMCC, '-c', 'third.cpp', '-o', 'third.o'] + self.get_emcc_args())
+    run_process([EMCC, '-c', 'fourth.cpp', '-o', 'fourth.o'] + self.get_emcc_args())
+    run_process([EMAR, 'rc', 'libfourth.a', 'fourth.o'])
 
     self.dylink_test(main=r'''
       #include <stdio.h>
@@ -5649,7 +5627,7 @@ main( int argv, char ** argc ) {
 
   # i64s in the API, which we'd need to legalize for JS, so in standalone mode
   # all we can test is wasm VMs
-  @also_with_only_standalone_wasm_and_wasm2c
+  @also_with_standalone_wasm_and_wasm2c
   def test_posixtime(self):
     test_path = path_from_root('tests', 'core', 'test_posixtime')
     src, output = (test_path + s for s in ('.c', '.out'))
@@ -5936,7 +5914,7 @@ int main(void) {
       # emcc should build in dlmalloc automatically, and do all the sign correction etc. for it
 
       try_delete('src.cpp.o.js')
-      run_process([PYTHON, EMCC, path_from_root('tests', 'dlmalloc_test.c'), '-s', 'INITIAL_MEMORY=128MB', '-o', 'src.cpp.o.js'], stdout=PIPE, stderr=self.stderr_redirect)
+      run_process([EMCC, path_from_root('tests', 'dlmalloc_test.c'), '-s', 'INITIAL_MEMORY=128MB', '-o', 'src.cpp.o.js'], stdout=PIPE, stderr=self.stderr_redirect)
 
       self.do_run(None, '*1,0*', ['200', '1'], no_build=True)
       self.do_run(None, '*400,0*', ['400', '400'], no_build=True)
@@ -5959,7 +5937,7 @@ int main(void) {
 #include <new>
 
 void *
-operator new(size_t size)
+operator new(size_t size) throw(std::bad_alloc)
 {
 printf("new %d!\\n", size);
 return malloc(size);
@@ -6092,47 +6070,90 @@ return malloc(size);
     self.build(open(path_from_root('tests', 'test_wasm_intrinsics_simd.c')).read(),
                self.get_dir(), os.path.join(self.get_dir(), 'src.cpp'))
 
-  @asm_simd
-  def test_simd(self):
-    self.do_run_in_out_file_test('tests', 'core', 'test_simd')
+  # Tests invoking the SIMD API via x86 SSE1 xmmintrin.h header (_mm_x() functions)
+  @wasm_simd
+  def test_sse1(self):
+    src = path_from_root('tests', 'sse', 'test_sse1.cpp')
+    run_process([shared.CLANG_CXX, src, '-msse', '-o', 'test_sse1', '-D_CRT_SECURE_NO_WARNINGS=1'] + building.get_native_building_args(), stdout=PIPE)
+    native_result = run_process('./test_sse1', stdout=PIPE, env=building.get_building_env(native=True)).stdout
 
-  @asm_simd
-  def test_simd2(self):
-    self.do_run_in_out_file_test('tests', 'core', 'test_simd2')
+    orig_args = self.emcc_args
+    self.emcc_args = orig_args + ['-I' + path_from_root('tests', 'sse'), '-msse']
+    self.maybe_closure()
 
-  @asm_simd
-  def test_simd5(self):
-    # test_simd5 is to test shufflevector of SIMD path
-    self.do_run_in_out_file_test('tests', 'core', 'test_simd5')
+    self.do_run(open(src).read(), native_result)
 
-  @asm_simd
-  def test_simd_float64x2(self):
-    self.do_run_in_out_file_test('tests', 'core', 'test_simd_float64x2')
+  # Tests invoking the SIMD API via x86 SSE2 emmintrin.h header (_mm_x() functions)
+  @wasm_simd
+  def test_sse2(self):
+    src = path_from_root('tests', 'sse', 'test_sse2.cpp')
+    run_process([shared.CLANG_CXX, src, '-msse2', '-Wno-argument-outside-range', '-o', 'test_sse2', '-D_CRT_SECURE_NO_WARNINGS=1'] + building.get_native_building_args(), stdout=PIPE)
+    native_result = run_process('./test_sse2', stdout=PIPE, env=building.get_building_env(native=True)).stdout
 
-  @asm_simd
-  def test_simd_float32x4(self):
-    self.do_run_in_out_file_test('tests', 'core', 'test_simd_float32x4')
+    orig_args = self.emcc_args
+    self.emcc_args = orig_args + ['-I' + path_from_root('tests', 'sse'), '-msse2', '-Wno-argument-outside-range']
+    self.maybe_closure()
+    self.do_run(open(src).read(), native_result)
 
-  @asm_simd
-  def test_simd_int32x4(self):
-    self.do_run_in_out_file_test('tests', 'core', 'test_simd_int32x4')
+  # Tests invoking the SIMD API via x86 SSE3 pmmintrin.h header (_mm_x() functions)
+  @wasm_simd
+  def test_sse3(self):
+    src = path_from_root('tests', 'sse', 'test_sse3.cpp')
+    run_process([shared.CLANG_CXX, src, '-msse3', '-Wno-argument-outside-range', '-o', 'test_sse3', '-D_CRT_SECURE_NO_WARNINGS=1'] + building.get_native_building_args(), stdout=PIPE)
+    native_result = run_process('./test_sse3', stdout=PIPE, env=building.get_building_env(native=True)).stdout
 
-  @asm_simd
-  def test_simd_int16x8(self):
-    self.do_run_in_out_file_test('tests', 'core', 'test_simd_int16x8')
+    orig_args = self.emcc_args
+    self.emcc_args = orig_args + ['-I' + path_from_root('tests', 'sse'), '-msse3', '-Wno-argument-outside-range']
+    self.maybe_closure()
+    self.do_run(open(src).read(), native_result)
 
-  @asm_simd
-  def test_simd_int8x16(self):
-    self.do_run_in_out_file_test('tests', 'core', 'test_simd_int8x16')
+  # Tests invoking the SIMD API via x86 SSSE3 tmmintrin.h header (_mm_x() functions)
+  @wasm_simd
+  def test_ssse3(self):
+    src = path_from_root('tests', 'sse', 'test_ssse3.cpp')
+    run_process([shared.CLANG_CXX, src, '-mssse3', '-Wno-argument-outside-range', '-o', 'test_ssse3', '-D_CRT_SECURE_NO_WARNINGS=1'] + building.get_native_building_args(), stdout=PIPE)
+    native_result = run_process('./test_ssse3', stdout=PIPE, env=building.get_building_env(native=True)).stdout
 
-  # Tests that the vector SIToFP instruction generates an appropriate Int->Float type conversion operator and not a bitcasting/reinterpreting conversion
-  @asm_simd
-  def test_simd_sitofp(self):
-    self.do_run_in_out_file_test('tests', 'core', 'test_simd_sitofp')
+    orig_args = self.emcc_args
+    self.emcc_args = orig_args + ['-I' + path_from_root('tests', 'sse'), '-mssse3', '-Wno-argument-outside-range']
+    self.maybe_closure()
+    self.do_run(open(src).read(), native_result)
 
-  @asm_simd
-  def test_simd_shift_right(self):
-    self.do_run_in_out_file_test('tests', 'core', 'test_simd_shift_right')
+  # Tests invoking the SIMD API via x86 SSE4.1 smmintrin.h header (_mm_x() functions)
+  @wasm_simd
+  def test_sse4_1(self):
+    src = path_from_root('tests', 'sse', 'test_sse4_1.cpp')
+    run_process([shared.CLANG_CXX, src, '-msse4.1', '-Wno-argument-outside-range', '-o', 'test_sse4_1', '-D_CRT_SECURE_NO_WARNINGS=1'] + building.get_native_building_args(), stdout=PIPE)
+    native_result = run_process('./test_sse4_1', stdout=PIPE, env=building.get_building_env(native=True)).stdout
+
+    orig_args = self.emcc_args
+    self.emcc_args = orig_args + ['-I' + path_from_root('tests', 'sse'), '-msse4.1', '-Wno-argument-outside-range']
+    self.maybe_closure()
+    self.do_run(open(src).read(), native_result)
+
+  # Tests invoking the SIMD API via x86 SSE4.2 nmmintrin.h header (_mm_x() functions)
+  @wasm_simd
+  def test_sse4_2(self):
+    src = path_from_root('tests', 'sse', 'test_sse4_2.cpp')
+    run_process([shared.CLANG_CXX, src, '-msse4.2', '-Wno-argument-outside-range', '-o', 'test_sse4_2', '-D_CRT_SECURE_NO_WARNINGS=1'] + building.get_native_building_args(), stdout=PIPE)
+    native_result = run_process('./test_sse4_2', stdout=PIPE, env=building.get_building_env(native=True)).stdout
+
+    orig_args = self.emcc_args
+    self.emcc_args = orig_args + ['-I' + path_from_root('tests', 'sse'), '-msse4.2', '-Wno-argument-outside-range']
+    self.maybe_closure()
+    self.do_run(open(src).read(), native_result)
+
+  # Tests invoking the SIMD API via x86 AVX avxintrin.h header (_mm_x() functions)
+  @wasm_simd
+  def test_avx(self):
+    src = path_from_root('tests', 'sse', 'test_avx.cpp')
+    run_process([shared.CLANG_CXX, src, '-mavx', '-Wno-argument-outside-range', '-o', 'test_avx', '-D_CRT_SECURE_NO_WARNINGS=1'] + building.get_native_building_args(), stdout=PIPE)
+    native_result = run_process('./test_avx', stdout=PIPE, env=building.get_building_env(native=True)).stdout
+
+    orig_args = self.emcc_args
+    self.emcc_args = orig_args + ['-I' + path_from_root('tests', 'sse'), '-mavx', '-Wno-argument-outside-range']
+    self.maybe_closure()
+    self.do_run(open(src).read(), native_result)
 
   @no_asan('call stack exceeded on some versions of node')
   def test_gcc_unmangler(self):
@@ -6242,7 +6263,7 @@ return malloc(size);
 
     if use_cmake:
       make_args = []
-      configure = [PYTHON, path_from_root('emcmake.py'), 'cmake', '.']
+      configure = [path_from_root('emcmake'), 'cmake', '.']
     else:
       make_args = ['libz.a']
       configure = ['sh', './configure']
@@ -6495,7 +6516,6 @@ return malloc(size);
       'longjmp_tiny_keepem', 'longjmp_tiny_keepem_cond', 'longjmp_tiny_phi', 'longjmp_tiny_phi2',
     ]
     skip_wasm = [
-      'i1282vecnback', # uses simd
       # casts a function pointer from (i32, i32)* to (i64)*, which happens to work in asm.js but is a general function pointer undefined behavior
       'call_inttoptr_i64',
     ]
@@ -6595,7 +6615,7 @@ return malloc(size);
 
     # Autodebug the code
     def do_autodebug(filename):
-      Building.llvm_dis(filename + '.o', filename + '.ll')
+      building.llvm_dis(filename + '.o', filename + '.ll')
       run_process([PYTHON, AUTODEBUGGER, filename + '.ll', filename + '.auto.ll'])
       # rebuild .bc
       # TODO: use code in do_autodebug_post for this
@@ -6831,18 +6851,18 @@ return malloc(size);
   def test_response_file(self):
     response_data = '-o %s/response_file.js %s' % (self.get_dir(), path_from_root('tests', 'hello_world.cpp'))
     create_test_file('rsp_file', response_data.replace('\\', '\\\\'))
-    run_process([PYTHON, EMCC, "@rsp_file"] + self.get_emcc_args())
+    run_process([EMCC, "@rsp_file"] + self.get_emcc_args())
     self.do_run('response_file.js', 'hello, world', no_build=True)
 
-    self.assertContained('response file not found: foo.txt', self.expect_fail([PYTHON, EMCC, '@foo.txt']))
+    self.assertContained('response file not found: foo.txt', self.expect_fail([EMCC, '@foo.txt']))
 
   def test_linker_response_file(self):
     objfile = 'response_file.o'
-    run_process([PYTHON, EMCC, '-c', path_from_root('tests', 'hello_world.cpp'), '-o', objfile] + self.get_emcc_args())
+    run_process([EMCC, '-c', path_from_root('tests', 'hello_world.cpp'), '-o', objfile] + self.get_emcc_args())
     # This should expand into -Wl,--start-group <objfile> -Wl,--end-group
     response_data = '--start-group ' + objfile + ' --end-group'
     create_test_file('rsp_file', response_data.replace('\\', '\\\\'))
-    run_process([PYTHON, EMCC, "-Wl,@rsp_file", '-o', 'response_file.o.js'] + self.get_emcc_args())
+    run_process([EMCC, "-Wl,@rsp_file", '-o', 'response_file.o.js'] + self.get_emcc_args())
     self.do_run('response_file.o.js', 'hello, world', no_build=True)
 
   def test_exported_response(self):
@@ -7321,6 +7341,34 @@ someweirdtext
     self.emcc_args += ['--bind', '-fno-rtti', '-DEMSCRIPTEN_HAS_UNBOUND_TYPE_NAMES=0', '--pre-js', 'pre.js']
     self.do_run(src, '418\ndotest retured: 42\n')
 
+  def test_embind_no_rtti_followed_by_rtti(self):
+    create_test_file('pre.js', '''
+      Module = {};
+      Module['postRun'] = function() {
+        out("dotest retured: " + Module.dotest());
+      };
+    ''')
+    src = r'''
+      #include <emscripten/bind.h>
+      #include <emscripten/val.h>
+      #include <stdio.h>
+
+      int main(int argc, char** argv){
+        printf("418\n");
+        return 0;
+      }
+
+      int test() {
+        return 42;
+      }
+
+      EMSCRIPTEN_BINDINGS(my_module) {
+        emscripten::function("dotest", &test);
+      }
+    '''
+    self.emcc_args += ['--bind', '-fno-rtti', '-frtti', '--pre-js', 'pre.js']
+    self.do_run(src, '418\ndotest retured: 42\n')
+
   @sync
   def test_webidl(self):
     if self.run_name == 'asm2':
@@ -7403,7 +7451,7 @@ err = err = function(){};
     no_maps_filename = 'no-maps.out.js'
 
     assert '-g4' not in self.emcc_args
-    Building.emcc('src.cpp',
+    building.emcc('src.cpp',
                   self.serialize_settings() + self.emcc_args + self.emcc_args,
                   out_filename)
     # the file name may find its way into the generated code, so make sure we
@@ -7414,7 +7462,7 @@ err = err = function(){};
     no_maps_file = re.sub(' *//[@#].*$', '', no_maps_file, flags=re.MULTILINE)
     self.emcc_args.append('-g4')
 
-    Building.emcc(os.path.abspath('src.cpp'),
+    building.emcc(os.path.abspath('src.cpp'),
                   self.serialize_settings() + self.emcc_args + self.emcc_args,
                   out_filename,
                   stderr=PIPE)
@@ -7500,7 +7548,7 @@ err = err = function(){};
     js_filename = 'a.out.js'
     wasm_filename = 'a.out.wasm'
 
-    Building.emcc('src.cpp',
+    building.emcc('src.cpp',
                   self.serialize_settings() + self.emcc_args,
                   js_filename)
 
@@ -7566,7 +7614,7 @@ err = err = function(){};
     self.assertLess(get_dwarf_addr(6, 9), get_dwarf_addr(7, 9))
 
     # get the wat, printing with -g which has binary offsets
-    wat = run_process([os.path.join(Building.get_binaryen_bin(), 'wasm-opt'),
+    wat = run_process([os.path.join(building.get_binaryen_bin(), 'wasm-opt'),
                        wasm_filename, '-g', '--print'], stdout=PIPE).stdout
 
     # we expect to see a pattern like this, as in both debug and opt builds
@@ -7638,47 +7686,6 @@ err = err = function(){};
         f.write('var TheModule = Module();\n')
 
     self.do_run_in_out_file_test('tests', 'core', 'modularize_closure_pre', post_build=post)
-
-  @no_wasm('wasmifying destroys debug info and stack tracability')
-  @no_wasm2js('no source maps support yet')
-  def test_exception_source_map(self):
-    self.emcc_args.append('-g4')
-    src = '''
-      #include <stdio.h>
-
-      __attribute__((noinline)) void foo(int i) {
-          if (i < 10) throw i; // line 5
-      }
-
-      #include <iostream>
-      #include <string>
-
-      int main() {
-        std::string x = "ok"; // add libc++ stuff to make this big, test for #2410
-        int i;
-        scanf("%d", &i);
-        foo(i);
-        std::cout << x << std::endl;
-        return 0;
-      }
-    '''
-
-    def post(filename):
-      map_filename = filename + '.map'
-      self.assertExists(map_filename)
-      mappings = json.loads(jsrun.run_js(
-        path_from_root('tools', 'source-maps', 'sourcemap2json.js'),
-        shared.NODE_JS, [map_filename]))
-      with open(filename) as f:
-        lines = f.readlines()
-      for m in mappings:
-        # -1 to fix 0-start vs 1-start
-        if m['originalLine'] == 5 and '__cxa_throw' in lines[m['generatedLine'] - 1]:
-          return
-      assert False, 'Must label throw statements with line numbers'
-
-    dirname = self.get_dir()
-    self.build(src, dirname, os.path.join(dirname, 'src.cpp'), post_build=post)
 
   @no_wasm('wasmifying destroys debug info and stack tracability')
   @no_wasm2js('source maps support')
@@ -7952,7 +7959,6 @@ Module['onRuntimeInitialized'] = function() {
     self.set_setting('ASYNCIFY', 1)
     self.set_setting('ASYNCIFY_IMPORTS', ['suspend'])
     self.set_setting('ASSERTIONS', 1)
-    self.emcc_args += ['--minify', '0']
     self.do_run_in_out_file_test('tests', 'core', 'asyncify_assertions')
 
   @no_asan('asyncify stack operations confuse asan')
@@ -7987,7 +7993,7 @@ Module['onRuntimeInitialized'] = function() {
 
     # attempts to "break" the wasm by adding an unreachable in $foo_end. returns whether we found it.
     def break_wasm(name):
-      wat = run_process([os.path.join(Building.get_binaryen_bin(), 'wasm-dis'), name], stdout=PIPE).stdout
+      wat = run_process([os.path.join(building.get_binaryen_bin(), 'wasm-dis'), name], stdout=PIPE).stdout
       lines = wat.splitlines()
       wat = None
       for i in range(len(lines)):
@@ -8006,7 +8012,7 @@ Module['onRuntimeInitialized'] = function() {
       with open('wat.wat', 'w') as f:
         f.write(wat)
       shutil.move(name, name + '.orig')
-      run_process([os.path.join(Building.get_binaryen_bin(), 'wasm-as'), 'wat.wat', '-o', name, '-g'])
+      run_process([os.path.join(building.get_binaryen_bin(), 'wasm-as'), 'wat.wat', '-o', name, '-g'])
       return True
 
     def verify_working(args=['0']):
@@ -8080,7 +8086,7 @@ Module['onRuntimeInitialized'] = function() {
       self.skipTest('redundant to test wasm2js in wasm2js* mode')
 
     for args in [[], ['-s', 'MINIMAL_RUNTIME=1']]:
-      cmd = [PYTHON, EMCC, path_from_root('tests', 'small_hello_world.c'), '-s', 'WASM=2'] + args
+      cmd = [EMCC, path_from_root('tests', 'small_hello_world.c'), '-s', 'WASM=2'] + args
       run_process(cmd)
 
       # First run with WebAssembly support enabled
@@ -8693,7 +8699,7 @@ NODEFS is no longer included by default; build with -lnodefs.js
 
       # Disabling IGNORE_MISSING_MAIN should cause link to fail due to missing main
       self.set_setting('IGNORE_MISSING_MAIN', 0)
-      err = self.expect_fail([PYTHON, EMCC, path_from_root('tests', 'core', 'test_ctors_no_main.cpp')] + self.get_emcc_args())
+      err = self.expect_fail([EMCC, path_from_root('tests', 'core', 'test_ctors_no_main.cpp')] + self.get_emcc_args())
       self.assertContained('error: entry symbol not defined (pass --no-entry to suppress): main', err)
 
     # If we pass --no-entry or set EXPORTED_FUNCTIONS to empty should never see any errors

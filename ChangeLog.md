@@ -17,12 +17,36 @@ See docs/process.md for how version tagging works.
 
 Current Trunk
 -------------
-- The mmap method of JavaScript filesysem drivers (based on library_fs.js) no
-  longer takes a target memory.  Its safer/cleaner/smaller to assume the target
+
+1.39.17: 06/05/2020
+-------------------
+- Use Promise polyfill for MODULARIZE when supporting legacy browsers. (#11320)
+- Fix minification of wasm2js output when using --emit-symbol-map. (#11279)
+- On first use, emscripten creates a sample config file.  This config file
+  is now created in the emscripten directory by default.  The traditional
+  `~/.emscripten` config file in the `$HOME` directory is still supported and
+  the sample config will still be written there in the case that the emscripten
+  root is read-only.
+- The default location for downloaded ports is now a directory called "ports"
+  within the cache directory.  In practice these means by default they live
+  in `cache/ports` inside the emscripten source directory.  This can be
+  controlled by setting the location of the cache directory, or for even more
+  fine grained control the `EM_PORTS` environment variable and the `PORTS`
+  config setting can be used.
+- Added support for compiling SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE 4.2 and
+  128-bit wide AVX intrinsics, emulated on top of Wasm SIMD instruction set.
+  (#11193, #11243, #11290, #11327). Pass -msimd128 -msse<version> to enable
+  targeting SSE.
+- Removed obsolete SIMD.js support (-s SIMD=1). Use -msimd128 to target Wasm
+  SIMD. (#11180)
+- Add warning about fastcomp deprecation (can be disabled via `-Wno-fastcomp`).
+- The mmap method of JavaScript filesystem drivers (based on library_fs.js) no
+  longer takes a target memory.  It's safer/cleaner/smaller to assume the target
   is the global memory buffer.
-- Remove emterpreter and ``EMTERPRETIFY`` settings.  Emterpreter has largerly
+- Remove emterpreter and `EMTERPRETIFY` settings.  Emterpreter has largely
   been replaced by asyncify and is fastcomp only so due for removing in
   the near future anyway.
+- Upgrade various musl string functions to 1.2 to fix aliasing issues. (#11215)
 
 1.39.16: 05/15/2020
 -------------------
@@ -230,7 +254,7 @@ v1.39.9: 03/05/2020
   EmscriptenWebGLContextAttributes::powerPreference instead. (#10505)
 - When implementing forwarding function aliases in JS libraries, either the
   alias or the target function must contain a signature annotation. (#10550)
-- Add an check in Asyncify builds with `ASSERTIONS` that we do not have
+- Add a check in Asyncify builds with `ASSERTIONS` that we do not have
   compiled code on the stack when starting to rewind, which is dangerous.
 - Implement libc system() for node.js (#10547).
 - Standalone mode improvements, time (#10530, #10536), sysconf (#10535),
@@ -458,6 +482,12 @@ v1.38.41: 08/07/2019
    print for parse error reporting. (#9088)
  - Internal API update: one can now specialize embind's (un)marshalling for a
    group of types via SFINAE, instead of a single type. (#9089)
+ - Options passed on the `Module` object during startup, like `Module.arguments`,
+   are now copied to a local (in order to avoid writing `Module.*` everywhere,
+   which wastes space). You can still provide them as always, but you can't
+   modify `Module.arguments` and other things *after* startup (which is now
+   after we've finished processing them). In a build with assertions enabled you
+   will get an error if you access those properties after startup. (#9072)
 
 v1.38.40: 07/24/2019
 --------------------
