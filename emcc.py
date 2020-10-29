@@ -907,6 +907,9 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
 
     options, settings_changes, user_js_defines, newargs = parse_args(newargs)
 
+    if options.post_link or options.oformat == OFormat.BARE:
+      diagnostics.warning('experimental', '--oformat=base/--post-link are experimental and subject to change.')
+
     if 'EMMAKEN_COMPILER' in os.environ:
       diagnostics.warning('deprecated', '`EMMAKEN_COMPILER` is deprecated.\n'
                           'To use an alteranative LLVM build set `LLVM_ROOT` in the config file (or `EM_LLVM_ROOT` env var).\n'
@@ -1931,8 +1934,6 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
     # tempfile names
     shared.Cache.acquire_cache_lock()
     atexit.register(shared.Cache.release_cache_lock)
-
-  # Decide what we will link
 
   if options.post_link:
     process_libraries(libs, lib_dirs, temp_files)

@@ -1352,11 +1352,10 @@ int f() {
     self.assertEqual(self.run_js('a.out.js').strip(), '')
 
   def test_multidynamic_link(self):
-    # Linking the same dynamic library in statically will error, normally, since we statically link
-    # it, causing dupe symbols
+    # Linking the same dynamic library in statically will error, normally, since we statically link it, causing dupe symbols
 
-    def test(link_flags, lib_suffix):
-      print(link_flags, lib_suffix)
+    def test(link_cmd, lib_suffix=''):
+      print(link_cmd, lib_suffix)
 
       self.clear()
       ensure_dir('libdir')
@@ -1376,14 +1375,14 @@ int f() {
         }
       ''')
 
-      create_test_file(os.path.join('libdir', 'libfile.cpp'), '''
+      open(os.path.join('libdir', 'libfile.cpp'), 'w').write('''
         #include <stdio.h>
         void printey() {
           printf("hello from lib");
         }
       ''')
 
-      create_test_file(os.path.join('libdir', 'libother.cpp'), '''
+      open(os.path.join('libdir', 'libother.cpp'), 'w').write('''
         #include <stdio.h>
         extern void printey();
         void printother() {
@@ -1393,21 +1392,22 @@ int f() {
         }
       ''')
 
+      compiler = [EMCC]
+
       # Build libfile normally into an .so
-      self.run_process([EMCC, os.path.join('libdir', 'libfile.cpp'), '-shared', '-o', os.path.join('libdir', 'libfile.so' + lib_suffix)])
+      self.run_process(compiler + [os.path.join('libdir', 'libfile.cpp'), '-shared', '-o', os.path.join('libdir', 'libfile.so' + lib_suffix)])
       # Build libother and dynamically link it to libfile
-      self.run_process([EMCC, os.path.join('libdir', 'libother.cpp')] + link_flags + ['-shared', '-o', os.path.join('libdir', 'libother.so')])
+      self.run_process(compiler + [os.path.join('libdir', 'libother.cpp')] + link_cmd + ['-shared', '-o', os.path.join('libdir', 'libother.so')])
       # Build the main file, linking in both the libs
-      self.run_process([EMCC, '-Llibdir', os.path.join('main.cpp')] + link_flags + ['-lother', '-c'])
+      self.run_process(compiler + [os.path.join('main.cpp')] + link_cmd + ['-lother', '-c'])
       print('...')
-      # The normal build system is over. We need to do an additional step to link in the dynamic
-      # libraries, since we ignored them before
-      self.run_process([EMCC, '-Llibdir', 'main.o'] + link_flags + ['-lother', '-s', 'EXIT_RUNTIME=1'])
+      # The normal build system is over. We need to do an additional step to link in the dynamic libraries, since we ignored them before
+      self.run_process([EMCC, 'main.o'] + link_cmd + ['-lother', '-s', 'EXIT_RUNTIME=1'])
 
       self.assertContained('*hello from lib\n|hello from lib|\n*', self.run_js('a.out.js'))
 
-    test(['-lfile'], '') # -l, auto detection from library path
-    test([self.in_dir('libdir', 'libfile.so.3.1.4.1.5.9')], '.3.1.4.1.5.9') # handle libX.so.1.2.3 as well
+    test(['-L' + 'libdir', '-lfile']) # -l, auto detection from library path
+    test(['-L' + 'libdir', self.in_dir('libdir', 'libfile.so.3.1.4.1.5.9')], '.3.1.4.1.5.9') # handle libX.so.1.2.3 as well
 
   def test_js_link(self):
     create_test_file('main.cpp', '''
@@ -9324,13 +9324,15 @@ int main() {
     self.run_process([EMCC, '-c', path_from_root('tests', 'other', 'test_asm.s'), '-o', 'foo.o'])
     src = path_from_root('tests', 'other', 'test_asm.c')
     output = path_from_root('tests', 'other', 'test_asm.out')
-    self.do_run_from_file(src, output, libraries=['foo.o'])
+    self.emcc_args.append('foo.o')
+    self.do_run_from_file(src, output)
 
   def test_assembly_preprocessed(self):
     self.run_process([EMCC, '-c', path_from_root('tests', 'other', 'test_asm_cpp.S'), '-o', 'foo.o'])
     src = path_from_root('tests', 'other', 'test_asm.c')
     output = path_from_root('tests', 'other', 'test_asm.out')
-    self.do_run_from_file(src, output, libraries=['foo.o'])
+    self.emcc_args.append('foo.o')
+    self.do_run_from_file(src, output)
 
   @parameterized({
     '': (['-DUSE_KEEPALIVE'],),
@@ -9594,3 +9596,10 @@ exec "$@"
 
     err = self.expect_fail([EMCC, path_from_root('tests', 'hello_world.c'), '--oformat=foo'])
     self.assertContained("error: invalid output format: `foo` (must be one of ['wasm', 'js', 'mjs', 'html', 'bare']", err)
+
+  def test_post_link(self):
+    err = self.run_process([EMCC, path_from_root('tests', 'hello_world.c'), '--oformat=bare', '-o', 'bare.wasm'], stderr=PIPE).stderr
+    self.assertContained('--oformat=base/--post-link are experimental and subject to change', err)
+    err = self.run_process([EMCC, '--post-link', 'bare.wasm'], stderr=PIPE).stderr
+    self.assertContained('--oformat=base/--post-link are experimental and subject to change', err)
+    err = self.assertContained('hello, world!', self.run_js('a.out.js'))
