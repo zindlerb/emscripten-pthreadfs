@@ -508,6 +508,8 @@ def lld_flags_for_executable(external_symbol_list):
 
   if Settings.LINKABLE:
     cmd.append('--export-all')
+    if Settings.MAIN_MODULE:
+      cmd += ['--export', '__stack_pointer']
   else:
     c_exports = [e for e in Settings.EXPORTED_FUNCTIONS if is_c_symbol(e)]
     # Strip the leading underscores
@@ -518,14 +520,11 @@ def lld_flags_for_executable(external_symbol_list):
     for export in c_exports:
       cmd += ['--export', export]
 
-  if Settings.RELOCATABLE:
+  if Settings.SIDE_MODULE:
+    cmd.append('--global-base=%s' % Settings.GLOBAL_BASE)
     cmd.append('--experimental-pic')
-    if Settings.SIDE_MODULE:
-      cmd.append('-shared')
-    else:
-      cmd.append('-pie')
-
-  if not Settings.SIDE_MODULE:
+    cmd.append('-shared')
+  else:
     cmd += [
       '-z', 'stack-size=%s' % Settings.TOTAL_STACK,
       '--initial-memory=%d' % Settings.INITIAL_MEMORY,
@@ -544,8 +543,6 @@ def lld_flags_for_executable(external_symbol_list):
       cmd.append('--max-memory=%d' % Settings.INITIAL_MEMORY)
     elif Settings.MAXIMUM_MEMORY != -1:
       cmd.append('--max-memory=%d' % Settings.MAXIMUM_MEMORY)
-    if not Settings.RELOCATABLE:
-      cmd.append('--global-base=%s' % Settings.GLOBAL_BASE)
 
   return cmd
 

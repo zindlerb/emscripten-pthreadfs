@@ -299,7 +299,7 @@ var SYSCALL_DEBUG = 0;
 var SOCKET_DEBUG = 0;
 
 // Log dynamic linker information
-var DYLINK_DEBUG = 0;
+var DYLINK_DEBUG = 1;
 
 // Select socket backend, either webrtc or websockets. XXX webrtc is not
 // currently tested, may be broken
@@ -589,7 +589,7 @@ var NODEJS_CATCH_EXIT = 1;
 // this, we catch any unhandled rejection and throw an actual error, which will
 // make the process exit immediately with a non-0 return code.
 // This should be fixed in Node 15+.
-var NODEJS_CATCH_REJECTION = 1;
+var NODEJS_CATCH_REJECTION = 0;
 
 // Whether to transform the code using asyncify. This makes it possible to
 // call JS functions from synchronous-looking code in C/C++.

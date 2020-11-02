@@ -4,7 +4,7 @@
 // ==========================================================================
 
 var LibraryDylink = {
-#if RELOCATABLE
+#if RELOCATABLE || MAIN_MODULE
   $asmjsMangle: function(x) {
     var unmangledSymbols = {{{ buildStringArray(WASM_SYSTEM_EXPORTS) }}};
     return x.indexOf('dynCall_') == 0 || unmangledSymbols.indexOf(x) != -1 ? x : '_' + x;
@@ -52,7 +52,7 @@ var LibraryDylink = {
   $GOTHandler: {
     'get': function(obj, symName) {
       if (!GOT[symName]) {
-        GOT[symName] = new WebAssembly.Global({value: 'i32', mutable: true});
+        GOT[symName] = new WebAssembly.Global({value: 'i32', mutable: true}, -1);
 #if DYLINK_DEBUG
         err("new GOT entry: " + symName);
 #endif
@@ -64,15 +64,20 @@ var LibraryDylink = {
   $updateGOT__deps: ['$GOT'],
   $updateGOT: function(exports) {
 #if DYLINK_DEBUG
-    err("updateGOT: " + Object.keys(exports).length);
+    err("start updateGOT: " + Object.keys(exports).length);
 #endif
     for (var symName in exports) {
-      if (symName == '__cpp_exception' || symName == '__dso_handle' || symName == '__wasm_apply_relocs') {
+      if (['__indirect_function_table',
+           '__cpp_exception',
+           '__dso_handle',
+           '__wasm_apply_relocs',
+           '__memory_base',
+           '__table_base'].includes(symName)) {
         continue;
       }
 
-      var replace = false;
       var value = exports[symName];
+      var replace = false;
 #if !WASM_BIGINT
       if (symName.indexOf('orig$') == 0) {
         symName = symName.split('$')[1];
@@ -80,26 +85,41 @@ var LibraryDylink = {
       }
 #endif
 
-      if (!GOT[symName]) {
-        GOT[symName] = new WebAssembly.Global({value: 'i32', mutable: true});
-      }
-      if (replace || GOT[symName].value == 0) {
-        if (typeof value === 'function') {
-          GOT[symName].value = addFunctionWasm(value);
+      if (typeof value === 'function') {
+        offset = addFunctionWasm(value);
 #if DYLINK_DEBUG
-          err("updateGOT FUNC: " + symName + ' : ' + GOT[symName].value);
+        err("updateGOT=func");
 #endif
-        } else if (typeof value === 'number') {
-          GOT[symName].value = value;
-        } else {
-          err("unhandled export type for `" + symName + "`: " + (typeof value));
-        }
+      } else if (typeof value === 'object' && typeof value.value !== 'undefined') {
+        offset = value.value;
+#if DYLINK_DEBUG
+        err("updateGOT=global");
+#endif
+      } else if (typeof value === 'number') {
+        offset = value;
+#if DYLINK_DEBUG
+        err("updateGOT=number");
+#endif
+      } else {
+#if DYLINK_DEBUG
+        err("updateGOT=unhandled type: " + symName);
+#endif
+        continue;
+      }
+
+      if (!GOT[symName]) {
+        GOT[symName] = new WebAssembly.Global({value: 'i32', mutable: true}, offset);
+#if DYLINK_DEBUG
+        err("updateGOT: " + symName + ' : ' + GOT[symName].value);
+#endif
+      } else if (replace || GOT[symName].value == -1) {
+        GOT[symName].value = offset;
 #if DYLINK_DEBUG
         err("updateGOT: " + symName + ' : ' + GOT[symName].value);
 #endif
       }
 #if DYLINK_DEBUG
-      else if (GOT[symName].value != value) {
+      else if (GOT[symName].value != offset) {
         err("updateGOT: EXISTING SYMBOL: " + symName + ' : ' + GOT[symName].value + " " + value);
       }
 #endif
@@ -112,16 +132,18 @@ var LibraryDylink = {
   // Applies relocations to exported things.
   $relocateExports__deps: ['$updateGOT'],
   $relocateExports: function(exports, memoryBase) {
+#if DYLINK_DEBUG
+    err("relocateExports: " + memoryBase);
+#endif
     var relocated = {};
 
     for (var e in exports) {
       var value = exports[e];
-      if (typeof value === 'object') {
+      if (typeof value === 'object' && typeof value.value !== 'undefined') {
         // a breaking change in the wasm spec, globals are now objects
         // https://github.com/WebAssembly/mutable-global/issues/1
-        value = value.value;
-      }
-      if (typeof value === 'number') {
+        value = value.value + memoryBase
+      } else if (typeof value === 'number') {
         value += memoryBase;
       }
       relocated[e] = value;
@@ -218,22 +240,35 @@ var LibraryDylink = {
   // use normally malloc from the main program to do these allocations).
 
   // Allocate memory no even if malloc isn't ready yet.
-  $getMemory__deps: ['$GOT'],
-  $getMemory: function(size) {
+  $allocateDylibMemory__deps: ['$GOT'],
+  $allocateDylibMemory: function(size) {
     // After the runtime is initialized, we must only use sbrk() normally.
 #if DYLINK_DEBUG
-    err("getMemory: " + size + " runtimeInitialized=" + runtimeInitialized);
+    err("allocateDylibMemory: " + size + " runtimeInitialized=" + runtimeInitialized);
 #endif
-    if (runtimeInitialized)
+    if (runtimeInitialized) {
       return _malloc(size);
+    }
+
+    // If the runtime is not yet initialized (i.e. if we are doing
+    // preloadDylibs) then we need to allocate 
     var ret = Module['___heap_base'];
     var end = (ret + size + 15) & -16;
 #if ASSERTIONS
-    assert(end <= HEAP8.length, 'failure to getMemory - memory growth etc. is not supported there, call malloc/sbrk directly or increase INITIAL_MEMORY');
+    assert(end <= HEAP8.length, 'failure to allocateDylibMemory - increase INITIAL_MEMORY');
 #endif
     Module['___heap_base'] = end;
-    GOT['__heap_base'].value = end;
     return ret;
+  },
+
+  $finalizeHeapBase: function() {
+    var ptr = _emscripten_get_sbrk_ptr();
+    var new_base = Module['___heap_base'];
+#if DYLINK_DEBUG
+    var old_base = {{{ makeGetValue('ptr', 0, 'i32') }}};
+    err('finalizeHeapBase: ' + new_base);
+#endif
+    {{{ makeSetValue('ptr', 0, 'new_base', 'i32') }}};
   },
 
   // fetchBinary fetches binaray data @ url. (async)
@@ -250,7 +285,7 @@ var LibraryDylink = {
 
   // Loads a side module from binary data. Returns the module's exports or a
   // progise that resolves to its exports if the loadAsync flag is set.
-  $loadSideModule__deps: ['$loadDynamicLibrary', '$createInvokeFunction', '$getMemory', '$relocateExports', '$resolveGlobalSymbol', '$GOTHandler'],
+  $loadSideModule__deps: ['$loadDynamicLibrary', '$createInvokeFunction', '$allocateDylibMemory', '$relocateExports', '$resolveGlobalSymbol', '$GOTHandler'],
   $loadSideModule: function(binary, flags) {
     var int32View = new Uint32Array(new Uint8Array(binary.subarray(0, 24)).buffer);
     assert(int32View[0] == 0x6d736100, 'need to see wasm magic number'); // \0asm
@@ -306,7 +341,7 @@ var LibraryDylink = {
       assert(tableAlign === 1, 'invalid tableAlign ' + tableAlign);
 #endif
       // prepare memory
-      var memoryBase = alignMemory(getMemory(memorySize + memoryAlign), memoryAlign); // TODO: add to cleanups
+      var memoryBase = alignMemory(allocateDylibMemory(memorySize + memoryAlign), memoryAlign); // TODO: add to cleanups
 #if DYLINK_DEBUG
       err("loadModule: memoryBase=" + memoryBase);
 #endif
@@ -380,12 +415,19 @@ var LibraryDylink = {
           if (prop in obj) {
             return obj[prop]; // already present
           }
-          // otherwise this is regular function import - call it indirectly
-          var resolved;
-          return obj[prop] = function() {
-            if (!resolved) resolved = resolveSymbol(prop, true);
-            return resolved.apply(null, arguments);
-          };
+          // otherwise try to resolve the symbol, and if that fails insert a
+          // delayed resolver.
+          var resolved = resolveSymbol(prop)
+          if (!resolved) {
+            obj[prop] = function() {
+              if (!resolved) resolved = resolveSymbol(prop);
+              return resolved.apply(null, arguments);
+            };
+          }
+#if DYLINK_DEBUG
+          err('symbol already resolved!: ' + prop);
+#endif
+          return resolved;
         }
       };
       var proxy = new Proxy(env, proxyHandler);
@@ -614,7 +656,7 @@ var LibraryDylink = {
     return handle;
   },
 
-  $preloadDylibs__deps: ['$loadDynamicLibrary', '$reportUndefinedSymbols'],
+  $preloadDylibs__deps: ['$loadDynamicLibrary', '$reportUndefinedSymbols', '$finalizeHeapBase'],
   $preloadDylibs: function() {
 #if DYLINK_DEBUG
     err('preloadDylibs');
@@ -639,8 +681,9 @@ var LibraryDylink = {
         return loadDynamicLibrary(lib, {loadAsync: true, global: true, nodelete: true, allowUndefined: true});
       })).then(function() {
         // we got them all, wonderful
-        removeRunDependency('preloadDylibs');
         reportUndefinedSymbols();
+        finalizeHeapBase();
+        removeRunDependency('preloadDylibs');
       });
       return;
     }
@@ -650,6 +693,7 @@ var LibraryDylink = {
       loadDynamicLibrary(lib, {global: true, nodelete: true, allowUndefined: true});
     });
     reportUndefinedSymbols();
+    finalizeHeapBase();
   },
 
   // void* dlopen(const char* filename, int flags);

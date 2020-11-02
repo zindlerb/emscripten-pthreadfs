@@ -116,6 +116,9 @@ function getEmptyTableSlot() {
 
 // Add a wasm function to the table.
 function addFunctionWasm(func, sig) {
+#if ASSERTIONS
+  assert(typeof func === 'function')
+#endif
   // Check if the function is already in the table, to ensure each function
   // gets a unique index. First, create the map if this is the first use.
   if (!functionsInTableMap) {

@@ -747,6 +747,8 @@ def calc_cflags(options):
   if shared.Settings.RELOCATABLE:
     cflags.append('-fPIC')
     cflags.append('-fvisibility=default')
+  elif shared.Settings.MAIN_MODULE:
+    cflags.append('-mmutable-globals')
 
   if shared.Settings.LTO:
     cflags.append('-flto=' + shared.Settings.LTO)
@@ -1337,16 +1339,21 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       assert not shared.Settings.SIDE_MODULE
       if shared.Settings.MAIN_MODULE == 1:
         shared.Settings.INCLUDE_FULL_LIBRARY = 1
-      shared.Settings.DEFAULT_LIBRARY_FUNCS_TO_INCLUDE += ['$preloadDylibs']
+      shared.Settings.DEFAULT_LIBRARY_FUNCS_TO_INCLUDE += ['$preloadDylibs', '$updateGOT']
+      # The main module need to allocate space for side module static data at the start of the 
+      # heap area.  Ths base of the heap then needs to be updated accordingly.
+      shared.Settings.EXPORTED_FUNCTIONS.append('_emscripten_get_sbrk_ptr')
+      shared.Settings.ALLOW_TABLE_GROWTH = 1
     elif shared.Settings.SIDE_MODULE:
       assert not shared.Settings.MAIN_MODULE
       # memory init file is not supported with side modules, must be executable synchronously (for dlopen)
       options.memory_init_file = False
 
-    if shared.Settings.MAIN_MODULE or shared.Settings.SIDE_MODULE:
-      if shared.Settings.MAIN_MODULE == 1 or shared.Settings.SIDE_MODULE == 1:
-        shared.Settings.LINKABLE = 1
-        shared.Settings.EXPORT_ALL = 1
+    if shared.Settings.MAIN_MODULE == 1 or shared.Settings.SIDE_MODULE == 1:
+      shared.Settings.LINKABLE = 1
+      shared.Settings.EXPORT_ALL = 1
+
+    if shared.Settings.SIDE_MODULE:
       shared.Settings.RELOCATABLE = 1
 
     if shared.Settings.RELOCATABLE:

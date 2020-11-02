@@ -59,7 +59,7 @@ function preprocess(text, filenameHint) {
             var first = trimmed.split(' ', 1)[0]
             if (first == '#if' || first == '#ifdef') {
               if (first == '#ifdef') {
-                warn('warning: use of #ifdef in js library.  Use #if instead.');
+                warn(`${filenameHint}:${i}: warning: use of #ifdef in js library.  Use #if instead.`);
               }
               var after = trimmed.substring(trimmed.indexOf(' '));
               var truthy = !!eval(after);
@@ -85,7 +85,7 @@ function preprocess(text, filenameHint) {
               assert(showStack.length > 0);
               showStack.pop();
             } else {
-              throw "Unknown preprocessor directive on line " + i + ': `' + line + '`';
+              throw `${filenameHint}:${i}: unknown preprocessor directive: ${trimmed}`
             }
           } else {
             if (showStack.indexOf(false) === -1) {

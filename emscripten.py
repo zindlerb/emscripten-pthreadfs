@@ -695,14 +695,21 @@ def create_sending(invoke_funcs, metadata):
   return '{\n  ' + ',\n  '.join('"' + k + '": ' + send_items_map[k] for k in sorted_keys) + '\n}'
 
 
+def callable_before_runtime_init(name):
+  # The emscripten stack functions are called very early (by writeStackCookie) before
+  # the runtime is initialized so we can't create these wrappers that check for
+  # runtimeInitialized.
+  #
+  # emscripten_get_sbrk_ptr is used to update the heap_base in the case of MAIN_MODULE
+  # where static data is allocated for side modules at the base of the heap.
+  return name.startswith('emscripten_stack_') or name == 'emscripten_get_sbrk_ptr'
+
+
 def make_export_wrappers(exports, delay_assignment):
   wrappers = []
   for name in exports:
     mangled = asmjs_mangle(name)
-    # The emscripten stack functions are called very early (by writeStackCookie) before
-    # the runtime is initialized so we can't create these wrappers that check for
-    # runtimeInitialized.
-    if shared.Settings.ASSERTIONS and not name.startswith('emscripten_stack_'):
+    if shared.Settings.ASSERTIONS and not callable_before_runtime_init(name):
       # With assertions enabled we create a wrapper that are calls get routed through, for
       # the lifetime of the program.
       if delay_assignment:

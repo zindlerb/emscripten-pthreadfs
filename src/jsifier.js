@@ -145,7 +145,7 @@ function JSify(data, functionsOnly) {
             warn('To build in STANDALONE_WASM mode without a main(), use emcc --no-entry');
           }
         }
-        if (!RELOCATABLE) {
+        if (!RELOCATABLE && !MAIN_MODULE) {
           // emit a stub that will fail at runtime
           LibraryManager.library[ident] = new Function("err('missing function: " + ident + "'); abort(-1);");
           // We have already warned/errored about this function, so for the purposes of Closure use, mute all type checks

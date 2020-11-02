@@ -819,9 +819,21 @@ function createWasm() {
   function receiveInstance(instance, module) {
     var exports = instance.exports;
 
+#if !RELOCATABLE
+    wasmTable = exports['__indirect_function_table'];
+#if ASSERTIONS
+    assert(wasmTable, "table not found in wasm exports");
+#endif
+#endif
+
 #if RELOCATABLE
     exports = relocateExports(exports, {{{ GLOBAL_BASE }}});
+#else
+#if MAIN_MODULE
+    updateGOT(exports);
 #endif
+#endif
+
 
 #if ASYNCIFY
     exports = Asyncify.instrumentWasmExports(exports);
@@ -832,13 +844,6 @@ function createWasm() {
 #endif
 
     Module['asm'] = exports;
-
-#if !RELOCATABLE
-    wasmTable = Module['asm']['__indirect_function_table'];
-#if ASSERTIONS && !PURE_WASI
-    assert(wasmTable, "table not found in wasm exports");
-#endif
-#endif
 
 #if ABORT_ON_WASM_EXCEPTIONS
     instrumentWasmTableWithAbort();

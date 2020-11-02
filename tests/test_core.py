@@ -4017,15 +4017,15 @@ res64 - external 64\n''', header='''
   def test_dylink_global_var_modded(self):
     self.dylink_test(main=r'''
       #include <stdio.h>
-      extern int x;
+      extern int xxx;
       int main() {
-        printf("extern is %d.\n", x);
+        printf("extern is %d.\n", xxx);
         return 0;
       }
     ''', side=r'''
-      int x = 123;
+      int xxx = 123;
       struct Initter {
-        Initter() { x = 456; }
+        Initter() { xxx = 456; }
       };
       Initter initter;
     ''', expected=['extern is 456.\n'])
