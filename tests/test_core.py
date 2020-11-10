@@ -8139,6 +8139,10 @@ NODEFS is no longer included by default; build with -lnodefs.js
     self.set_setting('USE_PTHREADS', '1')
     self.do_run_in_out_file_test('tests', 'core', 'pthread', 'emscripten_futexes.c')
 
+  @node_pthreads
+  def test_pthreads_dynamic_linking(self):
+    self.do_basic_dylink_test()
+
   # Tests the emscripten_get_exported_function() API.
   def test_emscripten_get_exported_function(self):
     # Could also test with -s ALLOW_TABLE_GROWTH=1
