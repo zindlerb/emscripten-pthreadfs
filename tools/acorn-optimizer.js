@@ -274,6 +274,12 @@ function hasSideEffects(node) {
   return has;
 }
 
+function overwrite(target, source) {
+  for (var x in source) {
+    target[x] = source[x];
+  }
+}
+
 // Passes
 
 // Removes obviously-unused code. Similar to closure compiler in its rules -
@@ -301,9 +307,10 @@ function JSDCE(ast, aggressive) {
     function ensureData(scope, name) {
       if (Object.prototype.hasOwnProperty.call(scope, name)) return scope[name];
       scope[name] = {
-        def: 0,
+        def: false,
         use: 0,
-        param: 0 // true for function params, which cannot be eliminated
+        param: false, // true for function params, which cannot be eliminated
+        writes: [], // all (non-var) assignments
       };
       return scope[name];
     }
@@ -352,13 +359,13 @@ function JSDCE(ast, aggressive) {
     function handleFunction(node, c, defun) {
       // defun names matter - function names (the y in var x = function y() {..}) are just for stack traces.
       if (defun) {
-        ensureData(scopes[scopes.length-1], node.id.name).def = 1;
+        ensureData(scopes[scopes.length-1], node.id.name).def = true;
       }
       var scope = {};
       node.params.forEach(function(param) {
         var name = param.name;
-        ensureData(scope, name).def = 1;
-        scope[name].param = 1;
+        ensureData(scope, name).def = true
+        scope[name].param = true;
       });
       scopes.push(scope);
       c(node.body);
@@ -371,8 +378,12 @@ function JSDCE(ast, aggressive) {
         if (name === ownName) continue;
         var data = scope[name];
         if (data.use && !data.def) {
-          // this is used from a higher scope, propagate the use down
-          ensureData(scopes[scopes.length-1], name).use = 1;
+          // this is used from a higher scope, propagate the uses down
+          ensureData(scopes[scopes.length-1], name).use += data.use;
+          Array.prototype.push.apply(
+            ensureData(scopes[scopes.length-1], name).writes,
+            data.writes
+          );
           continue;
         }
         if (data.def && !data.use && !data.param) {
@@ -386,7 +397,7 @@ function JSDCE(ast, aggressive) {
     recursiveWalk(ast, {
       VariableDeclarator(node, c) {
         var name = node.id.name;
-        ensureData(scopes[scopes.length-1], name).def = 1;
+        ensureData(scopes[scopes.length-1], name).def = true
         if (node.init) c(node.init);
       },
       ObjectExpression(node, c) {
@@ -414,8 +425,17 @@ function JSDCE(ast, aggressive) {
       },
       Identifier(node, c) {
         var name = node.name;
-        ensureData(scopes[scopes.length-1], name).use = 1;
+        ensureData(scopes[scopes.length-1], name).use++;
       },
+      AssignmentExpression(node, c) {
+        var left = node.left;
+        if (left.type === 'Identifier') {
+          var name = left.name;
+          ensureData(scopes[scopes.length-1], name).writes.push(node);
+        }
+        c(left);
+        c(node.right);
+      }
     });
 
     // toplevel
@@ -425,10 +445,18 @@ function JSDCE(ast, aggressive) {
     var names = {};
     for (var name in scope) {
       var data = scope[name];
-      if (data.def && !data.use) {
+      assert(data.use >= data.writes.length);
+      // We can eliminate something if we defined it, and if it has no uses
+      // (aside from writes - if all uses are writes, it's write-only and
+      // unneeded).
+      if (data.def && data.use == data.writes.length) {
         assert(!data.param); // can't be
         // this is eliminateable!
         names[name] = 0;
+        for (var write of data.writes) {
+          // Replace the write with the value.
+          overwrite(write, write.right);
+        }
       }
     }
     cleanUp(ast, names);

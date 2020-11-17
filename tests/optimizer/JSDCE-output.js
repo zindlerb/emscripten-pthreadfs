@@ -77,3 +77,14 @@ var FS = {
   }
  }
 };
+
+var readWrite;
+
+function doWrites(dummy) {
+ 10;
+ 20;
+ readWrite = 30;
+ doWrites(readWrite);
+}
+
+Module.doWrites = doWrites;

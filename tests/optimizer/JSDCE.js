@@ -105,3 +105,15 @@ var FS = {
  },
 };
 
+// A write-only value can be removed.
+var writeOnly;
+var readWrite;
+
+function doWrites(dummy) {
+  writeOnly = 10;
+  writeOnly = 20;
+  readWrite = 30;
+  doWrites(readWrite);
+}
+
+Module.doWrites = doWrites;
