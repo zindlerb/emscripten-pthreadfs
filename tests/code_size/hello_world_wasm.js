@@ -1,27 +1,26 @@
-var d = Module;
+var c = Module;
 
-var e = new TextDecoder("utf8");
+var d = new TextDecoder("utf8");
 
-function f(a) {
+function e(a) {
     if (!a) return "";
-    for (var b = a + NaN, c = a; !(c >= b) && g[c]; ) ++c;
-    return e.decode(g.subarray(a, c));
+    for (var k = a + NaN, b = a; !(b >= k) && f[b]; ) ++b;
+    return d.decode(f.subarray(a, b));
 }
 
-var g, h, k;
+var f, g, h;
 
-WebAssembly.instantiate(d.wasm, {
+WebAssembly.instantiate(c.wasm, {
     a: {
         a: function(a) {
-            console.log(f(a));
+            console.log(e(a));
         }
     }
 }).then((function(a) {
     a = a.instance.exports;
-    k = a.e;
-    h = a.b;
-    var b = h.buffer;
-    g = new Uint8Array(b);
+    h = a.e;
+    g = a.b;
+    f = new Uint8Array(g.buffer);
     a.d();
-    k();
+    h();
 }));

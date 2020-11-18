@@ -140,6 +140,10 @@ function isNull(node) {
   return node.type === 'Literal' && node.raw === 'null';
 }
 
+function isEmpty(node) {
+  return node.type === 'EmptyStatement' && node.raw === 'null';
+}
+
 function setLiteralValue(item, value) {
   item.value = value;
   item.raw = "'" + value + "'";
@@ -335,7 +339,7 @@ function JSDCE(ast, aggressive) {
         },
         ExpressionStatement(node, c) {
           if (aggressive && !hasSideEffects(node)) {
-            if (!isNull(node.expression)) {
+            if (!isNull(node.expression) && isEmpty(node.expression)) {
               convertToNullStatement(node);
               removed++;
             }
@@ -454,8 +458,15 @@ function JSDCE(ast, aggressive) {
         // this is eliminateable!
         names[name] = 0;
         for (var write of data.writes) {
-          // Replace the write with the value.
-          overwrite(write, write.right);
+          var value = write.right;
+          // If the assigned value has no side effects, or if we are assigning
+          // to Module['x'] or asm['x'], then we don't need the assign at all.
+          if (!hasSideEffects(value) || isAsmUse(value)) {
+            emptyOut(write);
+          } else {
+            // Replace the write with the value, since we need it.
+            overwrite(write, value);
+          }
         }
       }
     }

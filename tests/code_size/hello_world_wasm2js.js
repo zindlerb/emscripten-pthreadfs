@@ -1,11 +1,11 @@
 var b = Module;
 
-var c = new TextDecoder("utf8");
+var d = new TextDecoder("utf8");
 
 function e(a) {
     if (!a) return "";
-    for (var m = a + NaN, d = a; !(d >= m) && f[d]; ) ++d;
-    return c.decode(f.subarray(a, d));
+    for (var l = a + NaN, c = a; !(c >= l) && f[c]; ) ++c;
+    return d.decode(f.subarray(a, c));
 }
 
 var f, g;
@@ -17,16 +17,14 @@ g = new function(a) {
     maximum: 256
 });
 
-var h = g.buffer;
+f = new Uint8Array(g.buffer);
 
-f = new Uint8Array(h);
-
-var k = {
+var h = {
     a: function(a) {
         console.log(e(a));
     },
     memory: g
-}, l, n = (new function() {
+}, k, m = (new function() {
     this.exports = function instantiate(t) {
         function r(u) {
             u.set = function(v, w) {
@@ -67,13 +65,13 @@ var k = {
             };
         }
         return s(t);
-    }(k);
+    }(h);
 }).exports;
 
-l = n.d;
+k = m.d;
 
 f.set(new Uint8Array(b.mem), 1024);
 
-n.c();
+m.c();
 
-l();
+k();
