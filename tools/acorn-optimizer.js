@@ -140,10 +140,6 @@ function isNull(node) {
   return node.type === 'Literal' && node.raw === 'null';
 }
 
-function isEmpty(node) {
-  return node.type === 'EmptyStatement' && node.raw === 'null';
-}
-
 function setLiteralValue(item, value) {
   item.value = value;
   item.raw = "'" + value + "'";
