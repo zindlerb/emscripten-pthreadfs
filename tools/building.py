@@ -478,14 +478,14 @@ def lld_flags_for_executable(external_symbol_list):
   else:
     cmd.append('--allow-undefined')
 
-  # wasi does not import the memory (but for JS it is efficient to do so,
-  # as it allows us to set up memory, preload files, etc. even before the
-  # wasm module arrives)
-  if not Settings.STANDALONE_WASM:
+  if Settings.IMPORTED_MEMORY:
     cmd.append('--import-memory')
 
   if Settings.USE_PTHREADS:
     cmd.append('--shared-memory')
+
+  if Settings.MEMORY64:
+    cmd.append('-mwasm64')
 
   # wasm-ld can strip debug info for us. this strips both the Names
   # section and DWARF, so we can only use it when we don't need any of
@@ -1141,7 +1141,7 @@ def metadce(js_file, wasm_file, minify_whitespace, debug_info):
       if export in user_requested_exports or Settings.EXPORT_ALL:
         item['root'] = True
   # in standalone wasm, always export the memory
-  if Settings.STANDALONE_WASM:
+  if not Settings.IMPORTED_MEMORY:
     graph.append({
       'export': 'memory',
       'name': 'emcc$export$memory',
@@ -1545,6 +1545,8 @@ def get_binaryen_feature_flags():
   ret = ['--mvp-features']
   if Settings.USE_PTHREADS:
     ret += ['--enable-threads']
+  if Settings.MEMORY64:
+    ret += ['--enable-memory64']
   ret += Settings.BINARYEN_FEATURES
   return ret
 

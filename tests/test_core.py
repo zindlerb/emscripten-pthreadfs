@@ -14,7 +14,6 @@ import sys
 import time
 import unittest
 from functools import wraps
-from textwrap import dedent
 
 if __name__ == '__main__':
   raise Exception('do not run this file directly; do something like: tests/runner.py')
@@ -24,7 +23,7 @@ from tools.shared import PYTHON, EMCC, EMAR
 from tools.utils import WINDOWS, MACOS
 from tools import shared, building, config
 from runner import RunnerCore, path_from_root, requires_native_clang
-from runner import skip_if, no_wasm_backend, needs_dlfcn, no_windows, is_slow_test, create_test_file, parameterized
+from runner import skip_if, needs_dlfcn, no_windows, is_slow_test, create_test_file, parameterized
 from runner import js_engines_modify, wasm_engines_modify, env_modify, with_env_modify, disabled
 from runner import NON_ZERO
 import clang_native
@@ -442,18 +441,6 @@ class TestCoreBase(RunnerCore):
   def test_literal_negative_zero(self):
     self.do_run_in_out_file_test('tests', 'core', 'test_literal_negative_zero.c')
 
-  @no_wasm_backend('test uses calls to expected js imports, rather than using llvm intrinsics directly')
-  def test_llvm_intrinsics(self):
-    self.do_run_in_out_file_test('tests', 'core', 'test_llvm_intrinsics.cpp')
-
-  @no_wasm_backend('test looks for js impls of intrinsics')
-  def test_lower_intrinsics(self):
-    self.emcc_args += ['-g1']
-    self.do_run_in_out_file_test('tests', 'core', 'test_lower_intrinsics.c')
-    # intrinsics should be lowered out
-    js = open('src.js').read()
-    assert ('llvm_' not in js) == is_optimizing(self.emcc_args) or not self.is_wasm(), 'intrinsics must be lowered when optimizing'
-
   @also_with_standalone_wasm()
   def test_bswap64(self):
     self.do_run_in_out_file_test('tests', 'core', 'test_bswap64.cpp')
@@ -475,8 +462,8 @@ class TestCoreBase(RunnerCore):
   def test_cube2hash(self):
     # A good test of i64 math
     self.do_run('// empty file', 'Usage: hashstring <seed>',
-                libraries=self.get_library('cube2hash', ['libcube2hash.a'], configure=None),
-                includes=[path_from_root('tests', 'cube2hash')], assert_returncode=NON_ZERO)
+                libraries=self.get_library(os.path.join('third_party', 'cube2hash'), ['libcube2hash.a'], configure=None),
+                includes=[path_from_root('tests', 'third_party', 'cube2hash')], assert_returncode=NON_ZERO)
 
     for text, output in [('fleefl', '892BDB6FD3F62E863D63DA55851700FDE3ACF30204798CE9'),
                          ('fleefl2', 'AA2CC5F96FC9D540CA24FDAF1F71E2942753DB83E8A81B61'),
@@ -2087,6 +2074,7 @@ int main(int argc, char **argv) {
   @no_asan('ASan alters the memory size')
   def test_module_wasm_memory(self):
     self.emcc_args += ['--pre-js', path_from_root('tests', 'core', 'test_module_wasm_memory.js')]
+    self.set_setting('IMPORTED_MEMORY')
     self.do_runf(path_from_root('tests', 'core', 'test_module_wasm_memory.c'), 'success')
 
   def test_ssr(self): # struct self-ref
@@ -2192,8 +2180,6 @@ Success!''')
   def test_varargs(self):
     self.do_run_in_out_file_test('tests', 'core', 'test_varargs.c')
 
-  @no_wasm_backend('Calling varargs across function calls is undefined behavior in C,'
-                   ' and asmjs and wasm implement it differently.')
   def test_varargs_multi(self):
     self.do_run_in_out_file_test('tests', 'core', 'test_varargs_multi.c')
 
@@ -2423,13 +2409,6 @@ The current type of b is: 9
   def test_strftime(self):
     self.do_run_in_out_file_test('tests', 'core', 'test_strftime.cpp')
 
-  @no_wasm_backend("wasm backend doesn't compile intentional segfault into an abort() call. "
-                   "It also doesn't segfault.")
-  def test_intentional_fault(self):
-    # Some programs intentionally segfault themselves, we should compile that into a throw
-    self.do_runf(path_from_root('tests', 'core', 'test_intentional_fault.c'),
-                 'abort(' if self.run_name != 'asm2g' else 'abort(segmentation fault', assert_returncode=NON_ZERO)
-
   def test_trickystring(self):
     self.do_run_in_out_file_test('tests', 'core', 'test_trickystring.c')
 
@@ -2488,10 +2467,9 @@ The current type of b is: 9
   def test_bsearch(self):
     self.do_run_in_out_file_test('tests', 'core', 'test_bsearch.c')
 
-  @no_wasm_backend("https://github.com/emscripten-core/emscripten/issues/9039")
   def test_stack_overflow(self):
-    self.set_setting('ASSERTIONS', 1)
-    self.do_runf(path_from_root('tests', 'core', 'stack_overflow.cpp'), 'Stack overflow!', assert_returncode=NON_ZERO)
+    self.set_setting('ASSERTIONS', 2)
+    self.do_runf(path_from_root('tests', 'core', 'stack_overflow.cpp'), 'stack overflow', assert_returncode=NON_ZERO)
 
   def test_stackAlloc(self):
     self.do_run_in_out_file_test('tests', 'core', 'stackAlloc.cpp')
@@ -4301,7 +4279,7 @@ res64 - external 64\n''', header='''
     ''', expected=['special 2.182810 3.141590 42\ndestroy\nfrom side: 1337.\n'])
 
   @needs_dlfcn
-  @no_wasm_backend('wasm backend resolves symbols greedily on startup')
+  @disabled('https://github.com/emscripten-core/emscripten/issues/12815')
   def test_dylink_hyper_dupe(self):
     self.set_setting('INITIAL_MEMORY', 64 * 1024 * 1024)
     if not self.has_changed_setting('ASSERTIONS'):
@@ -4316,12 +4294,14 @@ res64 - external 64\n''', header='''
       extern void only_in_second_1(int x);
       extern int second_to_third;
       int third_to_second = 1337;
+
       void only_in_third_0() {
         // note we access our own globals directly, so
         // it doesn't matter that overriding failed
         printf("only_in_third_0: %d, %d, %d\n", sidef(), sideg, second_to_third);
         only_in_second_1(2112);
       }
+
       void only_in_third_1(int x) {
         printf("only_in_third_1: %d, %d, %d, %d\n", sidef(), sideg, second_to_third, x);
       }
@@ -4330,8 +4310,7 @@ res64 - external 64\n''', header='''
       libname = 'third.wasm'
     else:
       libname = 'third.js'
-    self.run_process([EMCC, 'third.cpp', '-o', libname, '-s', 'SIDE_MODULE', '-s', 'EXPORT_ALL'] + self.get_emcc_args())
-
+    self.run_process([EMCC, 'third.cpp', '-o', libname, '-s', 'SIDE_MODULE'] + self.get_emcc_args())
     self.dylink_test(main=r'''
       #include <stdio.h>
       #include <emscripten.h>
@@ -4358,16 +4337,19 @@ res64 - external 64\n''', header='''
       extern void only_in_third_1(int x);
       int second_to_third = 500;
       extern int third_to_second;
+
       void only_in_second_0() {
         printf("only_in_second_0: %d, %d, %d\n", sidef(), sideg, third_to_second);
         only_in_third_1(1221);
       }
+
       void only_in_second_1(int x) {
         printf("only_in_second_1: %d, %d, %d, %d\n", sidef(), sideg, third_to_second, x);
       }
     ''',
                      expected=['sidef: 10, sideg: 20.\nbsidef: 536.\nonly_in_second_0: 10, 20, 1337\nonly_in_third_1: 36, 49, 500, 1221\nonly_in_third_0: 36, 49, 500\nonly_in_second_1: 10, 20, 1337, 2112\n'],
-                     need_reverse=not self.is_wasm()) # in wasm, we can't flip as the side would have an EM_ASM, which we don't support yet TODO
+                     # in wasm, we can't flip as the side would have an EM_ASM, which we don't support yet TODO
+                     need_reverse=not self.is_wasm())
 
     if not self.has_changed_setting('ASSERTIONS'):
       print('check warnings')
@@ -6132,32 +6114,6 @@ return malloc(size);
     else:
       do_test_openjpeg()
 
-  @no_wasm_backend("uses bitcode compiled with asmjs, and we don't have unified triples")
-  def test_python(self):
-    self.set_setting('EMULATE_FUNCTION_POINTER_CASTS', 1)
-    # The python build contains several undefined symbols
-    self.set_setting('ERROR_ON_UNDEFINED_SYMBOLS', 0)
-
-    bitcode = path_from_root('tests', 'third_party', 'python', 'python.bc')
-    pyscript = dedent('''\
-      print '***'
-      print "hello python world!"
-      print [x*2 for x in range(4)]
-      t=2
-      print 10-3-t
-      print (lambda x: x*2)(11)
-      print '%f' % 5.47
-      print {1: 2}.keys()
-      print '***'
-      ''')
-    pyoutput = '***\nhello python world!\n[0, 2, 4, 6]\n5\n22\n5.470000\n[1]\n***'
-
-    for lto in [0, 1]:
-      print('lto:', lto)
-      if lto:
-        self.emcc_args += ['-flto']
-      self.do_run_object(bitcode, pyoutput, args=['-S', '-c', pyscript])
-
   @no_asan('call stack exceeded on some versions of node')
   @is_slow_test
   def test_fuzz(self):
@@ -6549,7 +6505,7 @@ return malloc(size);
     self.emcc_args += ['--tracing']
     self.do_run_in_out_file_test('tests', 'core', 'test_tracing.c')
 
-  @no_wasm_backend('https://github.com/emscripten-core/emscripten/issues/9527')
+  @disabled('https://github.com/emscripten-core/emscripten/issues/9527')
   def test_eval_ctors(self):
     if '-O2' not in str(self.emcc_args) or '-O1' in str(self.emcc_args):
       self.skipTest('need js optimizations')
@@ -6747,7 +6703,6 @@ someweirdtext
     ''')
     self.do_runf('test_embind_3.cpp', 'UnboundTypeError: Cannot call compute due to unbound types: Pi')
 
-  @no_wasm_backend('long doubles are f128s in wasm backend')
   def test_embind_4(self):
     self.emcc_args += ['--bind', '--post-js', 'post.js']
     create_test_file('post.js', '''
@@ -6763,7 +6718,7 @@ someweirdtext
       using namespace emscripten;
 
       const size_t kBufferSize = 1024;
-      long double buffer[kBufferSize];
+      double buffer[kBufferSize];
       val getBufferView(void) {
           val v = val(typed_memory_view(kBufferSize, buffer));
           return v;
@@ -7037,8 +6992,7 @@ someweirdtext
 
     building.emcc('src.cpp', self.get_emcc_args(), js_filename)
 
-    LLVM_DWARFDUMP = os.path.join(config.LLVM_ROOT, 'llvm-dwarfdump')
-    out = self.run_process([LLVM_DWARFDUMP, wasm_filename, '-all'], stdout=PIPE).stdout
+    out = self.run_process([shared.LLVM_DWARFDUMP, wasm_filename, '-all'], stdout=PIPE).stdout
 
     # parse the sections
     sections = {}
@@ -8205,6 +8159,11 @@ NODEFS is no longer included by default; build with -lnodefs.js
       self.skipTest('standalone mode only')
     self.set_setting('STANDALONE_WASM', 1)
     self.set_setting('EXPORTED_FUNCTIONS', ['__start'])
+    self.do_run_in_out_file_test('tests', 'core', 'test_hello_world.c')
+
+  @unittest.skip("memory64 functionality only partially working")
+  def test_memory64_hello_world(self):
+    self.set_setting('MEMORY64', 2)
     self.do_run_in_out_file_test('tests', 'core', 'test_hello_world.c')
 
   # Tests the operation of API found in #include <emscripten/math.h>

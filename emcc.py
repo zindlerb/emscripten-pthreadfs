@@ -554,6 +554,8 @@ def backend_binaryen_passes():
   # safe heap must run before post-emscripten, so post-emscripten can apply the sbrk ptr
   if shared.Settings.SAFE_HEAP:
     passes += ['--safe-heap']
+  if shared.Settings.MEMORY64 == 2:
+    passes += ['--memory64-lowering']
   if run_binaryen_optimizer:
     passes += ['--post-emscripten']
     if not shared.Settings.EXIT_RUNTIME:
@@ -1739,6 +1741,10 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       # requires JS legalization
       shared.Settings.LEGALIZE_JS_FFI = 0
 
+    # TODO(sbc): Remove WASM2JS here once the size regression it would introduce has been fixed.
+    if shared.Settings.USE_PTHREADS or shared.Settings.RELOCATABLE or shared.Settings.ASYNCIFY_LAZY_LOAD_CODE or shared.Settings.WASM2JS:
+      shared.Settings.IMPORTED_MEMORY = 1
+
     if shared.Settings.WASM_BIGINT:
       shared.Settings.LEGALIZE_JS_FFI = 0
 
@@ -1893,6 +1899,12 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
 
     if shared.Settings.USE_PTHREADS:
       newargs.append('-pthread')
+
+    # Any "pointers" passed to JS will now be i64's, in both modes.
+    if shared.Settings.MEMORY64:
+      if settings_key_changes.get('WASM_BIGINT') == '0':
+        exit_with_error('MEMORY64 is not compatible with WASM_BIGINT=0')
+      shared.Settings.WASM_BIGINT = 1
 
     # check if we can address the 2GB mark and higher: either if we start at
     # 2GB, or if we allow growth to either any amount or to 2GB or more.
