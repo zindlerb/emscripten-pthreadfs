@@ -339,10 +339,7 @@ function JSDCE(ast, aggressive) {
         },
         ExpressionStatement(node, c) {
           if (aggressive && !hasSideEffects(node)) {
-            if (!isNull(node.expression) && isEmpty(node.expression)) {
-              convertToNullStatement(node);
-              removed++;
-            }
+            emptyOut(node);
           }
         },
         FunctionDeclaration(node, c) {
@@ -462,7 +459,7 @@ function JSDCE(ast, aggressive) {
           // If the assigned value has no side effects, or if we are assigning
           // to Module['x'] or asm['x'], then we don't need the assign at all.
           if (!hasSideEffects(value) || isAsmUse(value)) {
-            emptyOut(write);
+            convertToNullStatement(write);
           } else {
             // Replace the write with the value, since we need it.
             overwrite(write, value);
