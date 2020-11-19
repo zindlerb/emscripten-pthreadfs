@@ -77,3 +77,21 @@ new Float64Array(buffer);
 new SomethingUnknownWithSideEffects("utf8");
 new TextDecoder(Unknown());
 
+// A write-only value can be removed.
+var writeOnly;
+var readWrite;
+
+function doWrites(dummy) {
+  writeOnly = 10;
+  writeOnly = 20;
+  readWrite = 30;
+  doWrites(readWrite);
+  // After removing the write, these have no side effects.
+  writeOnly = asm['foo'];
+  writeOnly = Module['foo'];
+  writeOnly = Module['asm']['foo'];
+  // But other things do have side effects.
+  writeOnly = doWrites();
+}
+
+Module.doWrites = doWrites;

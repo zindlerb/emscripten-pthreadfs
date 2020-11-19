@@ -33,3 +33,11 @@ function glue() {
 glue();
 new SomethingUnknownWithSideEffects("utf8");
 new TextDecoder(Unknown());
+var readWrite;
+function doWrites(dummy) {
+ readWrite = 30;
+ doWrites(readWrite);
+ Module["foo"];
+ doWrites();
+}
+Module.doWrites = doWrites;
