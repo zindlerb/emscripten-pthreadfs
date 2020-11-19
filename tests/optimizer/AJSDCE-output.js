@@ -37,7 +37,9 @@ var readWrite;
 function doWrites(dummy) {
  readWrite = 30;
  doWrites(readWrite);
+ asm["foo"];
  Module["foo"];
+ Module["asm"]["foo"];
  doWrites();
 }
 Module.doWrites = doWrites;

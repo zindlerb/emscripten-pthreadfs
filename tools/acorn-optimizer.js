@@ -334,19 +334,14 @@ function JSDCE(ast, aggressive) {
     function eliminate(data) {
       assert(canEliminate(data));
       for (var write of data.writes) {
-console.error('  kill write', JSON.stringify(write));
         var value = write.right;
         // If the assigned value has no side effects then we don't need it.
         if (!hasSideEffects(value)) {
-console.error('    kill with null');
           convertToNullStatement(write);
         } else {
-          // We would like to replace the write with the value. We can't do that
-          // immediately here, as we don't have a reference to the parent of
-          // this node. Mark it as eliminatable, and let cleanUp do it.
-          // Replace the write with the value, since we need it.
-console.error('    will kill with overwrite');
-          write.__JSDCE_eliminate__ = true;
+          write.type = 'SequenceExpression';
+          write.expressions = [value];
+          write.left = write.right = null;
         }
       }
     }
@@ -376,17 +371,6 @@ console.error('    will kill with overwrite');
             return;
           }
           c(node.expression);
-        },
-        AssignmentExpression(node, c) {
-          if (node.__JSDCE_eliminate__) {
-            // This is a write we can replace with its value.
-            node.__JSDCE_eliminate__ = false;
-            recursiveWalk(node.right);
-            overwrite(node, node.right);
-          } else {
-            c(node.left);
-            c(node.right);
-          }
         },
         FunctionDeclaration(node, c) {
           if (Object.prototype.hasOwnProperty.call(names, node.id.name)) {
@@ -491,10 +475,8 @@ console.error('    will kill with overwrite');
     for (var name in scope) {
       var data = scope[name];
       assert(data.writes.length <= data.use);
-console.error('waka', name, data.use, data.writes.length, 'def?', data.def);
       assert(!data.param); // can't be
       if (canEliminate(data)) {
-console.error('  remove!', name);//, data.use, data.writes.length, 'def?', data.def);
         names[name] = 0;
         eliminate(data);
       }

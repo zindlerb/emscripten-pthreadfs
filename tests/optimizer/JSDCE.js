@@ -117,3 +117,34 @@ function doWrites(dummy) {
 }
 
 Module.doWrites = doWrites;
+
+// Sequences of assignments + write elimination. This is taken from code in
+// gl emulation.
+
+function _glIsEnabled(x0) {
+}
+var _emscripten_glIsEnabled;
+function foo() {
+  // We need neither of these assignments.
+  _glIsEnabled = _emscripten_glIsEnabled = function _glIsEnabled(cap) {};
+}
+Module.foo = foo;
+
+// The same, but now we need just one of the assignments.
+function _glIsEnabled1(x0) {
+}
+var _emscripten_glIsEnabled1;
+function foo1() {
+  _glIsEnabled1 = _emscripten_glIsEnabled1 = function _glIsEnabled1(cap) {};
+  _glIsEnabled1();
+}
+Module.foo1 = foo1;
+
+function _glIsEnabled2(x0) {
+}
+var _emscripten_glIsEnabled2;
+function foo2() {
+  _glIsEnabled2 = _emscripten_glIsEnabled2 = function _glIsEnabled2(cap) {};
+  _emscripten_glIsEnabled2();
+}
+Module.foo2 = foo2;

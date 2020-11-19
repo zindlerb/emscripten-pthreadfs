@@ -88,3 +88,27 @@ function doWrites(dummy) {
 }
 
 Module.doWrites = doWrites;
+
+function foo() {
+ null;;
+}
+
+Module.foo = foo;
+
+function _glIsEnabled1(x0) {}
+
+function foo1() {
+ _glIsEnabled1 = null;;
+ _glIsEnabled1();
+}
+
+Module.foo1 = foo1;
+
+var _emscripten_glIsEnabled2;
+
+function foo2() {
+ _emscripten_glIsEnabled2 = function _glIsEnabled2(cap) {};
+ _emscripten_glIsEnabled2();
+}
+
+Module.foo2 = foo2;
