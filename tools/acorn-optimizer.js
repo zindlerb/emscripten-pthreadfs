@@ -212,6 +212,16 @@ function restoreForVars(node) {
 }
 
 function hasSideEffects(node) {
+  // Special-case some important patterns.
+  // TODO: We should look for these recursively, but that would require a
+  //       rewrite of how the traversal below works.
+  if (node.type === 'ExpressionStatement' && isAsmUse(node.expression)) {
+    // Remove a node with no side effects. Also remove a node that is just
+    // a Module[x]; or asm[x]; use (that is not assigned to anything, and
+    // that is not assigned to) - those are remnants after optimizations,
+    // and they can only have the side effect of
+    return false;
+  }
   // Conservative analysis.
   var map = ignoreInnerScopes(node);
   var has = false;
@@ -452,9 +462,8 @@ function JSDCE(ast, aggressive) {
         names[name] = 0;
         for (var write of data.writes) {
           var value = write.right;
-          // If the assigned value has no side effects, or if we are assigning
-          // to Module['x'] or asm['x'], then we don't need the assign at all.
-          if (!hasSideEffects(value) || isAsmUse(value)) {
+          // If the assigned value has no side effects then we don't need it.
+          if (!hasSideEffects(value)) {// || isAsmUse(value)) {
             convertToNullStatement(write);
           } else {
             // Replace the write with the value, since we need it.
