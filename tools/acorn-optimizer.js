@@ -463,7 +463,7 @@ function JSDCE(ast, aggressive) {
         for (var write of data.writes) {
           var value = write.right;
           // If the assigned value has no side effects then we don't need it.
-          if (!hasSideEffects(value)) {// || isAsmUse(value)) {
+          if (!hasSideEffects(value)) {
             convertToNullStatement(write);
           } else {
             // Replace the write with the value, since we need it.
