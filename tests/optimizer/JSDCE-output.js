@@ -81,8 +81,8 @@ var FS = {
 var readWrite;
 
 function doWrites(dummy) {
- 10;
- 20;
+ null;;
+ null;;
  readWrite = 30;
  doWrites(readWrite);
 }

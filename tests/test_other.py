@@ -358,7 +358,6 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       # XXX these are quite sensitive, and will need updating when code generation changes
       generated = open('something.js').read()
       main = self.get_func(generated, '_main') if 'function _main' in generated else generated
-      assert 'new Uint16Array' in generated and 'new Uint32Array' in generated, 'typed arrays 2 should be used by default'
       assert 'SAFE_HEAP' not in generated, 'safe heap should not be used by default'
       assert ': while(' not in main, 'when relooping we also js-optimize, so there should be no labelled whiles'
       if closure:
@@ -8720,7 +8719,7 @@ int main(void) {
     # Changing this option to [] should decrease code size.
     self.assertLess(changed, normal)
     # Check an absolute code size as well, with some slack.
-    self.assertLess(abs(changed - 5627), 150)
+    self.assertLess(abs(changed - 5463), 150)
 
   def test_llvm_includes(self):
     create_test_file('atomics.c', '#include <stdatomic.h>')
