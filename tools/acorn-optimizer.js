@@ -212,16 +212,6 @@ function restoreForVars(node) {
 }
 
 function hasSideEffects(node) {
-  // Special-case some important patterns.
-  // TODO: We should look for these recursively, but that would require a
-  //       rewrite of how the traversal below works.
-  if (node.type === 'ExpressionStatement' && isAsmUse(node.expression)) {
-    // Remove a node with no side effects. Also remove a node that is just
-    // a Module[x]; or asm[x]; use (that is not assigned to anything, and
-    // that is not assigned to) - those are remnants after optimizations,
-    // and they can only have the side effect of
-    return false;
-  }
   // Conservative analysis.
   var map = ignoreInnerScopes(node);
   var has = false;
@@ -252,8 +242,11 @@ function hasSideEffects(node) {
         // safe if on Math (or other familiar objects, TODO)
         if (node.object.type !== 'Identifier' ||
             node.object.name !== 'Math') {
-          //console.error('because member on ' + node.object.name);
-          has = true;
+          // safe to do Module['x'] or asm['x'] - that by itself can only throw
+          // if those objects don't exist, and we know they do.
+          if (!isAsmUse(node)) {
+            has = true;
+          }
         }
         break;
       }
