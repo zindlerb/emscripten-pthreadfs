@@ -336,13 +336,13 @@ function JSDCE(ast, aggressive) {
         ExpressionStatement(node, c) {
           if (aggressive && !hasSideEffects(node)) {
             emptyOut(node);
+            removed++;
           }
         },
         FunctionDeclaration(node, c) {
           if (Object.prototype.hasOwnProperty.call(names, node.id.name)) {
-            removed++;
             emptyOut(node);
-            return;
+            removed++;
           }
           // do not recurse into other scopes
         },
