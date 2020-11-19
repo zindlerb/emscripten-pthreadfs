@@ -324,6 +324,32 @@ function JSDCE(ast, aggressive) {
       };
       return scope[name];
     }
+    function canEliminate(data) {
+      // We can eliminate something if we defined it, and if it has no uses
+      // (aside from writes - if all uses are writes, it's write-only and
+      // unneeded).
+      assert(data.writes.length <= data.use);
+      return data.def && data.use == data.writes.length
+    }
+    function eliminate(data) {
+      assert(canEliminate(data));
+      for (var write of data.writes) {
+console.error('  kill write', JSON.stringify(write));
+        var value = write.right;
+        // If the assigned value has no side effects then we don't need it.
+        if (!hasSideEffects(value)) {
+console.error('    kill with null');
+          convertToNullStatement(write);
+        } else {
+          // We would like to replace the write with the value. We can't do that
+          // immediately here, as we don't have a reference to the parent of
+          // this node. Mark it as eliminatable, and let cleanUp do it.
+          // Replace the write with the value, since we need it.
+console.error('    will kill with overwrite');
+          write.__JSDCE_eliminate__ = true;
+        }
+      }
+    }
     function cleanUp(ast, names) {
       recursiveWalk(ast, {
         VariableDeclaration(node, c) {
@@ -347,6 +373,19 @@ function JSDCE(ast, aggressive) {
           if (aggressive && !hasSideEffects(node)) {
             emptyOut(node);
             removed++;
+            return;
+          }
+          c(node.expression);
+        },
+        AssignmentExpression(node, c) {
+          if (node.__JSDCE_eliminate__) {
+            // This is a write we can replace with its value.
+            node.__JSDCE_eliminate__ = false;
+            recursiveWalk(node.right);
+            overwrite(node, node.right);
+          } else {
+            c(node.left);
+            c(node.right);
           }
         },
         FunctionDeclaration(node, c) {
@@ -393,8 +432,7 @@ function JSDCE(ast, aggressive) {
           );
           continue;
         }
-        if (data.def && !data.use && !data.param) {
-          // this is eliminateable!
+        if (!data.param && canEliminate(data)) {
           names[name] = 0;
         }
       }
@@ -452,24 +490,13 @@ function JSDCE(ast, aggressive) {
     var names = {};
     for (var name in scope) {
       var data = scope[name];
-      assert(data.use >= data.writes.length);
-      // We can eliminate something if we defined it, and if it has no uses
-      // (aside from writes - if all uses are writes, it's write-only and
-      // unneeded).
-      if (data.def && data.use == data.writes.length) {
-        assert(!data.param); // can't be
-        // this is eliminateable!
+      assert(data.writes.length <= data.use);
+console.error('waka', name, data.use, data.writes.length, 'def?', data.def);
+      assert(!data.param); // can't be
+      if (canEliminate(data)) {
+console.error('  remove!', name);//, data.use, data.writes.length, 'def?', data.def);
         names[name] = 0;
-        for (var write of data.writes) {
-          var value = write.right;
-          // If the assigned value has no side effects then we don't need it.
-          if (!hasSideEffects(value)) {
-            convertToNullStatement(write);
-          } else {
-            // Replace the write with the value, since we need it.
-            overwrite(write, value);
-          }
-        }
+        eliminate(data);
       }
     }
     cleanUp(ast, names);
