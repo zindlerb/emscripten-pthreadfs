@@ -148,3 +148,9 @@ function foo2() {
   _emscripten_glIsEnabled2();
 }
 Module.foo2 = foo2;
+
+// Elimination in an IIFE
+(function() {
+ var thisProgram = 1;
+ thisProgram = 2;
+})();

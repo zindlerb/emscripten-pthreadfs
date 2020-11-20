@@ -111,3 +111,6 @@ function foo2() {
 }
 
 Module.foo2 = foo2;
+
+(function() {
+})();

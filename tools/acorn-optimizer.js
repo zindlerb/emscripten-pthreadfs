@@ -410,6 +410,7 @@ function JSDCE(ast, aggressive) {
         }
         if (!data.param && canEliminate(data)) {
           names[name] = 0;
+          eliminate(data);
         }
       }
       cleanUp(node.body, names);
