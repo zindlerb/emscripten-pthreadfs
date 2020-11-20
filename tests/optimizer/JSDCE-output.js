@@ -70,7 +70,6 @@ var dotOther = Side.effect;
 var FS = {
  foo: function(stream, offset, length) {
   stream.allocate;
-  FS;
   for (var __exportedFunc in asm) {
    var jsname = __exportedFunc;
    global_object[jsname] = Module[jsname] = asm[__exportedFunc];
@@ -81,8 +80,8 @@ var FS = {
 var readWrite;
 
 function doWrites(dummy) {
- null;;
- null;;
+ 10;
+ 20;
  readWrite = 30;
  doWrites(readWrite);
 }
@@ -90,7 +89,7 @@ function doWrites(dummy) {
 Module.doWrites = doWrites;
 
 function foo() {
- null;;
+ (function _glIsEnabled(cap) {});
 }
 
 Module.foo = foo;
@@ -98,7 +97,7 @@ Module.foo = foo;
 function _glIsEnabled1(x0) {}
 
 function foo1() {
- _glIsEnabled1 = null;;
+ _glIsEnabled1 = (function _glIsEnabled1(cap) {});
  _glIsEnabled1();
 }
 

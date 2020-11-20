@@ -235,6 +235,7 @@ function hasSideEffects(node) {
       case 'Property':
       case 'BlockStatement':
       case 'ArrayExpression':
+      case 'SequenceExpression':
       case 'EmptyStatement': {
         break; // safe
       }
@@ -328,18 +329,13 @@ function JSDCE(ast, aggressive) {
       assert(canEliminate(data));
       for (var write of data.writes) {
         var value = write.right;
-        // If the assigned value has no side effects then we don't need it.
-        if (!hasSideEffects(value)) {
-          convertToNullStatement(write);
-        } else {
-          // Remove the write, replacing it with a sequence of just the value.
-          // (Doing it this way leaves the object graph in place, avoiding
-          // corner cases with nested assigns x = y = z colliding if we modify
-          // the objects in place.)
-          write.type = 'SequenceExpression';
-          write.expressions = [value];
-          write.left = write.right = null;
-        }
+        // Remove the write, replacing it with a sequence of just the value.
+        // (Doing it this way leaves the object graph in place, avoiding
+        // corner cases with nested assigns x = y = z colliding if we modify
+        // the objects in place.)
+        write.type = 'SequenceExpression';
+        write.expressions = [value];
+        write.left = write.right = null;
       }
     }
     function cleanUp(ast, names) {
@@ -362,12 +358,11 @@ function JSDCE(ast, aggressive) {
           }
         },
         ExpressionStatement(node, c) {
-          if (aggressive && !hasSideEffects(node)) {
+          c(node.expression);
+          if (!hasSideEffects(node)) {
             emptyOut(node);
             removed++;
-            return;
           }
-          c(node.expression);
         },
         FunctionDeclaration(node, c) {
           if (Object.prototype.hasOwnProperty.call(names, node.id.name)) {

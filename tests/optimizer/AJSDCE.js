@@ -97,3 +97,14 @@ function doWrites(dummy) {
 }
 
 Module.doWrites = doWrites;
+
+// Check we properly remove a write whose output is used.
+
+var HEAP16, HEAP32;
+function updateGlobalBufferAndViews(buf) {
+  // HEAP16 is not needed, but we do need to pass along the effectful value.
+  Module['HEAP16'] = HEAP16 = buf();
+  // HEAP32 is not needed, but we do need to pass along the effectless value.
+  Module['HEAP32'] = HEAP32 = buf;
+}
+updateGlobalBufferAndViews();

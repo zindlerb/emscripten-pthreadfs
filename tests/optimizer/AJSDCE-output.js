@@ -45,3 +45,10 @@ function doWrites(dummy) {
 }
 
 Module.doWrites = doWrites;
+
+function updateGlobalBufferAndViews(buf) {
+ Module["HEAP16"] = (buf());
+ Module["HEAP32"] = (buf);
+}
+
+updateGlobalBufferAndViews();
