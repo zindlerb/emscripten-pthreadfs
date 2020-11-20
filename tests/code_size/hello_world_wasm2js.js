@@ -25,17 +25,17 @@ var h = {
     },
     memory: g
 }, k, m = (new function() {
-    this.exports = function instantiate(x) {
-        function v(y) {
-            y.set = function(z, A) {
-                this[z] = A;
+    this.exports = function instantiate(t) {
+        function r(u) {
+            u.set = function(v, w) {
+                this[v] = w;
             };
-            y.get = function(z) {
-                return this[z];
+            u.get = function(v) {
+                return this[v];
             };
-            return y;
+            return u;
         }
-        function w(B) {
+        function s(x) {
             var a = Math.imul;
             var b = Math.fround;
             var c = Math.abs;
@@ -46,42 +46,25 @@ var h = {
             var h = Math.ceil;
             var i = Math.trunc;
             var j = Math.sqrt;
-            var k = B.abort;
+            var k = x.abort;
             var l = NaN;
             var m = Infinity;
-            var n = B.a;
-            var o = 5243920;
-            function u(a, b) {
+            var n = x.a;
+            function q(a, b) {
                 a = a | 0;
                 b = b | 0;
                 n(1024);
                 return 0;
             }
-            function r(a) {
-                a = a | 0;
-                a = o - a & -16;
-                o = a;
-                return a | 0;
-            }
-            function t() {
-                return o | 0;
-            }
-            function s(a) {
-                a = a | 0;
-                o = a;
-            }
-            function q() {}
-            var p = v([]);
+            function p() {}
+            var o = r([]);
             return {
-                b: p,
-                c: q,
-                d: u,
-                e: t,
-                f: s,
-                g: r
+                b: o,
+                c: p,
+                d: q
             };
         }
-        return w(x);
+        return s(t);
     }(h);
 }).exports;
 

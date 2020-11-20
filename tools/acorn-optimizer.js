@@ -240,14 +240,20 @@ function hasSideEffects(node) {
       }
       case 'MemberExpression': {
         // safe if on Math (or other familiar objects, TODO)
-        if (node.object.type !== 'Identifier' ||
-            node.object.name !== 'Math') {
-          // safe to do Module['x'] or asm['x'] - that by itself can only throw
-          // if those objects don't exist, and we know they do.
-          if (!isAsmUse(node)) {
-            has = true;
-          }
+        if (node.object.type === 'Identifier' && node.object.name === 'Math') {
+          break;
         }
+        // safe to do Module['x'] or asm['x'] - that by itself can only throw
+        // if those objects don't exist, and we know they do.
+        if (node.object.type === 'Identifier' &&
+            (node.object.name === 'Module' || node.object.name === 'asm')) {
+          break;
+        }
+        // also safe to do Module['asm']['x]
+        if (isAsmUse(node)) {
+          break;
+        }
+        has = true;
         break;
       }
       case 'NewExpression': {

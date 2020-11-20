@@ -90,6 +90,8 @@ function doWrites(dummy) {
   writeOnly = asm['foo'];
   writeOnly = Module['foo'];
   writeOnly = Module['asm']['foo'];
+  // This never had any.
+  Math.floor;
   // But other things do have side effects.
   writeOnly = doWrites();
 }

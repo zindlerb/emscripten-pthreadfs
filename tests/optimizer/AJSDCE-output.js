@@ -31,15 +31,17 @@ function glue() {
 }
 
 glue();
+
 new SomethingUnknownWithSideEffects("utf8");
+
 new TextDecoder(Unknown());
+
 var readWrite;
+
 function doWrites(dummy) {
  readWrite = 30;
  doWrites(readWrite);
- asm["foo"];
- Module["foo"];
- Module["asm"]["foo"];
  doWrites();
 }
+
 Module.doWrites = doWrites;
