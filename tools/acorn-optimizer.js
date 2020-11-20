@@ -318,15 +318,17 @@ function JSDCE(ast, aggressive) {
       };
       return scope[name];
     }
-    function canEliminate(data) {
+    function maybeEliminate(data, namesToEliminate, name) {
       // We can eliminate something if we defined it, and if it has no uses
       // (aside from writes - if all uses are writes, it's write-only and
       // unneeded).
       assert(data.writes.length <= data.use);
-      return data.def && data.use == data.writes.length
-    }
-    function eliminate(data) {
-      assert(canEliminate(data));
+      if (!(data.def && data.use == data.writes.length)) {
+        return false;
+      }
+      // Eliminate it! First mark it as being eliminated.
+      namesToEliminate[name] = 0;
+      // Next, remove any writes to it.
       for (var write of data.writes) {
         var value = write.right;
         // Remove the write, replacing it with a sequence of just the value.
@@ -338,7 +340,7 @@ function JSDCE(ast, aggressive) {
         write.left = write.right = null;
       }
     }
-    function cleanUp(ast, names) {
+    function cleanUp(ast, namesToEliminate) {
       recursiveWalk(ast, {
         VariableDeclaration(node, c) {
           var old = node.declarations;
@@ -346,7 +348,7 @@ function JSDCE(ast, aggressive) {
           node.declarations = node.declarations.filter(function(node) {
             var curr = node.id.name
             var value = node.init;
-            var keep = !(curr in names) || (value && hasSideEffects(value));
+            var keep = !(curr in namesToEliminate) || (value && hasSideEffects(value));
             if (!keep) removedHere = 1;
             return keep;
           });
@@ -365,7 +367,7 @@ function JSDCE(ast, aggressive) {
           }
         },
         FunctionDeclaration(node, c) {
-          if (Object.prototype.hasOwnProperty.call(names, node.id.name)) {
+          if (Object.prototype.hasOwnProperty.call(namesToEliminate, node.id.name)) {
             emptyOut(node);
             removed++;
           }
@@ -395,7 +397,7 @@ function JSDCE(ast, aggressive) {
       // ourselves, for named defined (defun) functions
       var ownName = defun ? node.id.name : '';
       var scope = scopes.pop();
-      var names = {};
+      var namesToEliminate = {};
       for (var name in scope) {
         if (name === ownName) continue;
         var data = scope[name];
@@ -408,12 +410,11 @@ function JSDCE(ast, aggressive) {
           );
           continue;
         }
-        if (!data.param && canEliminate(data)) {
-          names[name] = 0;
-          eliminate(data);
+        if (!data.param) {
+          maybeEliminate(data, namesToEliminate, name);
         }
       }
-      cleanUp(node.body, names);
+      cleanUp(node.body, namesToEliminate);
     }
 
     recursiveWalk(ast, {
@@ -464,17 +465,14 @@ function JSDCE(ast, aggressive) {
     var scope = scopes.pop();
     assert(scopes.length === 0);
 
-    var names = {};
+    var namesToEliminate = {};
     for (var name in scope) {
       var data = scope[name];
       assert(data.writes.length <= data.use);
       assert(!data.param); // can't be
-      if (canEliminate(data)) {
-        names[name] = 0;
-        eliminate(data);
-      }
+      maybeEliminate(data, namesToEliminate, name);
     }
-    cleanUp(ast, names);
+    cleanUp(ast, namesToEliminate);
     return removed;
   }
   while (iteration() && aggressive) { }
