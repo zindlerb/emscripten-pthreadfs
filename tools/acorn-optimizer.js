@@ -283,12 +283,6 @@ function hasSideEffects(node) {
   return has;
 }
 
-function overwrite(target, source) {
-  for (var x in source) {
-    target[x] = source[x];
-  }
-}
-
 // Passes
 
 // Removes obviously-unused code. Similar to closure compiler in its rules -
@@ -338,6 +332,10 @@ function JSDCE(ast, aggressive) {
         if (!hasSideEffects(value)) {
           convertToNullStatement(write);
         } else {
+          // Remove the write, replacing it with a sequence of just the value.
+          // (Doing it this way leaves the object graph in place, avoiding
+          // corner cases with nested assigns x = y = z colliding if we modify
+          // the objects in place.)
           write.type = 'SequenceExpression';
           write.expressions = [value];
           write.left = write.right = null;
