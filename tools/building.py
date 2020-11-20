@@ -1002,9 +1002,6 @@ def closure_compiler(filename, pretty=True, advanced=True, extra_closure_args=No
     if Settings.MINIMAL_RUNTIME and Settings.USE_PTHREADS and not Settings.MODULARIZE:
       CLOSURE_EXTERNS += [path_from_root('src', 'minimal_runtime_worker_externs.js')]
 
-    if Settings.LEGACY_GL_EMULATION:
-      CLOSURE_EXTERNS += [path_from_root('src', 'closure-externs', 'glemu-externs.js')]
-
     outfile = filename + '.cc.js'
     configuration.get_temp_files().note(outfile)
 
