@@ -5648,6 +5648,14 @@ return malloc(size);
     # present part of the symbols of dlmalloc, not all. malloc is harder to link than new which is weak.
     self.do_run_in_out_file_test('tests', 'core', 'test_dlmalloc_partial_2.c', assert_returncode=NON_ZERO)
 
+  @parameterized({
+    'dlmalloc': ['dlmalloc'],
+    'emmalloc': ['emmalloc'],
+  })
+  def test_malloc_alignment(self, malloc):
+    self.set_setting('MALLOC', malloc)
+    self.do_runf(path_from_root('tests', 'core', 'test_malloc_alignment.c'))
+
   def test_libcxx(self):
     self.do_runf(path_from_root('tests', 'hashtest.cpp'),
                  'june -> 30\nPrevious (in alphabetical order) is july\nNext (in alphabetical order) is march')
