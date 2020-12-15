@@ -1261,3 +1261,29 @@ function makeMalloc(source, param) {
   }
   return `abort('malloc was not included, but is needed in ${source}. Adding "_malloc" to EXPORTED_FUNCTIONS should fix that. This may be a bug in the compiler, please file an issue.');`
 }
+
+// Checks if all the possible environments we support, as listed in ENVIRONMENT,
+// must be one of the arguments we are provided. For example,
+//   environmentMustBe('web', 'worker')
+// checks if the environment is definitely either web or worker (but may also
+// be just web, or just worker).
+function environmentMustBe() {
+  var environments = ENVIRONMENT.split(',');
+  var ret = true;
+  Array.prototype.slice.call(arguments).forEach(function(env) {
+    if (environments.indexOf(env) < 0) {
+      ret = false;
+    }
+  });
+  return ret;
+}
+
+// Makes a check for the fetch() API. This is guaranteed to be present in
+// modern enough browsers, and in particular, on the Web it is always present if
+// wasm is.
+function makeCheckForFetch() {
+  if (WASM && environmentMustBe('web', 'worker')) {
+    return 'true';
+  }
+  return "typeof fetch === 'function'";
+}
