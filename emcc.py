@@ -2883,6 +2883,10 @@ function(%(EXPORT_NAME)s) {
       if shared.Settings.target_environment_may_be('node'):
         script_url_node = "if (typeof __filename !== 'undefined') _scriptDir = _scriptDir || __filename;"
     src = '''
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 var %(EXPORT_NAME)s = (function() {
   var _scriptDir = %(script_url)s;
   %(script_url_node)s

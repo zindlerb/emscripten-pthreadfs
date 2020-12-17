@@ -186,7 +186,11 @@ class other(RunnerCore):
     self.assertContained('export default Module;', output)
     # TODO(sbc): Test that this is actually runnable.  We currently don't have
     # any tests for EXPORT_ES6 but once we do this should be enabled.
-    # self.assertContained('hello, world!', self.run_js('hello_world.mjs'))
+    create_test_file('run.mjs', '''
+      import Module from './hello_world.mjs';
+      Module();
+    ''')
+    self.assertContained('hello, world!', self.run_js('run.mjs'))
 
   def test_emcc_output_worker_mjs(self):
     self.run_process([EMCC, '-o', 'hello_world.mjs', '-pthread', '-O1',
