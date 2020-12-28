@@ -407,8 +407,9 @@ def find_output_arg(args):
     arg = args[i]
 
     if arg == '-o':
-      if i != arg_count - 1:
-        specified_target = args[i + 1]
+      if i == arg_count - 1:
+        exit_with_error("argument to '-o' is missing (expected 1 value)")
+      specified_target = args[i + 1]
       i += 2
       continue
 

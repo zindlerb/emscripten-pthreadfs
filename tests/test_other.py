@@ -9793,3 +9793,9 @@ exec "$@"
     result = self.run_js('test_split_module.js')
     self.assertNotIn('writing profile', result)
     self.assertIn('Hello! answer: 42', result)
+
+  def test_dash_o_last(self):
+    # Check that putting `-o` at the end of the command line generates a meaningfull
+    # error
+    err = self.expect_fail([EMCC, path_from_root('tests', 'hello_world.c'), '-o'])
+    self.assertContained("error: argument to '-o' is missing (expected 1 value)", err)
