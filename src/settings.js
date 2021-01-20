@@ -1666,6 +1666,9 @@ var IMPORTED_MEMORY = 0;
 // to loading split modules.
 var SPLIT_MODULE = 0;
 
+// Emit dynCall_sig functions for all signatures in the program.
+var EMIT_ALL_DYNCALLS = 0;
+
 //===========================================
 // Internal, used for testing only, from here
 //===========================================

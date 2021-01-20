@@ -6231,12 +6231,15 @@ return malloc(size);
     self.do_run_in_out_file_test('tests', 'core', 'EXTRA_EXPORTED_RUNTIME_METHODS.c')
 
   @no_minimal_runtime('MINIMAL_RUNTIME does not blindly export all symbols to Module to save code size')
+  @also_with_wasm_bigint
   def test_dyncall_specific(self):
+    self.set_setting('EMIT_ALL_DYNCALLS')
     emcc_args = self.emcc_args[:]
     for which, exported_runtime_methods in [
         ('DIRECT', []),
         ('EXPORTED', []),
         ('FROM_OUTSIDE', ['dynCall_viji'])
+        # TODO:
       ]:
       print(which)
       self.emcc_args = emcc_args + ['-D' + which]

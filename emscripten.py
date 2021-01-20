@@ -690,6 +690,39 @@ var %(mangled)s = Module["%(mangled)s"] = asm["%(name)s"]
   return wrappers
 
 
+def make_all_dyncalls(exports):
+  dyncalls = []
+  for export in exports:
+    if export.startswith('dynCall_'):
+      sig = export[len('dynCall_'):]
+      all_args = ['ptr']
+      args = []
+      j = 0
+
+      def add(j, args, all_args):
+        arg = 'a%d' % j
+        all_args.append(arg)
+        args.append(arg)
+
+      for s in sig[1:]:
+        add(j, args, all_args)
+        j += 1
+        if s == 'j':
+          add(j, args, all_args)
+          j += 1
+
+      all_args = ', '.join(all_args)
+      args = ', '.join(args)
+      maybe_return = 'return ' if sig[0] != 'v' else ''
+      dyncalls.append(f'''\
+function {export}({all_args}) {{
+  {maybe_return}wasmTable.get(ptr)({args});
+}}
+''')
+  logger.warn(str(dyncalls))
+  return dyncalls
+
+
 def create_receiving(exports):
   # When not declaring asm exports this section is empty and we instead programatically export
   # symbols on the global object by calling exportAsmFunctions after initialization
@@ -729,6 +762,9 @@ def create_receiving(exports):
         receiving += make_export_wrappers(exports, delay_assignment)
   else:
     receiving += make_export_wrappers(exports, delay_assignment)
+
+  if shared.Settings.EMIT_ALL_DYNCALLS:
+    receiving += make_all_dyncalls(exports)
 
   if shared.Settings.MINIMAL_RUNTIME:
     return '\n  '.join(receiving) + '\n'
