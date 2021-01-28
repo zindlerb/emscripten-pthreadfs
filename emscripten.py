@@ -436,7 +436,6 @@ def finalize_wasm(infile, outfile, memfile, DEBUG):
     modify_wasm = True
   if shared.Settings.STANDALONE_WASM:
     args.append('--standalone-wasm')
-
   if shared.Settings.DEBUG_LEVEL >= 3:
     args.append('--dwarf')
   stdout = building.run_binaryen_command('wasm-emscripten-finalize',

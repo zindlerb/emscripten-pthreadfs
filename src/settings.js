@@ -1139,6 +1139,10 @@ var BINARYEN_IGNORE_IMPLICIT_TRAPS = 0;
 // the end of the list of passes.
 var BINARYEN_EXTRA_PASSES = "";
 
+// Whether to validate in binaryen. This is useful if you suspect the input from
+// LLVM is broken, and to debug internal compiler bugs in the binaryen tools.
+var BINARYEN_VALIDATION = 0;
+
 // Whether to compile the wasm asynchronously, which is more efficient and does
 // not block the main thread. This is currently required for all but the
 // smallest modules to run in chrome.

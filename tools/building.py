@@ -1614,6 +1614,10 @@ def run_binaryen_command(tool, infile, outfile=None, args=[], debug=False, stdou
   if Settings.GENERATE_SOURCE_MAP and outfile:
     cmd += ['--input-source-map=' + infile + '.map']
     cmd += ['--output-source-map=' + outfile + '.map']
+  # validatation is on by default. disable it if the settings tells us to, and
+  # if not in debug mode.
+  if not shared.Settings.BINARYEN_VALIDATION and not DEBUG:
+    cmd += ['--no-validation']
   ret = check_call(cmd, stdout=stdout).stdout
   if outfile:
     save_intermediate(outfile, '%s.wasm' % tool)

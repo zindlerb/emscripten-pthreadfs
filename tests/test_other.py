@@ -6690,6 +6690,9 @@ int main() {
     # adding --metrics should not affect code size
     self.assertEqual(base_size, os.path.getsize('a.out.wasm'))
 
+  def test_binaryen_validation(self):
+    self.run_process([EMCC, path_from_root('tests', 'hello_world.c'), '-s', 'BINARYEN_VALIDATION'])
+
   def assertFileContents(self, filename, contents):
     contents = contents.replace('\r', '')
 
