@@ -437,9 +437,7 @@ def finalize_wasm(infile, outfile, memfile, DEBUG):
                                          outfile=outfile if modify_wasm else None,
                                          args=args,
                                          stdout=subprocess.PIPE)
-  if modify_wasm:
-    building.save_intermediate(infile, 'post_finalize.wasm')
-  elif infile != outfile:
+  if infile != outfile and not modify_wasm:
     shutil.copy(infile, outfile)
   if shared.Settings.GENERATE_SOURCE_MAP:
     building.save_intermediate(infile + '.map', 'post_finalize.map')
