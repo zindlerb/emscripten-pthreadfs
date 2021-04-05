@@ -10256,3 +10256,12 @@ exec "$@"
     self.assertExists('hello.wasm')
     self.assertExists('hello_.wasm')
     self.assertContained('hello, world!', self.run_js('hello.wasm'))
+
+  def test_no_main_with_PROXY_TO_PTHREAD(self):
+    create_file('lib.cpp', r'''
+#include <emscripten.h>
+EMSCRIPTEN_KEEPALIVE
+void foo() {}
+''')
+    err = self.run_process([EMCC, 'lib.cpp', '-pthread', '-sPROXY_TO_PTHREAD'], stderr=PIPE).stderr
+    self.assertContained('emcc: warning: PROXY_TO_PTHREAD proxies main(), and has no effect when main() does not exist', err)

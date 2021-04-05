@@ -200,6 +200,9 @@ def report_missing_symbols(all_implemented, pre):
     # In this mode we never expect _main in the export list.
     return
 
+  if shared.Settings.PROXY_TO_PTHREAD and '_main' not in all_implemented:
+    diagnostics.warning('emcc', 'PROXY_TO_PTHREAD proxies main(), and has no effect when main() does not exist')
+
   if shared.Settings.IGNORE_MISSING_MAIN:
     # The default mode for emscripten is to ignore the missing main function allowing
     # maximum compatibility.
