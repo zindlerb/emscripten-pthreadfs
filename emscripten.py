@@ -119,12 +119,13 @@ def update_settings_glue(metadata, DEBUG):
   all_exports = metadata['exports'] + list(metadata['namedGlobals'].keys())
   settings.WASM_EXPORTS = [asmjs_mangle(x) for x in all_exports]
 
-  # start with the MVP features, and add any detected features.
-  settings.BINARYEN_FEATURES = ['--mvp-features'] + metadata['features']
-  if settings.USE_PTHREADS:
-    assert '--enable-threads' in settings.BINARYEN_FEATURES
-  if settings.MEMORY64:
-    assert '--enable-memory64' in settings.BINARYEN_FEATURES
+  if 'features' in metadata:
+    # start with the MVP features, and add any detected features.
+    settings.BINARYEN_FEATURES = ['--mvp-features'] + metadata['features']
+    if settings.USE_PTHREADS:
+      assert '--enable-threads' in settings.BINARYEN_FEATURES
+    if settings.MEMORY64:
+      assert '--enable-memory64' in settings.BINARYEN_FEATURES
 
   if settings.RELOCATABLE and settings.INITIAL_TABLE == -1:
     # When building relocatable output (e.g. MAIN_MODULE) the reported table
@@ -385,6 +386,7 @@ def read_metadata(wasm_file):
   imports = module.imports()
   exports = module.exports()
   globals_ = module.globals()
+  num_global_imports = len([i for i in imports if i.kind == webassembly.ExternType.GLOBAL])
 
   metadata = {
     'exports': [],
@@ -399,9 +401,11 @@ def read_metadata(wasm_file):
 
   for export in exports:
     if export.name == '__start_em_asm':
-      em_asm_start = globals_[export.index]
+      assert export.index > num_global_imports
+      em_asm_start = globals_[export.index - num_global_imports]
     elif export.name == '__stop_em_asm':
-      em_asm_stop = globals_[export.index]
+      assert export.index > num_global_imports
+      em_asm_stop = globals_[export.index - num_global_imports]
     elif export.kind in (webassembly.ExternType.FUNC, webassembly.ExternType.GLOBAL):
       metadata['exports'].append(export.name)
 
@@ -428,7 +432,6 @@ def read_metadata(wasm_file):
 
   metadata['globalImports'] = [i.field for i in imports if i.kind == webassembly.ExternType.GLOBAL]
   metadata['namedGlobals'] = {}
-  metadata['features'] = []
   metadata['mainReadsParams'] = True
 
   tables = [i for i in imports if i.kind == webassembly.ExternType.TABLE]
@@ -496,7 +499,6 @@ def finalize_wasm(infile, outfile, memfile, DEBUG):
 
   if settings.DEBUG_LEVEL >= 3:
     args.append('--dwarf')
-  print(modify_wasm)
   if modify_wasm or settings.GENERATE_SOURCE_MAP or memfile:
     stdout = building.run_binaryen_command('wasm-emscripten-finalize',
                                            infile=infile,

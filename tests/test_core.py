@@ -63,9 +63,11 @@ def bleeding_edge_wasm_backend(f):
 
 def also_with_wasm_bigint(f):
   def decorated(self):
-    self.set_setting('WASM_BIGINT', 0)
-    f(self)
+    print('without WASM_BIGINT')
+    self.clear_setting('WASM_BIGINT')
+    #f(self)
     if self.is_wasm():
+      print('with WASM_BIGINT')
       self.set_setting('WASM_BIGINT')
       self.node_args.append('--experimental-wasm-bigint')
       self.js_engines = [config.NODE_JS]

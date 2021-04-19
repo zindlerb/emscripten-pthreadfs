@@ -141,6 +141,7 @@ class ValueType(IntEnum):
 
 
 class OpCode(IntEnum):
+  GLOBAL_GET = 0x23
   I32_CONST = 0x41
   I64_CONST = 0x42
   END = 0x0b
