@@ -358,7 +358,17 @@ def lld_flags_for_executable(external_symbols):
       f.write('\n'.join(external_symbols))
     cmd.append('--allow-undefined-file=%s' % undefs)
   else:
-    cmd.append('--allow-undefined')
+    # --import-undefined will cause undefined functions symbols
+    # to be imported.
+    cmd.append('--import-undefined')
+    # Now we need to decide how to handle undefined data symbols.
+    if settings.ERROR_ON_UNDEFINED_SYMBOLS:
+      # The default is to report errors.
+      pass
+    elif settings.WARN_ON_UNDEFINED_SYMBOLS:
+      cmd.append('--warn-unresolved-symbols')
+    else:
+      cmd.append('--unresolved-symbols=ignore-all')
 
   if settings.IMPORTED_MEMORY:
     cmd.append('--import-memory')

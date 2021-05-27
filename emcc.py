@@ -1637,13 +1637,11 @@ def phase_linker_setup(options, state, newargs, settings_map):
         '__heap_base',
         '__stack_pointer',
     ]
-    settings.EXPORTED_FUNCTIONS += [
-        # This needs to be exported on the Module object too so it's visible
-        # to side modules too.
-        '___heap_base',
-        # Unconditional dependency in library_dylink.js
-        '_setThrew',
-    ]
+    # This needs to be exported on the Module object too so it's visible
+    # to side modules too.
+    settings.EXPORT_IF_DEFINED.append('__heap_base')
+    # Unconditional dependency in library_dylink.js
+    settings.EXPORTED_FUNCTIONS.append('_setThrew')
     if settings.MINIMAL_RUNTIME:
       exit_with_error('MINIMAL_RUNTIME is not compatible with relocatable output')
     if settings.WASM2JS:

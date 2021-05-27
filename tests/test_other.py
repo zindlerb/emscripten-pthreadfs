@@ -10513,18 +10513,53 @@ exec "$@"
     self.run_js('a.out.js')
 
   @parameterized({
-    'relocatable': ('-sRELOCATABLE',),
-    'linkable': ('-sLINKABLE',),
-    'main_module': ('-sMAIN_MODULE',),
+    '': ([],),
+    'relocatable': (['-sRELOCATABLE', '-sERROR_ON_UNDEFINED_SYMBOLS'],),
+    'linkable': (['-sLINKABLE', '-sERROR_ON_UNDEFINED_SYMBOLS'],),
+    'main_module': (['-sMAIN_MODULE', '-sERROR_ON_UNDEFINED_SYMBOLS'],),
   })
-  def test_check_undefined(self, flag):
+  def test_undefined_function(self, flags):
     # positive case: no undefined symbols
-    self.run_process([EMCC, flag, '-sERROR_ON_UNDEFINED_SYMBOLS', test_file('hello_world.c')])
+    self.run_process([EMCC, test_file('hello_world.c')] + flags)
     self.run_js('a.out.js')
 
-    # negative case: foo is undefined in test_check_undefined.c
-    err = self.expect_fail([EMCC, flag, '-sERROR_ON_UNDEFINED_SYMBOLS', test_file('other/test_check_undefined.c')])
+    # negative case: foo is undefined in test_undefined_function.c
+    cmd = [EMCC, test_file('other/test_undefined_function.c')] + flags
+    err = self.expect_fail(cmd)
     self.assertContained('undefined symbol: foo', err)
+
+  @parameterized({
+    '': ([],),
+    'relocatable': (['-sRELOCATABLE', '-sERROR_ON_UNDEFINED_SYMBOLS'],),
+    'linkable': (['-sLINKABLE', '-sERROR_ON_UNDEFINED_SYMBOLS'],),
+    'main_module': (['-sMAIN_MODULE', '-sERROR_ON_UNDEFINED_SYMBOLS'],),
+  })
+  def test_undefined_data(self, flags):
+    # positive case: no undefined symbols
+    self.run_process([EMCC, test_file('hello_world.c')] + flags)
+    self.run_js('a.out.js')
+
+    # negative case: foo is undefined in test_undefined_data.c
+    cmd = [EMCC, test_file('other/test_undefined_data.c')] + flags
+    err = self.expect_fail(cmd)
+    self.assertContained('undefined symbol: foo', err)
+
+  def test_undefined_data_allow(self):
+    # By default undefined data symbols generate errors
+    err = self.expect_fail([EMCC, test_file('other/test_undefined_data.c')])
+    self.assertContained('undefined symbol: foo', err)
+
+    # -sWARN_ON_UNDEFINED_SYMBOLS=0 will completely suppress this
+    err = self.run_process([EMCC, test_file('other/test_undefined_data.c'), '-sWARN_ON_UNDEFINED_SYMBOLS=0'], stderr=PIPE).stderr
+    self.assertEqual('', err)
+
+    # -sERROR_ON_UNDEFINED_SYMBOLS=0 will reduce it to warning
+    err = self.run_process([EMCC, test_file('other/test_undefined_data.c'), '-sERROR_ON_UNDEFINED_SYMBOLS=0'], stderr=PIPE).stderr
+    self.assertContained('undefined symbol: foo', err)
+
+    # -Wl,--unresolved-symbols=ignore-all can also completely suppress
+    err = self.run_process([EMCC, test_file('other/test_undefined_data.c'), '-Wl,--unresolved-symbols=ignore-all'], stderr=PIPE).stderr
+    self.assertEqual('', err)
 
   def test_EMMAKEN_NO_SDK(self):
     with env_modify({'EMMAKEN_NO_SDK': '1'}):
