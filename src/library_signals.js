@@ -110,10 +110,20 @@ var funs = {
   },
 
   // http://pubs.opengroup.org/onlinepubs/000095399/functions/alarm.html
-  alarm__deps: ['_sigalrm_handler'],
+  alarm__deps: ['_sigalrm_handler', '$callUserCallback',
+#if !MINIMAL_RUNTIME
+    '$runtimeKeepalivePush', '$runtimeKeepalivePop',
+#endif
+  ],
   alarm: function(seconds) {
+    {{{ runtimeKeepalivePush() }}}
     setTimeout(function() {
-      if (__sigalrm_handler) {{{ makeDynCall('vi', '__sigalrm_handler') }}}(0);
+      {{{ runtimeKeepalivePop() }}}
+      if (__sigalrm_handler) {
+        callUserCallback(function() {
+          {{{ makeDynCall('vi', '__sigalrm_handler') }}}(0);
+        });
+      }
     }, seconds*1000);
   },
   ualarm: function() {

@@ -20,4 +20,5 @@ int main() {
     exit(1);
   }
   alarm(1);
+  return 99;
 }
