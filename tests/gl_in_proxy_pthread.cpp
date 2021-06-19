@@ -10,14 +10,9 @@
 #include <bits/errno.h>
 #include <stdlib.h>
 
-int main()
-{
-  if (!emscripten_supports_offscreencanvas())
-  {
+int main() {
+  if (!emscripten_supports_offscreencanvas()) {
     printf("Current browser does not support OffscreenCanvas. Skipping this test.\n");
-#ifdef REPORT_RESULT
-    REPORT_RESULT(1);
-#endif
     return 0;
   }
   EmscriptenWebGLContextAttributes attr;
@@ -28,8 +23,7 @@ int main()
 
   printf("You should see the canvas fade from black to red.\n");
   double color = 0;
-  for(int i = 0; i < 100; ++i)
-  {
+  for (int i = 0; i < 100; ++i) {
     color += 0.01;
     glClearColor(color, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -38,14 +32,12 @@ int main()
     emscripten_sleep(16);
 #else
     double now = emscripten_get_now();
-    while(emscripten_get_now() - now < 16) /*no-op*/;
+    while (emscripten_get_now() - now < 16) /*no-op*/;
 #endif
   }
 
   emscripten_webgl_make_context_current(0);
   emscripten_webgl_destroy_context(ctx);
   printf("Thread quit\n");
-#ifdef REPORT_RESULT
-  REPORT_RESULT(1);
-#endif
+  return 0;
 }

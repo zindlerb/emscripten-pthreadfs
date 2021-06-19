@@ -18,12 +18,8 @@ void thread_local_main_loop()
 {
   int w = 0, h = 0;
   emscripten_get_canvas_element_size("#canvas", &w, &h);
-  if (w == 699 && h == 299)
-  {
+  if (w == 699 && h == 299) {
     printf("Observed OffscreenCanvas resize to 699x299 from main thread! Test passed!\n");
-#ifdef REPORT_RESULT
-    REPORT_RESULT(1);
-#endif
 
 #ifndef TEST_SYNC_BLOCKING_LOOP
     emscripten_cancel_main_loop();
@@ -34,8 +30,7 @@ void thread_local_main_loop()
   printf("%dx%d\n", w, h);
 }
 
-void *thread_main(void *arg)
-{
+void *thread_main(void *arg) {
   EmscriptenWebGLContextAttributes attr;
   emscripten_webgl_init_context_attributes(&attr);
   attr.explicitSwapControl = EM_TRUE;
@@ -48,8 +43,7 @@ void *thread_main(void *arg)
 
   // In pthread, keep polling the canvas size until we see it being changed from the main thread.
 #ifdef TEST_SYNC_BLOCKING_LOOP
-  for(;;)
-  {
+  for(;;) {
     thread_local_main_loop();
     emscripten_current_thread_process_queued_calls();
     usleep(16*1000);
@@ -61,8 +55,7 @@ void *thread_main(void *arg)
   return 0;
 }
 
-void resize_canvas(void *)
-{
+void resize_canvas(void *) {
   // Test that on the main thread, we can observe size changes to the canvas size.
   int w, h;
   emscripten_get_canvas_element_size("#canvas", &w, &h);
@@ -76,23 +69,17 @@ void resize_canvas(void *)
 }
 
 //should be able to do this regardless of offscreen canvas support
-void get_canvas_size()
-{
+void get_canvas_size() {
   int w, h;
   emscripten_get_canvas_element_size("#canvas", &w, &h);
   assert(h == 150);
   assert(w == 300);
 }
 
-int main()
-{
+int main() {
   get_canvas_size();
-  if (!emscripten_supports_offscreencanvas())
-  {
+  if (!emscripten_supports_offscreencanvas()) {
     printf("Current browser does not support OffscreenCanvas. Skipping the rest of the tests.\n");
-#ifdef REPORT_RESULT
-    REPORT_RESULT(1);
-#endif
     return 0;
   }
 
@@ -106,6 +93,8 @@ int main()
   pthread_detach(thread);
 
   // Wait for a while, then change the canvas size on the main thread.
-  printf("Waiting for 5 seconds for good measure.\n");
-  emscripten_async_call(resize_canvas, 0, 5000);
+  printf("Waiting for 2 seconds for good measure.\n");
+  emscripten_async_call(resize_canvas, 0, 2000);
+  emscripten_exit_with_live_runtime();
+  __builtin_unreachable();
 }

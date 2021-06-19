@@ -6,6 +6,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <SDL/SDL.h>
 #include <SDL/SDL_ttf.h>
 #include <assert.h>
@@ -14,14 +15,14 @@
 
 void assertJoystickEvent(int expectedGamepad, int expectedType, int expectedIndex, int expectedValue) {
   SDL_Event event;
-  while(1) {
+  while (1) {
     // Loop ends either when assertion fails (we run out of events), or we find
     // the event we're looking for.
     assert(SDL_PollEvent(&event) == 1);
     if (event.type != expectedType) {
       continue;
     }
-    switch(event.type) {
+    switch (event.type) {
       case SDL_JOYAXISMOTION: {
         assert(event.jaxis.which == expectedGamepad);
         assert(event.jaxis.axis == expectedIndex);
@@ -42,8 +43,8 @@ void assertJoystickEvent(int expectedGamepad, int expectedType, int expectedInde
 
 void assertNoJoystickEvent() {
   SDL_Event event;
-  while(SDL_PollEvent(&event)) {
-    switch(event.type) {
+  while (SDL_PollEvent(&event)) {
+    switch (event.type) {
       case SDL_JOYBUTTONDOWN: case SDL_JOYBUTTONUP: case SDL_JOYAXISMOTION: {
         // Fail.
         assert(0);
@@ -58,7 +59,8 @@ int main() {
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
   SDL_Surface *screen = SDL_SetVideoMode(600, 450, 32, SDL_HWSURFACE);
   emscripten_async_call(main_2, NULL, 3000); // avoid startup delays and intermittent errors
-  return 0;
+  // Return code ignored since emscripten_async_call keeps the runtime alive
+  return 99;
 }
 
 void main_2(void* arg) {
@@ -127,6 +129,6 @@ void main_2(void* arg) {
 
   // End test.
   printf("Test passed!\n");
-  REPORT_RESULT(2);
+  exit(0);
 }
 

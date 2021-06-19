@@ -682,10 +682,10 @@ If manually bisecting:
     # test()
 
   def test_dev_random(self):
-    self.btest(Path('filesystem/dev_random.cpp'), expected='0')
+    self.btest_exit(Path('filesystem/dev_random.cpp'))
 
   def test_sdl_swsurface(self):
-    self.btest('sdl_swsurface.c', args=['-lSDL', '-lGL'], expected='1')
+    self.btest_exit('sdl_swsurface.c', args=['-lSDL', '-lGL'])
 
   def test_sdl_surface_lock_opts(self):
     # Test Emscripten-specific extensions to optimize SDL_LockSurface and SDL_UnlockSurface.
@@ -766,12 +766,12 @@ If manually bisecting:
 
   def test_sdl_canvas(self):
     self.clear()
-    self.btest('sdl_canvas.c', expected='1', args=['-s', 'LEGACY_GL_EMULATION', '-lSDL', '-lGL'])
+    self.btest_exit('sdl_canvas.c', args=['-s', 'LEGACY_GL_EMULATION', '-lSDL', '-lGL'])
     # some extra coverage
     self.clear()
-    self.btest('sdl_canvas.c', expected='1', args=['-s', 'LEGACY_GL_EMULATION', '-O0', '-s', 'SAFE_HEAP', '-lSDL', '-lGL'])
+    self.btest_exit('sdl_canvas.c', args=['-s', 'LEGACY_GL_EMULATION', '-O0', '-s', 'SAFE_HEAP', '-lSDL', '-lGL'])
     self.clear()
-    self.btest('sdl_canvas.c', expected='1', args=['-s', 'LEGACY_GL_EMULATION', '-O2', '-s', 'SAFE_HEAP', '-lSDL', '-lGL'])
+    self.btest_exit('sdl_canvas.c', args=['-s', 'LEGACY_GL_EMULATION', '-O2', '-s', 'SAFE_HEAP', '-lSDL', '-lGL'])
 
   def post_manual_reftest(self, reference=None):
     self.reftest(test_file(self.reference if reference is None else reference))
@@ -887,7 +887,7 @@ keydown(100);keyup(100); // trigger the end
     self.btest('sdl_key_proxy.c', '223092870', args=['--proxy-to-worker', '--pre-js', 'pre.js', '-s', 'EXPORTED_FUNCTIONS=_main,_one', '-lSDL', '-lGL'], manual_reference=True, post_build=post)
 
   def test_canvas_focus(self):
-    self.btest('canvas_focus.c', '1')
+    self.btest_exit('canvas_focus.c')
 
   def test_keydown_preventdefault_proxy(self):
     def post():
@@ -1065,21 +1065,21 @@ keydown(100);keyup(100); // trigger the end
     self.run_browser('page.html', '', '/report_result?1')
 
   def test_glut_touchevents(self):
-    self.btest('glut_touchevents.c', '1', args=['-lglut'])
+    self.btest_exit('glut_touchevents.c', args=['-lglut'])
 
   def test_glut_wheelevents(self):
-    self.btest('glut_wheelevents.c', '1', args=['-lglut'])
+    self.btest_exit('glut_wheelevents.c', args=['-lglut'])
 
   @requires_graphics_hardware
   def test_glut_glutget_no_antialias(self):
-    self.btest('glut_glutget.c', '1', args=['-lglut', '-lGL'])
-    self.btest('glut_glutget.c', '1', args=['-lglut', '-lGL', '-DDEPTH_ACTIVATED', '-DSTENCIL_ACTIVATED', '-DALPHA_ACTIVATED'])
+    self.btest_exit('glut_glutget.c', args=['-lglut', '-lGL'])
+    self.btest_exit('glut_glutget.c', args=['-lglut', '-lGL', '-DDEPTH_ACTIVATED', '-DSTENCIL_ACTIVATED', '-DALPHA_ACTIVATED'])
 
   # This test supersedes the one above, but it's skipped in the CI because anti-aliasing is not well supported by the Mesa software renderer.
   @requires_graphics_hardware
   def test_glut_glutget(self):
-    self.btest('glut_glutget.c', '1', args=['-lglut', '-lGL'])
-    self.btest('glut_glutget.c', '1', args=['-lglut', '-lGL', '-DAA_ACTIVATED', '-DDEPTH_ACTIVATED', '-DSTENCIL_ACTIVATED', '-DALPHA_ACTIVATED'])
+    self.btest_exit('glut_glutget.c', args=['-lglut', '-lGL'])
+    self.btest_exit('glut_glutget.c', args=['-lglut', '-lGL', '-DAA_ACTIVATED', '-DDEPTH_ACTIVATED', '-DSTENCIL_ACTIVATED', '-DALPHA_ACTIVATED'])
 
   def test_sdl_joystick_1(self):
     # Generates events corresponding to the Working Draft of the HTML5 Gamepad API.
@@ -1113,8 +1113,7 @@ keydown(100);keyup(100); // trigger the end
       };
     ''')
 
-    self.compile_btest([test_file('sdl_joystick.c'), '-O2', '--minify=0', '-o', 'page.html', '--pre-js', 'pre.js', '-lSDL', '-lGL'])
-    self.run_browser('page.html', '', '/report_result?2')
+    self.btest_exit('sdl_joystick.c', args=['-O2', '--minify=0', '-o', 'page.html', '--pre-js', 'pre.js', '-lSDL', '-lGL'])
 
   def test_sdl_joystick_2(self):
     # Generates events corresponding to the Editor's Draft of the HTML5 Gamepad API.
@@ -1152,8 +1151,7 @@ keydown(100);keyup(100); // trigger the end
       };
     ''')
 
-    self.compile_btest([test_file('sdl_joystick.c'), '-O2', '--minify=0', '-o', 'page.html', '--pre-js', 'pre.js', '-lSDL', '-lGL'])
-    self.run_browser('page.html', '', '/report_result?2')
+    self.btest_exit('sdl_joystick.c', args=['-O2', '--minify=0', '--pre-js', 'pre.js', '-lSDL', '-lGL'])
 
   @requires_graphics_hardware
   def test_glfw_joystick(self):
@@ -1241,35 +1239,35 @@ keydown(100);keyup(100); // trigger the end
     shutil.copyfile(filepath, temp_filepath)
 
     # perform tests with attributes activated
-    self.btest('test_webgl_context_attributes_glut.c', '1', args=['--js-library', 'check_webgl_attributes_support.js', '-DAA_ACTIVATED', '-DDEPTH_ACTIVATED', '-DSTENCIL_ACTIVATED', '-DALPHA_ACTIVATED', '-lGL', '-lglut', '-lGLEW'])
-    self.btest('test_webgl_context_attributes_sdl.c', '1', args=['--js-library', 'check_webgl_attributes_support.js', '-DAA_ACTIVATED', '-DDEPTH_ACTIVATED', '-DSTENCIL_ACTIVATED', '-DALPHA_ACTIVATED', '-lGL', '-lSDL', '-lGLEW'])
-    self.btest('test_webgl_context_attributes_sdl2.c', '1', args=['--js-library', 'check_webgl_attributes_support.js', '-DAA_ACTIVATED', '-DDEPTH_ACTIVATED', '-DSTENCIL_ACTIVATED', '-DALPHA_ACTIVATED', '-lGL', '-s', 'USE_SDL=2', '-lGLEW'])
-    self.btest('test_webgl_context_attributes_glfw.c', '1', args=['--js-library', 'check_webgl_attributes_support.js', '-DAA_ACTIVATED', '-DDEPTH_ACTIVATED', '-DSTENCIL_ACTIVATED', '-DALPHA_ACTIVATED', '-lGL', '-lglfw', '-lGLEW'])
+    self.btest_exit('test_webgl_context_attributes_glut.c', args=['--js-library', 'check_webgl_attributes_support.js', '-DAA_ACTIVATED', '-DDEPTH_ACTIVATED', '-DSTENCIL_ACTIVATED', '-DALPHA_ACTIVATED', '-lGL', '-lglut', '-lGLEW'])
+    self.btest_exit('test_webgl_context_attributes_sdl.c', args=['--js-library', 'check_webgl_attributes_support.js', '-DAA_ACTIVATED', '-DDEPTH_ACTIVATED', '-DSTENCIL_ACTIVATED', '-DALPHA_ACTIVATED', '-lGL', '-lSDL', '-lGLEW'])
+    self.btest_exit('test_webgl_context_attributes_sdl2.c', args=['--js-library', 'check_webgl_attributes_support.js', '-DAA_ACTIVATED', '-DDEPTH_ACTIVATED', '-DSTENCIL_ACTIVATED', '-DALPHA_ACTIVATED', '-lGL', '-s', 'USE_SDL=2', '-lGLEW'])
+    self.btest_exit('test_webgl_context_attributes_glfw.c', args=['--js-library', 'check_webgl_attributes_support.js', '-DAA_ACTIVATED', '-DDEPTH_ACTIVATED', '-DSTENCIL_ACTIVATED', '-DALPHA_ACTIVATED', '-lGL', '-lglfw', '-lGLEW'])
 
     # perform tests with attributes desactivated
-    self.btest('test_webgl_context_attributes_glut.c', '1', args=['--js-library', 'check_webgl_attributes_support.js', '-lGL', '-lglut', '-lGLEW'])
-    self.btest('test_webgl_context_attributes_sdl.c', '1', args=['--js-library', 'check_webgl_attributes_support.js', '-lGL', '-lSDL', '-lGLEW'])
-    self.btest('test_webgl_context_attributes_glfw.c', '1', args=['--js-library', 'check_webgl_attributes_support.js', '-lGL', '-lglfw', '-lGLEW'])
+    self.btest_exit('test_webgl_context_attributes_glut.c', args=['--js-library', 'check_webgl_attributes_support.js', '-lGL', '-lglut', '-lGLEW'])
+    self.btest_exit('test_webgl_context_attributes_sdl.c', args=['--js-library', 'check_webgl_attributes_support.js', '-lGL', '-lSDL', '-lGLEW'])
+    self.btest_exit('test_webgl_context_attributes_glfw.c', args=['--js-library', 'check_webgl_attributes_support.js', '-lGL', '-lglfw', '-lGLEW'])
 
   @requires_graphics_hardware
   def test_webgl_no_double_error(self):
-    self.btest('webgl_error.cpp', '0')
+    self.btest_exit('webgl_error.cpp')
 
   @requires_graphics_hardware
   def test_webgl_parallel_shader_compile(self):
-    self.btest('webgl_parallel_shader_compile.cpp', '1')
+    self.btest_exit('webgl_parallel_shader_compile.cpp')
 
   @requires_graphics_hardware
   def test_webgl_explicit_uniform_location(self):
-    self.btest('webgl_explicit_uniform_location.c', '1', args=['-s', 'GL_EXPLICIT_UNIFORM_LOCATION=1', '-s', 'MIN_WEBGL_VERSION=2'])
+    self.btest_exit('webgl_explicit_uniform_location.c', args=['-s', 'GL_EXPLICIT_UNIFORM_LOCATION=1', '-s', 'MIN_WEBGL_VERSION=2'])
 
   @requires_graphics_hardware
   def test_webgl_sampler_layout_binding(self):
-    self.btest('webgl_sampler_layout_binding.c', '1', args=['-s', 'GL_EXPLICIT_UNIFORM_BINDING=1'])
+    self.btest_exit('webgl_sampler_layout_binding.c', args=['-s', 'GL_EXPLICIT_UNIFORM_BINDING=1'])
 
   @requires_graphics_hardware
   def test_webgl2_ubo_layout_binding(self):
-    self.btest('webgl2_ubo_layout_binding.c', '1', args=['-s', 'GL_EXPLICIT_UNIFORM_BINDING=1', '-s', 'MIN_WEBGL_VERSION=2'])
+    self.btest_exit('webgl2_ubo_layout_binding.c', args=['-s', 'GL_EXPLICIT_UNIFORM_BINDING=1', '-s', 'MIN_WEBGL_VERSION=2'])
 
   # Test that -s GL_PREINITIALIZED_CONTEXT=1 works and allows user to set Module['preinitializedWebGLContext'] to a preinitialized WebGL context.
   @requires_graphics_hardware
@@ -1279,7 +1277,7 @@ keydown(100);keyup(100); // trigger the end
   @requires_threads
   def test_emscripten_get_now(self):
     for args in [[], ['-s', 'USE_PTHREADS'], ['-s', 'ENVIRONMENT=web', '-O2', '--closure=1']]:
-      self.btest('emscripten_get_now.cpp', '1', args=args)
+      self.btest_exit('emscripten_get_now.cpp', args=args)
 
   def test_write_file_in_environment_web(self):
     self.btest_exit('write_file.c', args=['-s', 'ENVIRONMENT=web', '-Os', '--closure=1'])
@@ -4415,29 +4413,35 @@ window.close = function() {
   # Tests that if a WebGL context is created in a pthread on a canvas that has not been transferred to that pthread, WebGL calls are then proxied to the main thread
   # -DTEST_OFFSCREEN_CANVAS=1: Tests that if a WebGL context is created on a pthread that has the canvas transferred to it via using Emscripten's EMSCRIPTEN_PTHREAD_TRANSFERRED_CANVASES="#canvas", then OffscreenCanvas is used
   # -DTEST_OFFSCREEN_CANVAS=2: Tests that if a WebGL context is created on a pthread that has the canvas transferred to it via automatic transferring of Module.canvas when EMSCRIPTEN_PTHREAD_TRANSFERRED_CANVASES is not defined, then OffscreenCanvas is also used
+  @parameterized({
+    '': ([False],),
+    'asyncify': ([True],),
+  })
   @requires_threads
   @requires_offscreen_canvas
   @requires_graphics_hardware
-  def test_webgl_offscreen_canvas_in_proxied_pthread(self):
-    for asyncify in [0, 1]:
-      cmd = ['-s', 'USE_PTHREADS', '-s', 'OFFSCREENCANVAS_SUPPORT', '-lGL', '-s', 'GL_DEBUG', '-s', 'PROXY_TO_PTHREAD']
-      if asyncify:
-        # given the synchronous render loop here, asyncify is needed to see intermediate frames and
-        # the gradual color change
-        cmd += ['-s', 'ASYNCIFY', '-DASYNCIFY']
-      print(str(cmd))
-      self.btest('gl_in_proxy_pthread.cpp', expected='1', args=cmd)
+  def test_webgl_offscreen_canvas_in_proxied_pthread(self, asyncify):
+    cmd = ['-s', 'USE_PTHREADS', '-s', 'OFFSCREENCANVAS_SUPPORT', '-lGL', '-s', 'GL_DEBUG', '-s', 'PROXY_TO_PTHREAD']
+    if asyncify:
+      # given the synchronous render loop here, asyncify is needed to see intermediate frames and
+      # the gradual color change
+      cmd += ['-s', 'ASYNCIFY', '-DASYNCIFY']
+    print(str(cmd))
+    self.btest_exit('gl_in_proxy_pthread.cpp', args=cmd)
 
+  @parameterized({
+    '': ([],),
+    'proxy': (['-sPROXY_TO_PTHREAD'],),
+  })
   @requires_threads
   @requires_graphics_hardware
   @requires_offscreen_canvas
-  def test_webgl_resize_offscreencanvas_from_main_thread(self):
-    for args1 in [[], ['-s', 'PROXY_TO_PTHREAD']]:
-      for args2 in [[], ['-DTEST_SYNC_BLOCKING_LOOP=1']]:
-        for args3 in [[], ['-s', 'OFFSCREENCANVAS_SUPPORT', '-s', 'OFFSCREEN_FRAMEBUFFER']]:
-          cmd = args1 + args2 + args3 + ['-s', 'USE_PTHREADS', '-lGL', '-s', 'GL_DEBUG']
-          print(str(cmd))
-          self.btest('resize_offscreencanvas_from_main_thread.cpp', expected='1', args=cmd)
+  def test_webgl_resize_offscreencanvas_from_main_thread(self, args1):
+    for args2 in [[], ['-DTEST_SYNC_BLOCKING_LOOP=1']]:
+      for args3 in [[], ['-s', 'OFFSCREENCANVAS_SUPPORT', '-s', 'OFFSCREEN_FRAMEBUFFER']]:
+        cmd = args1 + args2 + args3 + ['-s', 'USE_PTHREADS', '-lGL', '-s', 'GL_DEBUG']
+        print(str(cmd))
+        self.btest_exit('resize_offscreencanvas_from_main_thread.cpp', args=cmd)
 
   @requires_graphics_hardware
   def test_webgl_simple_enable_extensions(self):
@@ -4478,10 +4482,9 @@ window.close = function() {
   @requires_threads
   def test_fetch_from_thread(self, args):
     shutil.copyfile(test_file('gears.png'), 'gears.png')
-    self.btest('fetch/from_thread.cpp',
-               expected='42',
-               args=args + ['-s', 'USE_PTHREADS', '-s', 'PROXY_TO_PTHREAD', '-s', 'FETCH_DEBUG', '-s', 'FETCH', '-DFILE_DOES_NOT_EXIST'],
-               also_asmjs=True)
+    self.btest_exit('fetch/from_thread.cpp',
+                    args=args + ['-s', 'USE_PTHREADS', '-s', 'PROXY_TO_PTHREAD', '-s', 'FETCH_DEBUG', '-s', 'FETCH', '-DFILE_DOES_NOT_EXIST'],
+                    also_asmjs=True)
 
   def test_fetch_to_indexdb(self):
     shutil.copyfile(test_file('gears.png'), 'gears.png')

@@ -5,6 +5,7 @@
  * found in the LICENSE file.
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <emscripten/emscripten.h>
@@ -26,13 +27,13 @@ GLuint compile_shader(GLenum shaderType, const char *src)
 
 GLuint create_program(GLuint vertexShader, GLuint fragmentShader)
 {
-   GLuint program = glCreateProgram();
-   glAttachShader(program, vertexShader);
-   glAttachShader(program, fragmentShader);
-   glBindAttribLocation(program, 0, "apos");
-   glBindAttribLocation(program, 1, "acolor");
-   glLinkProgram(program);
-   return program;
+  GLuint program = glCreateProgram();
+  glAttachShader(program, vertexShader);
+  glAttachShader(program, fragmentShader);
+  glBindAttribLocation(program, 0, "apos");
+  glBindAttribLocation(program, 1, "acolor");
+  glLinkProgram(program);
+  return program;
 }
 
 bool check_program_link_completed(GLuint program)
@@ -71,9 +72,8 @@ EM_BOOL tick(double, void*)
   if (numShadersPending == 0)
   {
     printf("All shaders linked in %f msecs. parallel_shader_compile_is_working=%d\n", emscripten_get_now() - linkStart, parallel_shader_compile_is_working);
-#ifdef REPORT_RESULT
-    REPORT_RESULT(parallel_shader_compile_is_working);
-#endif
+    assert(parallel_shader_compile_is_working);
+    emscripten_force_exit(0);
     return EM_FALSE;
   }
 
@@ -93,9 +93,6 @@ int main()
   if (!supported)
   {
     printf("Skipping test, KHR_parallel_shader_compile WebGL extension is not supported.\n");
-#ifdef REPORT_RESULT
-    REPORT_RESULT(1);
-#endif
     return 0;
   }
 
@@ -132,4 +129,6 @@ int main()
   printf("Issuing %d shader links took %f msecs.\n", numShadersPending, emscripten_get_now() - linkStart);
 
   emscripten_request_animation_frame_loop(tick, 0);
+  emscripten_exit_with_live_runtime();
+  __builtin_unreachable();
 }

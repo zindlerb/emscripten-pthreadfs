@@ -11,19 +11,15 @@
 #include <stdio.h>
 #include <string.h>
 
-EM_BOOL key_callback(int eventType, const EmscriptenKeyboardEvent *e, void *userData)
-{
+EM_BOOL key_callback(int eventType, const EmscriptenKeyboardEvent *e, void *userData) {
   static int i = 0;
   printf("key_callback %d\n", i);
   i++;
-#ifdef REPORT_RESULT
-  REPORT_RESULT(1);
-#endif
+  emscripten_force_exit(0);
   return 0;
 }
 
-int main()
-{
+int main() {
   emscripten_set_keypress_callback("#canvas", 0, 1, key_callback);
   EM_ASM({
     var event = new KeyboardEvent("keypress", { 'keyCode': 38, 'charCode': 38, 'view': window, 'bubbles': true, 'cancelable': true });
@@ -32,5 +28,5 @@ int main()
     document.activeElement.dispatchEvent(event);
   });
   emscripten_exit_with_live_runtime();
-  return 0;
+  __builtin_unreachable();
 }

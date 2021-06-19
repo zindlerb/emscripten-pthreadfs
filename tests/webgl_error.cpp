@@ -2,8 +2,7 @@
 #include <assert.h>
 #include <GLES2/gl2.h>
 
-int main()
-{
+int main() {
   EmscriptenWebGLContextAttributes attr;
   emscripten_webgl_init_context_attributes(&attr);
   EMSCRIPTEN_WEBGL_CONTEXT_HANDLE ctx = emscripten_webgl_create_context("#canvas", &attr);
@@ -14,7 +13,5 @@ int main()
   glReadPixels(0, 0, 1, 1, 0/*invalid*/, 0/*invalid*/, p);
   assert(glGetError());
   assert(!glGetError());
-#ifdef REPORT_RESULT
-  REPORT_RESULT(0);
-#endif
+  return 0;
 }
