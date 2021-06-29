@@ -7091,6 +7091,7 @@ int main() {
     'O2': (['-O2'], [], ['waka']), # noqa
     # in -O3, -Os and -Oz we metadce, and they shrink it down to the minimal output we want
     'O3': (['-O3'], [], []), # noqa
+    'O3_standalone': (['-O3', '-s', 'STANDALONE_WASM', '--no-entry'], [], []), # noqa
     'Os': (['-Os'], [], []), # noqa
     'Oz': (['-Oz'], [], []), # noqa
     'Os_mr': (['-Os', '-s', 'MINIMAL_RUNTIME'], [], [], 74), # noqa

@@ -2458,8 +2458,7 @@ def phase_post_link(options, state, in_wasm, wasm_target, target):
 
   target_basename = unsuffixed_basename(target)
 
-  if options.oformat != OFormat.WASM:
-    final_js = in_temp(target_basename + '.js')
+  final_js = in_temp(target_basename + '.js')
 
   settings.TARGET_BASENAME = unsuffixed_basename(target)
 
@@ -3093,17 +3092,17 @@ def phase_binaryen(target, options, wasm_target):
     if settings.SAFE_HEAP:
       final_js = building.instrument_js_for_safe_heap(final_js)
 
-    if settings.OPT_LEVEL >= 2 and settings.DEBUG_LEVEL <= 2:
-      # minify the JS. Do not minify whitespace if Closure is used, so that
-      # Closure can print out readable error messages (Closure will then
-      # minify whitespace afterwards)
-      save_intermediate_with_wasm('preclean', wasm_target)
-      final_js = building.minify_wasm_js(js_file=final_js,
-                                         wasm_file=wasm_target,
-                                         expensive_optimizations=will_metadce(),
-                                         minify_whitespace=minify_whitespace() and not options.use_closure_compiler,
-                                         debug_info=intermediate_debug_info)
-      save_intermediate_with_wasm('postclean', wasm_target)
+  if settings.OPT_LEVEL >= 2 and settings.DEBUG_LEVEL <= 2:
+    # minify the JS. Do not minify whitespace if Closure is used, so that
+    # Closure can print out readable error messages (Closure will then
+    # minify whitespace afterwards)
+    save_intermediate_with_wasm('preclean', wasm_target)
+    final_js = building.minify_wasm_js(js_file=final_js,
+                                       wasm_file=wasm_target,
+                                       expensive_optimizations=will_metadce(),
+                                       minify_whitespace=minify_whitespace() and not options.use_closure_compiler,
+                                       debug_info=intermediate_debug_info)
+    save_intermediate_with_wasm('postclean', wasm_target)
 
   if settings.ASYNCIFY_LAZY_LOAD_CODE:
     building.asyncify_lazy_load_code(wasm_target, debug=intermediate_debug_info)
