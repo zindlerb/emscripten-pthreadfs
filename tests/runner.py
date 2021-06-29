@@ -266,8 +266,8 @@ def suite_for_module(module, tests):
   if not common.EMTEST_SAVE_DIR and not shared.DEBUG:
     has_multiple_tests = len(tests) > 1
     has_multiple_cores = parallel_testsuite.num_cores() > 1
-    if suite_supported and has_multiple_tests and has_multiple_cores:
-      return parallel_testsuite.ParallelTestSuite(len(tests))
+    #if suite_supported and has_multiple_tests and has_multiple_cores:
+    return parallel_testsuite.ParallelTestSuite(len(tests))
   return unittest.TestSuite()
 
 
@@ -379,6 +379,7 @@ def main(args):
 
 
 if __name__ == '__main__':
+  print('main: ' + os.environ['EMTEST_LACKS_NATIVE_CLANG'])
   try:
     sys.exit(main(sys.argv))
   except KeyboardInterrupt:

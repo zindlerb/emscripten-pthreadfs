@@ -9,6 +9,8 @@ import unittest
 import tempfile
 import time
 import queue
+import common
+import os
 
 from tools.tempfiles import try_delete
 
@@ -16,6 +18,11 @@ NUM_CORES = None
 
 
 def g_testing_thread(work_queue, result_queue, temp_dir):
+  print(common.EMTEST_LACKS_NATIVE_CLANG)
+  print("IN PROC")
+  for key, value in os.environ.items():
+    if key.startswith("EM"):
+      print("%s: %s" % (key,value))
   for test in iter(lambda: get_from_queue(work_queue), None):
     result = BufferedParallelTestResult()
     test.set_temp_dir(temp_dir)
@@ -71,6 +78,7 @@ class ParallelTestSuite(unittest.BaseTestSuite):
   def init_processes(self, test_queue):
     use_cores = min(self.max_cores, num_cores())
     print('Using %s parallel test processes' % use_cores)
+    print(os.environ['EMTEST_LACKS_NATIVE_CLANG'])
     self.processes = []
     self.result_queue = multiprocessing.Queue()
     self.dedicated_temp_dirs = [tempfile.mkdtemp() for x in range(use_cores)]
