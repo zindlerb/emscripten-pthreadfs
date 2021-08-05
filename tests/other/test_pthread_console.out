@@ -1,0 +1,7 @@
+printf 1
+console.log 1
+printf 2
+console.log 2
+printf 3
+console.log 3
+done

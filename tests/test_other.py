@@ -10881,3 +10881,11 @@ void foo() {}
     ]
     self.do_runf(test_file('pthread/test_pthread_lsan_leak.cpp'), expected, assert_all=True, emcc_args=['-fsanitize=leak'])
     self.do_runf(test_file('pthread/test_pthread_lsan_leak.cpp'), expected, assert_all=True, emcc_args=['-fsanitize=address'])
+
+  @node_pthreads
+  @disabled('https://github.com/emscripten-core/emscripten/issues/14804')
+  def test_pthread_console(self):
+    self.set_setting('USE_PTHREADS')
+    self.set_setting('PROXY_TO_PTHREAD')
+    self.set_setting('EXIT_RUNTIME')
+    self.do_other_test('test_pthread_console.c')
