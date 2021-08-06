@@ -9,7 +9,48 @@ The code is still prototype quality and **should not be used in a production env
 
 ## Enable and detect OPFS in Chrome
 
-TODO
+OPFS Access Handles require very recent versions of Google Chrome Canary. PThreadFS has been successfully tested with Version 94.0.4597.0.
+
+To enable the API, the " --enable-features=FileSystemAccessAccessHandle" flag must be set when starting Chrome from the console. On MacOS, this can be done through
+```
+open -a /Applications/Google\ Chrome\ Canary.app --args --enable-features=FileSystemAccessAccessHandle
+```
+
+Support for AccesHandles in OPFS can be detected through
+```
+async function detectAccessHandleWorker() {
+  const root = await navigator.storage.getDirectory();
+  const file = await root.getFileHandle('access-handle-detect', { create: true });
+  const present = file.createSyncAccessHandle != undefined;
+  await root.removeEntry('access-handle-detect');
+  return present;
+}
+
+async function detectAccessHandleMainThread() {
+  const detectAccessHandleAndPostMessage = async function(){
+    const root = await navigator.storage.getDirectory();
+    const file = await root.getFileHandle('access-handle-detect', { create: true });
+    const present = file.createSyncAccessHandle != undefined;
+    await root.removeEntry('access-handle-detect');
+    postMessage(present);
+  };
+
+  return new Promise((resolve, reject) => {
+    const detectBlob = new Blob(['('+detectAccessHandleAndPostMessage.toString()+')()'], {type: 'text/javascript'})
+    const detectWorker = new Worker(window.URL.createObjectURL(detectBlob));
+    
+    detectWorker.onmessage = result => {
+      resolve(result.data);
+      detectWorker.terminate();
+    };
+
+    detectWorker.onerror = error => {
+      reject(error);
+      detectWorker.terminate();
+    };
+  });
+}
+```
 
 ## Getting the code
 
