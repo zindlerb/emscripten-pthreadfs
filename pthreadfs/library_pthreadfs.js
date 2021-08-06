@@ -181,7 +181,8 @@ SyscallWrappers['init_sfafs'] = function(resume) {
   });
 }
 
-mergeInto(LibraryManager.library, SyscallWrappers);/**
+mergeInto(LibraryManager.library, SyscallWrappers);
+/**
  * @license
  * Copyright 2013 The Emscripten Authors
  * SPDX-License-Identifier: MIT
@@ -1115,7 +1116,8 @@ for (var x in SyscallsLibrary) {
   wrapSyscallFunction(x, SyscallsLibrary, isWasi);
 }
 
-mergeInto(LibraryManager.library, SyscallsLibrary);/**
+mergeInto(LibraryManager.library, SyscallsLibrary);
+/**
  * @license
  * Copyright 2013 The Emscripten Authors
  * SPDX-License-Identifier: MIT
@@ -2696,7 +2698,8 @@ mergeInto(LibraryManager.library, SyscallsLibrary);/**
       }
     },
   },
-});/**
+});
+/**
  * @license
  * Copyright 2013 The Emscripten Authors
  * SPDX-License-Identifier: MIT
@@ -3376,7 +3379,8 @@ mergeInto(LibraryManager.library, {
       },
     }
   }
-});/**
+});
+/**
  * @license
  * Copyright 2013 The Emscripten Authors
  * SPDX-License-Identifier: MIT

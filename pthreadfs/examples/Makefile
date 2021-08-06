@@ -124,3 +124,4 @@ emscripten-tests: $(addprefix dist/, $(addsuffix .html, $(basename $(wildcard $(
 dist/$(EMTESTS)/%.html : $(OBJ)/%.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
 	mkdir -p dist/$(EMTESTS)
 	$(EMCC) $(LINK_FLAGS) --js-library=$(PTHREADFS_JS) $< $(word 2,$^) -o $@
+	

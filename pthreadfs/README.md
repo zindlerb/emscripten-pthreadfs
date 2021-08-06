@@ -2,9 +2,10 @@
 
 The Emscripten Pthread File System (PThreadFS) unlocks using (partly) asynchronous storage APIs such as [OPFS Access Handles](https://docs.google.com/document/d/121OZpRk7bKSF7qU3kQLqAEUVSNxqREnE98malHYwWec/edit#heading=h.gj2fudnvy982) through the Emscripten File System API. This enables C++ applications compiled through Emscripten to use persistent storage without using [Asyncify](https://emscripten.org/docs/porting/asyncify.html). PThreadFS requires only minimal modifications to the C++ code and nearly achieves feature parity with the Emscripten's classic File System API.
 
-PThreadFS is based on Emscripten’s [SyncToAsync prototype](https://github.com/emscripten-core/emscripten/pull/13298). All file system operations are proxied through a dedicated worker thread. Although the underlying storage API is asynchronous, PThreadFS makes it appear synchronous to the C++ application.
+PThreadFS works by replacing Emscripten's file system API with a new API that proxies all file system operations to a dedicated pthread. This dedicated thread maintains a virtual file system that can use different APIs as backend (very similar to the way Emscripten's VFS is designed). In particular, PThreadFS comes with built-in support for asynchronous backends such as [OPFS Access Handles](https://docs.google.com/document/d/121OZpRk7bKSF7qU3kQLqAEUVSNxqREnE98malHYwWec/edit#heading=h.gj2fudnvy982).
+Although the underlying storage API is asynchronous, PThreadFS makes it appear synchronous to the C++ application.
 
-The code is still prototype quality and **should not be used in a production environment**.
+The code is still prototype quality and **should not be used in a production environment** for the time being.
 
 ## Enable and detect OPFS in Chrome
 
@@ -22,20 +23,29 @@ In order to use the code in a new project, you only need the three files in the 
 
 ### Code changes
 
-- Include `pthreadfs.h` in the C++ file containing `main()`. 
+- Include `pthreadfs.h` in the C++ file containing `main()`:
+```
+#include "pthreadfs.h"
+```
 - Call `emscripten_init_pthreadfs();` at the top of `main()` (or before any file system syscalls).
-- Files that persist between sessions must be stored in `/filesystemaccess/` or its subfolders.
+- PThreadFS maintains a virtual file system. The OPFS backend is mounted at `/filesystemaccess/`. Only files in this folder are persisted between sessions. All other files will be stored in-memory through MEMFS.
 
 ### Build process changes
 
-- Compile `pthreadfs.h` and `pthreadfs.cpp` and link the resulting object to your application.
-- Include the PThreadFS Javascript code by adding the following in the linking step:
+There are two changes required to build a project with PThreadFS:
+- Compile `pthreadfs.h` and `pthreadfs.cpp` and link the resulting object to your application. Add `-pthread` to the compiler flag to include support for pthreads.
+- Add the following options to the linking step:
 ```
---js-library=library_pthreadsfs.js
+-pthread -O3 -s PROXY_TO_PTHREAD --js-library=library_pthreadsfs.js
 ```
-- Enable `PROXY_TO_PTHREAD` by adding the following to the linking step:
+**Example**
+If your build process was 
+```shell
+emcc myproject.cpp -o myproject.html
 ```
--s PROXY_TO_PTHREAD
+Your new build step should be
+```shell
+emcc -pthread -s PROXY_TO_PTHREAD -O3 --js-library=library_pthreadfs.js myproject.cpp pthreadfs.cpp -o myproject.html
 ```
 
 ### Advanced Usage
@@ -51,15 +61,13 @@ See `pthreadfs/examples/emscripten-tests/` for exemplary usage.
 
 ## Known Limitations
 
-- The code is still prototype quality and **should not be used in a production environment**.
-- PThreadFS requires PROXY_TO_PTHREAD to be active.
-
-  In particular, no system calls interacting with the file system should be called from the main thread.
+- The code is still prototype quality and **should not be used in a production environment** yet. It is possible that the use of PThreadFS might lead to subtle bugs in other libraries.
+- PThreadFS requires PROXY_TO_PTHREAD to be active. In particular, no system calls interacting with the file system should be called from the main thread.
 - Some functionality of the Emscripten File System API is missing, such as sockets, IndexedDB integration and support for XHRequests.
 - PThreadFS depends on C++ libraries. `EM_PTRHEADFS_ASM()` cannot be used within C files (although initializing through `emscripten_init_pthreadfs()` is possible, see the `pthreadfs/examples/sqlite-speedtest` for an example).
 - Only in-memory storage (MEMFS) and OPFS Access Handles (FSAFS) are available as backends for PThreadFS. 
 
-  In particualar, there is no support (yet) for IDBFS. Limited support is available for the Storage Foundation API.
+  There is no support (yet) for persisting data into IndexedDB (the way IDBFS works). Limited support is available for the Storage Foundation API as backend.
 - Performance is good if and only if full optimizations (compiler option `-O3`) are enabled and DevTools are closed.
 - Using stdout from C++ only prints to the Javascript console, not the Emscripten-generated html file.
 
@@ -82,7 +90,8 @@ cd dist/sqlite-speedtest
 python3 -m http.server 8888
 ```
 Then open the following link in a Chrome instance with the
-"File System Access Access Handles" enabled (see above):
+_OPFS Access Handles_ [enabled](#enable-and-detect-opfs-in-chrome):
+
 [localhost:8888/sqlite-speedtest](http://localhost:8888/sqlite-speedtest). The results of the speedtest can be found in the DevTools console.
 
 ### Other tests
@@ -97,7 +106,8 @@ cd dist/emscripten-tests
 python3 -m http.server 8888
 ```
 Then open the following link in a Chrome instance with the
-"File System Access Access Handles" enabled (see above):
+_OPFS Access Handles_ [enabled](#enable-and-detect-opfs-in-chrome):
+
 [localhost:8888/emscripten-tests](http://localhost:8888/emscripten-tests) and choose a test. The results of the test can be found in the DevTools console.
 
 ## Authors
