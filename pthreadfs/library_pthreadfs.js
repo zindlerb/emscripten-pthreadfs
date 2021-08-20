@@ -13,23 +13,13 @@ let SyscallsFunctions = [
   {'name': 'mknod', 'args': ['path', 'mode', 'dev']},
   {'name': 'chmod', 'args': ['path', 'mode']},
   {'name': 'access', 'args': ['path', 'amode']},
-  {'name': 'rename', 'args': ['old_path', 'new_path']},
   {'name': 'mkdir', 'args': ['path', 'mode']},
   {'name': 'rmdir', 'args': ['path']},
-  {'name': 'dup', 'args': ['fd']},
   {'name': 'ioctl', 'args': ['fd', 'request', 'varargs']},
-  {'name': 'dup2', 'args': ['oldfd', 'newfd']},
-  {'name': 'symlink', 'args': ['target', 'linkpath']},
   {'name': 'readlink', 'args': ['path', 'buf', 'bufsize']},
-  {'name': 'munmap', 'args': ['addr', 'len']},
   {'name': 'fchmod', 'args': ['fd', 'mode']},
   {'name': 'fchdir', 'args': ['fd']},
-  {'name': '_newselect', 'args': ['nfds', 'readfds', 'writefds', 'exceptfds', 'timeout']},
-  {'name': 'msync', 'args': ['addr', 'len', 'flags']},
   {'name': 'fdatasync', 'args': ['fd']},
-  {'name': 'poll', 'args': ['fds', 'nfds', 'timeout']},
-  {'name': 'getcwd', 'args': ['buf', 'size']},
-  {'name': 'mmap2', 'args': ['addr', 'len', 'prot', 'flags', 'fd', 'off']},
   {'name': 'truncate64', 'args': ['path', 'zero', 'low', 'high']},
   {'name': 'ftruncate64', 'args': ['fd', 'zero', 'low', 'high']},
   {'name': 'stat64', 'args': ['path', 'buf']},
@@ -42,20 +32,7 @@ let SyscallsFunctions = [
   {'name': 'fcntl64', 'args': ['fd', 'cmd', 'varargs']},
   {'name': 'statfs64', 'args': ['path', 'size', 'buf']},
   {'name': 'fstatfs64', 'args': ['fd', 'size', 'buf']},
-  {'name': 'openat', 'args': ['dirfd', 'path', 'flags', 'varargs']},
-  {'name': 'mkdirat', 'args': ['dirfd', 'path', 'mode']},
-  {'name': 'mknodat', 'args': ['dirfd', 'path', 'mode', 'dev']},
-  {'name': 'fchownat', 'args': ['dirfd', 'path', 'owner', 'group', 'flags']},
-  {'name': 'fstatat64', 'args': ['dirfd', 'path', 'buf', 'flags']},
-  {'name': 'unlinkat', 'args': ['dirfd', 'path', 'flags']},
-  {'name': 'renameat', 'args': ['olddirfd', 'oldpath', 'newdirfd', 'newpath']},
-  {'name': 'symlinkat', 'args': ['target', 'newdirfd', 'linkpath']},
-  {'name': 'readlinkat', 'args': ['dirfd', 'path', 'bug', 'bufsize']},
-  {'name': 'fchmodat', 'args': ['dirfd', 'path', 'mode', 'varargs']},
-  {'name': 'faccessat', 'args': ['dirfd', 'path', 'amode', 'flags']},
-  {'name': 'utimensat', 'args': ['dirfd', 'path', 'times', 'flags']},
   {'name': 'fallocate', 'args': ['fd', 'mode', 'off_low', 'off_high', 'len_low', 'len_high']},
-  {'name': 'dup3', 'args': ['fd', 'suggestfd', 'flags']},
 ]
 
 let WasiFunctions = [
@@ -151,7 +128,6 @@ SyscallWrappers['init_pthreadfs'] = function (resume) {
   PThreadFS.FSNode = FSNode;
 
   PThreadFS.staticInit().then(async ()=> {
-    await PThreadFS.init();
     PThreadFS.ignorePermissions = false;
     wasmTable.get(resume)();
   });
@@ -196,23 +172,17 @@ List of implemented syscalls:
   {'name': 'mknod', 'args': ['path', 'mode', 'dev']},
   {'name': 'chmod', 'args': ['path', 'mode']},
   {'name': 'access', 'args': ['path', 'amode']},
-  {'name': 'rename', 'args': ['old_path', 'new_path']},
   {'name': 'mkdir', 'args': ['path', 'mode']},
-  {'name': 'rmdir', 'args': ['path']},
-  {'name': 'dup', 'args': ['fd']},
-  {'name': 'ioctl', 'args': ['fd', 'request', 'varargs']},
-  {'name': 'dup2', 'args': ['oldfd', 'newfd']},
+  {'name': 'rmdir', 'args': ['path']},]
+  {'name': 'ioctl', 'args': ['fd', 'request', 'varargs']},]
   {'name': 'symlink', 'args': ['target', 'linkpath']},
   {'name': 'readlink', 'args': ['path', 'buf', 'bufsize']},
-  {'name': 'munmap', 'args': ['addr', 'len']},
   {'name': 'fchmod', 'args': ['fd', 'mode']},
   {'name': 'fchdir', 'args': ['fd']},
   {'name': '_newselect', 'args': ['nfds', 'readfds', 'writefds', 'exceptfds', 'timeout']},
-  {'name': 'msync', 'args': ['addr', 'len', 'flags']},
   {'name': 'fdatasync', 'args': ['fd']},
   {'name': 'poll', 'args': ['fds', 'nfds', 'timeout']},
   {'name': 'getcwd', 'args': ['buf', 'size']},
-  {'name': 'mmap2', 'args': ['addr', 'len', 'prot', 'flags', 'fd', 'off']},
   {'name': 'truncate64', 'args': ['path', 'zero', 'low', 'high']},
   {'name': 'ftruncate64', 'args': ['fd', 'zero', 'low', 'high']},
   {'name': 'stat64', 'args': ['path', 'buf']},
@@ -231,14 +201,13 @@ List of implemented syscalls:
   {'name': 'fchownat', 'args': ['dirfd', 'path', 'owner', 'group', 'flags']},
   {'name': 'fstatat64', 'args': ['dirfd', 'path', 'buf', 'flags']},
   {'name': 'unlinkat', 'args': ['dirfd', 'path', 'flags']},
-  {'name': 'renameat', 'args': ['olddirfd', 'oldpath', 'newdirfd', 'newpath']},
   {'name': 'symlinkat', 'args': ['target', 'newdirfd', 'linkpath']},
   {'name': 'readlinkat', 'args': ['dirfd', 'path', 'bug', 'bufsize']},
   {'name': 'fchmodat', 'args': ['dirfd', 'path', 'mode', 'varargs']},
   {'name': 'faccessat', 'args': ['dirfd', 'path', 'amode', 'flags']},
   {'name': 'utimensat', 'args': ['dirfd', 'path', 'times', 'flags']},
   {'name': 'fallocate', 'args': ['fd', 'mode', 'off_low', 'off_high', 'len_low', 'len_high']},
-  {'name': 'dup3', 'args': ['fd', 'suggestfd', 'flags']},
+  
 */
 
 var SyscallsLibrary = {
@@ -305,10 +274,6 @@ var SyscallsLibrary = {
       {{{ makeSetValue('buf', C_STRUCTS.stat.st_ino, 'stat.ino', 'i64') }}};
       return 0;
     },
-    doMsync: async function(addr, stream, len, flags, offset) {
-      var buffer = HEAPU8.slice(addr, addr + len);
-      await PThreadFS.msync(stream, buffer, offset, len, flags);
-    },
     doMkdir: async function(path, mode) {
       // remove a trailing slash, if one - /a/b/ has basename of '', but
       // we want to create b in the context of this function
@@ -364,12 +329,6 @@ var SyscallsLibrary = {
         return -{{{ cDefine('EACCES') }}};
       }
       return 0;
-    },
-    doDup: async function(path, flags, suggestFD) {
-      var suggest = await PThreadFS.getStream(suggestFD);
-      if (suggest) await PThreadFS.close(suggest);
-      let stream = await PThreadFS.open(path, flags, 0, suggestFD, suggestFD);
-      return stream.fd;
     },
     doReadv: async function(stream, iov, iovcnt, offset) {
       var ret = 0;
@@ -432,66 +391,7 @@ var SyscallsLibrary = {
 #endif
       return low;
     },
-
-    $syscallMmap2_async__deps: ['$ASYNCSYSCALLS', '$zeroMemory', '$mmapAlloc', '$PThreadFS',
-    ],
-    $syscallMmap2_async: async function(addr, len, prot, flags, fd, off) {
-      off <<= 12; // undo pgoffset
-      var ptr;
-      var allocated = false;
-  
-      // addr argument must be page aligned if MAP_FIXED flag is set.
-      if ((flags & {{{ cDefine('MAP_FIXED') }}}) !== 0 && (addr % {{{ WASM_PAGE_SIZE }}}) !== 0) {
-        return -{{{ cDefine('EINVAL') }}};
-      }
-  
-      // MAP_ANONYMOUS (aka MAP_ANON) isn't actually defined by POSIX spec,
-      // but it is widely used way to allocate memory pages on Linux, BSD and Mac.
-      // In this case fd argument is ignored.
-      if ((flags & {{{ cDefine('MAP_ANONYMOUS') }}}) !== 0) {
-        ptr = mmapAlloc(len);
-        if (!ptr) return -{{{ cDefine('ENOMEM') }}};
-        allocated = true;
-      } else {
-        var info = await PThreadFS.getStream(fd);
-        if (!info) return -{{{ cDefine('EBADF') }}};
-        var res = await PThreadFS.mmap(info, addr, len, off, prot, flags);
-        ptr = res.ptr;
-        allocated = res.allocated;
-      }
-  #if CAN_ADDRESS_2GB
-      ptr >>>= 0;
-  #endif
-      ASYNCSYSCALLS.mappings[ptr] = { malloc: ptr, len: len, allocated: allocated, fd: fd, prot: prot, flags: flags, offset: off };
-      return ptr;
-    },
   },
-  
-    $syscallMunmap_async__deps: ['$ASYNCSYSCALLS', '$PThreadFS'],
-    $syscallMunmap_async: async function(addr, len) {
-  #if CAN_ADDRESS_2GB
-      addr >>>= 0;
-  #endif
-      // TODO: support unmmap'ing parts of allocations
-      var info = ASYNCSYSCALLS.mappings[addr];
-      if (len === 0 || !info) {
-        return -{{{ cDefine('EINVAL') }}};
-      }
-      if (len === info.len) {
-        var stream = await PThreadFS.getStream(info.fd);
-        if (stream) {
-          if (info.prot & {{{ cDefine('PROT_WRITE') }}}) {
-            await ASYNCSYSCALLS.doMsync(addr, stream, len, info.flags, info.offset);
-          }
-          await PThreadFS.munmap(stream);
-        }
-        ASYNCSYSCALLS.mappings[addr] = null;
-        if (info.allocated) {
-          _free(info.malloc);
-        }
-      }
-      return 0;
-    },
 
     // WASI
     fd_write_async: async function(fd, iov, iovcnt, pnum) {
@@ -595,12 +495,6 @@ var SyscallsLibrary = {
       path = ASYNCSYSCALLS.getStr(path);
       return await ASYNCSYSCALLS.doAccess(path, amode);
     },
-    rename_async : async function(old_path, new_path) {
-      old_path = ASYNCSYSCALLS.getStr(old_path);
-      new_path = ASYNCSYSCALLS.getStr(new_path);
-      await PThreadFS.rename(old_path, new_path);
-      return 0;
-    },
     mkdir_async : async function(path, mode) {
       path = ASYNCSYSCALLS.getStr(path);
       return await ASYNCSYSCALLS.doMkdir(path, mode);
@@ -609,11 +503,6 @@ var SyscallsLibrary = {
       path = ASYNCSYSCALLS.getStr(path);
       await PThreadFS.rmdir(path);
       return 0;
-    },
-    dup_async : async function(fd) {
-      let old = await ASYNCSYSCALLS.getStreamFromFD(fd);
-      let stream = await PThreadFS.open(old.path, old.flags, 0);
-      return stream.fd;
     },
     ioctl_async: async function(fd, op, varargs) {
       var stream = await ASYNCSYSCALLS.getStreamFromFD(fd);
@@ -662,11 +551,6 @@ var SyscallsLibrary = {
         default: abort('bad ioctl syscall ' + op);
       }
     },
-    dup2_async : async function(oldfd, suggestFD) {
-      var old = await ASYNCSYSCALLS.getStreamFromFD(oldfd);
-      if (old.fd === suggestFD) return suggestFD;
-      return await ASYNCSYSCALLS.doDup(old.path, old.flags, suggestFD);
-    },
     symlink_async : async function(target, linkpath) {
       target = ASYNCSYSCALLS.getStr(target);
       linkpath = ASYNCSYSCALLS.getStr(linkpath);
@@ -676,10 +560,6 @@ var SyscallsLibrary = {
     readlink_async : async function(path, buf, bufsize) {
       path = ASYNCSYSCALLS.getStr(path);
       return await ASYNCSYSCALLS.doReadlink(path, buf, bufsize);
-    },
-    munmap_async__deps: ['$syscallMunmap_async'],
-    munmap_async : async function(addr, len) {
-      return await syscallMunmap_async(addr, len);
     },
     fchmod_async : async function(fd, mode) {
       await PThreadFS.fchmod(fd, mode);
@@ -771,15 +651,6 @@ var SyscallsLibrary = {
       
       return total;
     },
-    msync_async: async function(addr, len, flags) {
-  #if CAN_ADDRESS_2GB
-      addr >>>= 0;
-  #endif
-      var info = ASYNCSYSCALLS.mappings[addr];
-      if (!info) return 0;
-      await ASYNCSYSCALLS.doMsync(addr, await PThreadFS.getStream(info.fd), len, info.flags, 0);
-      return 0;
-    },
     fdatasync_async : async function(fd) {
       var stream = await ASYNCSYSCALLS.getStreamFromFD(fd);
       //TODO(rstz): Consider implementing this, since Storage Foundation supports flush().
@@ -812,10 +683,6 @@ var SyscallsLibrary = {
       if (size < cwdLengthInBytes + 1) return -{{{ cDefine('ERANGE') }}};
       stringToUTF8(cwd, buf, size);
       return buf;
-    },
-    mmap2_async__deps: ['$syscallMmap2'],
-    mmap2_async: async function(addr, len, prot, flags, fd, off) {
-      return await syscallMmap2(addr, len, prot, flags, fd, off);
     },
     truncate64_async: async function(path, zero, low, high) {
       path = ASYNCSYSCALLS.getStr(path);
@@ -1006,14 +873,6 @@ var SyscallsLibrary = {
       }
       return 0;
     },
-    renameat_async: async function(olddirfd, oldpath, newdirfd, newpath) {
-      oldpath = ASYNCSYSCALLS.getStr(oldpath);
-      newpath = ASYNCSYSCALLS.getStr(newpath);
-      oldpath = ASYNCSYSCALLS.calculateAt(olddirfd, oldpath);
-      newpath = ASYNCSYSCALLS.calculateAt(newdirfd, newpath);
-      await PThreadFS.rename(oldpath, newpath);
-      return 0;
-    },
     symlinkat_async: async function(target, newdirfd, linkpath) {
       linkpath = ASYNCSYSCALLS.calculateAt(newdirfd, linkpath);
       await PThreadFS.symlink(target, linkpath);
@@ -1054,11 +913,6 @@ var SyscallsLibrary = {
       var len = ASYNCSYSCALLS.get64(len_low, len_high);
       await PThreadFS.allocate(stream, offset, len);
       return 0;
-    },
-    dup3_async: async function(fd, suggestFD, flags) {
-      var old = await ASYNCSYSCALLS.getStreamFromFD(fd);
-      if (old.fd === suggestFD) return -{{{ cDefine('EINVAL') }}};
-      return await ASYNCSYSCALLS.doDup(old.path, old.flags, suggestFD);
     },
 };
 
@@ -1435,10 +1289,11 @@ mergeInto(LibraryManager.library, SyscallsLibrary);
     //
     // streams
     //
+    MIN_FD: 4097,
     MAX_OPEN_FDS: 4096,
     nextfd: function(fd_start, fd_end) {
-      fd_start = fd_start || 0;
-      fd_end = fd_end || PThreadFS.MAX_OPEN_FDS;
+      fd_start = fd_start ||  PThreadFS.MIN_FD;
+      fd_end = fd_end ||  PThreadFS.MIN_FD + PThreadFS.MAX_OPEN_FDS;
       for (var fd = fd_start; fd <= fd_end; fd++) {
         if (!PThreadFS.streams[fd]) {
           return fd;
@@ -2506,36 +2361,6 @@ mergeInto(LibraryManager.library, SyscallsLibrary);
       PThreadFS.filesystems = {
         'MEMFS_ASYNC': MEMFS_ASYNC,
       };
-    },
-    init: async function(input, output, error) {
-#if ASSERTIONS
-      assert(!PThreadFS.init.initialized, 'PThreadFS.init was previously called. If you want to initialize later with custom parameters, remove any earlier calls (note that one is automatically added to the generated code)');
-#endif
-      PThreadFS.init.initialized = true;
-
-      PThreadFS.ensureErrnoError();
-
-      // Allow Module.stdin etc. to provide defaults, if none explicitly passed to us here
-      Module['stdin'] = input || Module['stdin'];
-      Module['stdout'] = output || Module['stdout'];
-      Module['stderr'] = error || Module['stderr'];
-
-      await PThreadFS.createStandardStreams();
-    },
-    quit: async function() {
-      // TODO(rstz): This function is never called.
-      PThreadFS.init.initialized = false;
-      // force-flush all streams, so we get musl std streams printed out
-      var fflush = Module['_fflush'];
-      if (fflush) fflush(0);
-      // close all of our streams
-      for (var i = 0; i < PThreadFS.streams.length; i++) {
-        var stream = PThreadFS.streams[i];
-        if (!stream) {
-          continue;
-        }
-        await PThreadFS.close(stream);
-      }
     },
 
     //

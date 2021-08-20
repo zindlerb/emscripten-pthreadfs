@@ -11,4 +11,4 @@ LIB_TTY = $(JSLIB_SRC)/library_tty_async.js
 
 library_pthreadfs.js:  $(LIB_WRAPPER) $(LIB_SYS) $(LIB_FS) $(LIB_MEMFS) $(LIB_FSAFS) $(LIB_TTY) 
 	rm -f $@
-	cat $? > ../$@
+	cat $^ > ../$@

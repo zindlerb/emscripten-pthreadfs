@@ -8,6 +8,8 @@
 #include <thread>
 #include <functional>
 #include <iostream>
+#include <string>
+#include <set>
 
 #include <stdarg.h>
 
@@ -102,10 +104,15 @@ void resumeWrapper_wasi(__wasi_errno_t retVal)
   g_resumeFct();
 }
 
+// File System Access collection
+std::set<long> fsa_file_descriptors;
+std::set<std::string> mounted_directories;
+
 // Wasi definitions
 WASI_CAPI_DEF(write, const __wasi_ciovec_t *iovs, size_t iovs_len, __wasi_size_t *nwritten) {
   WASI_SYNCTOASYNC(write, iovs, iovs_len, nwritten);
 }
+
 WASI_CAPI_DEF(read, const __wasi_iovec_t *iovs, size_t iovs_len, __wasi_size_t *nread) {
   WASI_SYNCTOASYNC(read, iovs, iovs_len, nread);
 }
@@ -122,7 +129,17 @@ WASI_CAPI_DEF(fdstat_get, __wasi_fdstat_t *stat) {
   WASI_SYNCTOASYNC(fdstat_get, stat);
 }
 WASI_CAPI_NOARGS_DEF(close) {
-  WASI_SYNCTOASYNC_NOARGS(close);
+  if(fsa_file_descriptors.count(fd) > 0) {
+     g_synctoasync_helper.doWork([fd](SyncToAsync::Callback resume) { 
+      g_resumeFct = [resume]() { resume(); };
+      __fd_close_async(fd, &resumeWrapper_wasi); 
+      });
+    if (resume_result_wasi == __WASI_ERRNO_SUCCESS) {
+      fsa_file_descriptors.erase(fd);
+    }
+    return resume_result_wasi;
+  } 
+  return fd_close(fd);
 }
 WASI_CAPI_NOARGS_DEF(sync) {
   WASI_SYNCTOASYNC_NOARGS(sync);
@@ -135,43 +152,41 @@ SYS_CAPI_DEF(open, 5, long path, long flags, ...) {
   int varargs = va_arg(vl, int);
   va_end(vl);
   
-  SYS_SYNCTOASYNC(open, path, flags, varargs);
+  std::string pathname((char*) path);
+  if (pathname.rfind("/filesystemaccess", 0) == 0 || pathname.rfind("filesystemaccess", 0) == 0) {
+    SYS_SYNCTOASYNC_NORETURN(open, path, flags, varargs);
+    fsa_file_descriptors.insert(resume_result_long);
+    return resume_result_long;
+  }
+  return __sys_open(path, flags, varargs);
 }
 
 SYS_CAPI_DEF(unlink, 10, long path) {
-  SYS_SYNCTOASYNC(unlink, path);
+  SYS_SYNCTOASYNC_PATH(unlink, path);
 }
 
 SYS_CAPI_DEF(chdir, 12, long path) {
-  SYS_SYNCTOASYNC(chdir, path);
+  SYS_SYNCTOASYNC_PATH(chdir, path);
 }
 
 SYS_CAPI_DEF(mknod, 14, long path, long mode, long dev) {
-  SYS_SYNCTOASYNC(mknod, path, mode, dev);
+  SYS_SYNCTOASYNC_PATH(mknod, path, mode, dev);
 }
 
 SYS_CAPI_DEF(chmod, 15, long path, long mode) {
-  SYS_SYNCTOASYNC(chmod, path, mode);
+  SYS_SYNCTOASYNC_PATH(chmod, path, mode);
 }
 
 SYS_CAPI_DEF(access, 33, long path, long amode) {
-  SYS_SYNCTOASYNC(access, path, amode);
-}
-
-SYS_CAPI_DEF(rename, 38, long old_path, long new_path) {
-  SYS_SYNCTOASYNC(rename, old_path, new_path);
+  SYS_SYNCTOASYNC_PATH(access, path, amode);
 }
 
 SYS_CAPI_DEF(mkdir, 39, long path, long mode) {
-  SYS_SYNCTOASYNC(mkdir, path, mode);
+  SYS_SYNCTOASYNC_PATH(mkdir, path, mode);
 }
 
 SYS_CAPI_DEF(rmdir, 40, long path) {
-  SYS_SYNCTOASYNC(rmdir, path);
-}
-
-SYS_CAPI_DEF(dup, 41, long fd) {
-  SYS_SYNCTOASYNC(dup, fd);
+  SYS_SYNCTOASYNC_PATH(rmdir, path);
 }
 
 SYS_CAPI_DEF(ioctl, 54, long fd, long request, ...) {
@@ -181,91 +196,59 @@ SYS_CAPI_DEF(ioctl, 54, long fd, long request, ...) {
 	arg = va_arg(ap, void *);
 	va_end(ap);
   
-  SYS_SYNCTOASYNC(ioctl, fd, request, arg);
-}
-
-SYS_CAPI_DEF(dup2, 63, long oldfd, long newfd) {
-  SYS_SYNCTOASYNC(dup2, oldfd, newfd);
-}
-
-SYS_CAPI_DEF(symlink, 83, long target, long linkpath) {
-  SYS_SYNCTOASYNC(symlink, target, linkpath);
+  SYS_SYNCTOASYNC_FD(ioctl, fd, request, arg);
 }
 
 SYS_CAPI_DEF(readlink, 85, long path, long buf, long bufsize) {
-  SYS_SYNCTOASYNC(readlink, path, buf, bufsize);
-}
-
-SYS_CAPI_DEF(munmap, 91, long addr, long len) {
-  SYS_SYNCTOASYNC(munmap, addr, len);
+  SYS_SYNCTOASYNC_PATH(readlink, path, buf, bufsize);
 }
 
 SYS_CAPI_DEF(fchmod, 94, long fd, long mode) {
-  SYS_SYNCTOASYNC(fchmod, fd, mode);
+  SYS_SYNCTOASYNC_FD(fchmod, fd, mode);
 }
 
 SYS_CAPI_DEF(fchdir, 133, long fd) {
-  SYS_SYNCTOASYNC(fchdir, fd);
-}
-
-SYS_CAPI_DEF(_newselect, 142, long nfds, long readfds, long writefds, long exceptfds, long timeout) {
-  SYS_SYNCTOASYNC(_newselect, nfds, readfds, writefds, exceptfds, timeout);
-}
-
-SYS_CAPI_DEF(msync, 144, long addr, long len, long flags) {
-  SYS_SYNCTOASYNC(msync, addr, len, flags);
+  SYS_SYNCTOASYNC_FD(fchdir, fd);
 }
 
 SYS_CAPI_DEF(fdatasync, 148, long fd) {
-  SYS_SYNCTOASYNC(fdatasync, fd);
-}
-
-SYS_CAPI_DEF(poll, 168, long fds, long nfds, long timeout) {
-  SYS_SYNCTOASYNC(poll, fds, nfds, timeout);
-}
-
-SYS_CAPI_DEF(getcwd, 183, long buf, long size) {
-  SYS_SYNCTOASYNC(getcwd, buf, size);
-}
-
-SYS_CAPI_DEF(mmap2, 192, long addr, long len, long prot, long flags, long fd, long off) {
-  SYS_SYNCTOASYNC(mmap2, addr, len, prot, flags, fd, off);
+  SYS_SYNCTOASYNC_FD(fdatasync, fd);
 }
 
 SYS_CAPI_DEF(truncate64, 193, long path, long zero, long low, long high) {
-  SYS_SYNCTOASYNC(truncate64, path, zero, low, high);
+  SYS_SYNCTOASYNC_PATH(truncate64, path, zero, low, high);
 }
 
 SYS_CAPI_DEF(ftruncate64, 194, long fd, long zero, long low, long high) {
-  SYS_SYNCTOASYNC(ftruncate64, fd, zero, low, high);
+  SYS_SYNCTOASYNC_FD(ftruncate64, fd, zero, low, high);
 }
 
 SYS_CAPI_DEF(stat64, 195, long path, long buf) {
-  SYS_SYNCTOASYNC(stat64, path, buf);
+  SYS_SYNCTOASYNC_PATH(stat64, path, buf);
 }
 
 SYS_CAPI_DEF(lstat64, 196, long path, long buf) {
-  SYS_SYNCTOASYNC(lstat64, path, buf);
+  SYS_SYNCTOASYNC_PATH(lstat64, path, buf);
 }
 
 SYS_CAPI_DEF(fstat64, 197, long fd, long buf) {
-  SYS_SYNCTOASYNC(fstat64, fd, buf);
+  SYS_SYNCTOASYNC_FD(fstat64, fd, buf);
 }
 
 SYS_CAPI_DEF(lchown32, 198, long path, long owner, long group) {
-  SYS_SYNCTOASYNC(lchown32, path, owner, group);
+  SYS_SYNCTOASYNC_PATH(lchown32, path, owner, group);
 }
 
 SYS_CAPI_DEF(fchown32, 207, long fd, long owner, long group) {
-  SYS_SYNCTOASYNC(fchown32, fd, owner, group);
+  SYS_SYNCTOASYNC_FD(fchown32, fd, owner, group);
 }
 
 SYS_CAPI_DEF(chown32, 212, long path, long owner, long group) {
-  SYS_SYNCTOASYNC(chown32, path, owner, group);
+  SYS_SYNCTOASYNC_PATH(chown32, path, owner, group);
 }
 
 SYS_CAPI_DEF(getdents64, 220, long fd, long dirp, long count) {
-  SYS_SYNCTOASYNC(getdents64, fd, dirp, count);
+  SYS_SYNCTOASYNC_FD(getdents64, fd, dirp, count);
 }
 
 SYS_CAPI_DEF(fcntl64, 221, long fd, long cmd, ...) {
@@ -274,81 +257,19 @@ va_list vl;
   int varargs = va_arg(vl, int);
   va_end(vl);
   
-  SYS_SYNCTOASYNC(fcntl64, fd, cmd, varargs);
+  SYS_SYNCTOASYNC_FD(fcntl64, fd, cmd, varargs);
 }
 
 SYS_CAPI_DEF(statfs64, 268, long path, long size, long buf) {
-  SYS_SYNCTOASYNC(statfs64, path, size, buf);
+  SYS_SYNCTOASYNC_PATH(statfs64, path, size, buf);
 }
 
 SYS_CAPI_DEF(fstatfs64, 269, long fd, long size, long buf) {
-  SYS_SYNCTOASYNC(fstatfs64, fd, size, buf);
-}
-
-SYS_CAPI_DEF(openat, 295, long dirfd, long path, long flags, ...) {
-va_list vl;
-  va_start(vl, flags);
-  int varargs = va_arg(vl, int);
-  va_end(vl);
-  
-  SYS_SYNCTOASYNC(openat, dirfd, path, flags, varargs);
-}
-
-SYS_CAPI_DEF(mkdirat, 296, long dirfd, long path, long mode) {
-  SYS_SYNCTOASYNC(mkdirat, dirfd, path, mode);
-}
-
-SYS_CAPI_DEF(mknodat, 297, long dirfd, long path, long mode, long dev) {
-  SYS_SYNCTOASYNC(mknodat, dirfd, path, mode, dev);
-}
-
-SYS_CAPI_DEF(fchownat, 298, long dirfd, long path, long owner, long group, long flags) {
-  SYS_SYNCTOASYNC(fchownat, dirfd, path, owner, group, flags);
-}
-
-SYS_CAPI_DEF(fstatat64, 300, long dirfd, long path, long buf, long flags) {
-  SYS_SYNCTOASYNC(fstatat64, dirfd, path, buf, flags);
-}
-
-SYS_CAPI_DEF(unlinkat, 301, long dirfd, long path, long flags) {
-  SYS_SYNCTOASYNC(unlinkat, dirfd, path, flags);
-}
-
-SYS_CAPI_DEF(renameat, 302, long olddirfd, long oldpath, long newdirfd, long newpath) {
-  SYS_SYNCTOASYNC(renameat, olddirfd, oldpath, newdirfd, newpath);
-}
-
-SYS_CAPI_DEF(symlinkat, 304, long target, long newdirfd, long linkpath) {
-  SYS_SYNCTOASYNC(symlinkat, target, newdirfd, linkpath);
-}
-
-SYS_CAPI_DEF(readlinkat, 305, long dirfd, long path, long bug, long bufsize) {
-  SYS_SYNCTOASYNC(readlinkat, dirfd, path, bug, bufsize);
-}
-
-SYS_CAPI_DEF(fchmodat, 306, long dirfd, long path, long mode, ...) {
-va_list vl;
-  va_start(vl, mode);
-  int varargs = va_arg(vl, int);
-  va_end(vl);
-  
-  SYS_SYNCTOASYNC(fchmodat, dirfd, path, mode, varargs);
-}
-
-SYS_CAPI_DEF(faccessat, 307, long dirfd, long path, long amode, long flags) {
-  SYS_SYNCTOASYNC(faccessat, dirfd, path, amode, flags);
-}
-
-SYS_CAPI_DEF(utimensat, 320, long dirfd, long path, long times, long flags) {
-  SYS_SYNCTOASYNC(utimensat, dirfd, path, times, flags);
+  SYS_SYNCTOASYNC_FD(fstatfs64, fd, size, buf);
 }
 
 SYS_CAPI_DEF(fallocate, 324, long fd, long mode, long off_low, long off_high, long len_low, long len_high) {
-  SYS_SYNCTOASYNC(fallocate, fd, mode, off_low, off_high, len_low, len_high);
-}
-
-SYS_CAPI_DEF(dup3, 330, long fd, long suggestfd, long flags) {
-  SYS_SYNCTOASYNC(dup3, fd, suggestfd, flags);
+  SYS_SYNCTOASYNC_FD(fallocate, fd, mode, off_low, off_high, len_low, len_high);
 }
 
 // Other helper code

@@ -97,21 +97,18 @@ EM_PTHREADFS_ASM(
   await PThreadFS.mkdir('mydirectory');
 );
 ```
-See `pthreadfs/examples/emscripten-tests/` for exemplary usage.
+See `pthreadfs/examples/emscripten-tests/fsafs.cpp` for exemplary usage.
 
 
 ## Known Limitations
 
+- All files to be stored using the file system access Access Handles must be stored in the `/filesystemaccess` folder.
+- Files in the `/filesystemaccess` folder cannot interact through syscalls with other files (e.g. moving, copying, etc.).
 - The code is still prototype quality and **should not be used in a production environment** yet. It is possible that the use of PThreadFS might lead to subtle bugs in other libraries.
 - PThreadFS requires PROXY_TO_PTHREAD to be active. In particular, no system calls interacting with the file system should be called from the main thread.
 - Some functionality of the Emscripten File System API is missing, such as sockets, IndexedDB integration and support for XHRequests.
 - PThreadFS depends on C++ libraries. `EM_PTRHEADFS_ASM()` cannot be used within C files (although initializing through `emscripten_init_pthreadfs()` is possible, see the `pthreadfs/examples/sqlite-speedtest` for an example).
-- Only in-memory storage (MEMFS) and OPFS Access Handles (FSAFS) are available as backends for PThreadFS. 
-
-  There is no support (yet) for persisting data into IndexedDB (the way IDBFS works). Limited support is available for the Storage Foundation API as backend.
 - Performance is good if and only if full optimizations (compiler option `-O3`) are enabled and DevTools are closed.
-- Using stdout from C++ only prints to the Javascript console, not the Emscripten-generated html file.
-
 
 ## Examples
 
