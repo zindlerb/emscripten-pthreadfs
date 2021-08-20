@@ -13,23 +13,13 @@ let SyscallsFunctions = [
   {'name': 'mknod', 'args': ['path', 'mode', 'dev']},
   {'name': 'chmod', 'args': ['path', 'mode']},
   {'name': 'access', 'args': ['path', 'amode']},
-  {'name': 'rename', 'args': ['old_path', 'new_path']},
   {'name': 'mkdir', 'args': ['path', 'mode']},
   {'name': 'rmdir', 'args': ['path']},
-  {'name': 'dup', 'args': ['fd']},
   {'name': 'ioctl', 'args': ['fd', 'request', 'varargs']},
-  {'name': 'dup2', 'args': ['oldfd', 'newfd']},
-  {'name': 'symlink', 'args': ['target', 'linkpath']},
   {'name': 'readlink', 'args': ['path', 'buf', 'bufsize']},
-  {'name': 'munmap', 'args': ['addr', 'len']},
   {'name': 'fchmod', 'args': ['fd', 'mode']},
   {'name': 'fchdir', 'args': ['fd']},
-  {'name': '_newselect', 'args': ['nfds', 'readfds', 'writefds', 'exceptfds', 'timeout']},
-  {'name': 'msync', 'args': ['addr', 'len', 'flags']},
   {'name': 'fdatasync', 'args': ['fd']},
-  {'name': 'poll', 'args': ['fds', 'nfds', 'timeout']},
-  {'name': 'getcwd', 'args': ['buf', 'size']},
-  {'name': 'mmap2', 'args': ['addr', 'len', 'prot', 'flags', 'fd', 'off']},
   {'name': 'truncate64', 'args': ['path', 'zero', 'low', 'high']},
   {'name': 'ftruncate64', 'args': ['fd', 'zero', 'low', 'high']},
   {'name': 'stat64', 'args': ['path', 'buf']},
@@ -42,20 +32,7 @@ let SyscallsFunctions = [
   {'name': 'fcntl64', 'args': ['fd', 'cmd', 'varargs']},
   {'name': 'statfs64', 'args': ['path', 'size', 'buf']},
   {'name': 'fstatfs64', 'args': ['fd', 'size', 'buf']},
-  {'name': 'openat', 'args': ['dirfd', 'path', 'flags', 'varargs']},
-  {'name': 'mkdirat', 'args': ['dirfd', 'path', 'mode']},
-  {'name': 'mknodat', 'args': ['dirfd', 'path', 'mode', 'dev']},
-  {'name': 'fchownat', 'args': ['dirfd', 'path', 'owner', 'group', 'flags']},
-  {'name': 'fstatat64', 'args': ['dirfd', 'path', 'buf', 'flags']},
-  {'name': 'unlinkat', 'args': ['dirfd', 'path', 'flags']},
-  {'name': 'renameat', 'args': ['olddirfd', 'oldpath', 'newdirfd', 'newpath']},
-  {'name': 'symlinkat', 'args': ['target', 'newdirfd', 'linkpath']},
-  {'name': 'readlinkat', 'args': ['dirfd', 'path', 'bug', 'bufsize']},
-  {'name': 'fchmodat', 'args': ['dirfd', 'path', 'mode', 'varargs']},
-  {'name': 'faccessat', 'args': ['dirfd', 'path', 'amode', 'flags']},
-  {'name': 'utimensat', 'args': ['dirfd', 'path', 'times', 'flags']},
   {'name': 'fallocate', 'args': ['fd', 'mode', 'off_low', 'off_high', 'len_low', 'len_high']},
-  {'name': 'dup3', 'args': ['fd', 'suggestfd', 'flags']},
 ]
 
 let WasiFunctions = [
@@ -151,7 +128,6 @@ SyscallWrappers['init_pthreadfs'] = function (resume) {
   PThreadFS.FSNode = FSNode;
 
   PThreadFS.staticInit().then(async ()=> {
-    await PThreadFS.init();
     PThreadFS.ignorePermissions = false;
     wasmTable.get(resume)();
   });

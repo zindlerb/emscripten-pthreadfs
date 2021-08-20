@@ -316,10 +316,11 @@
     //
     // streams
     //
+    MIN_FD: 4097,
     MAX_OPEN_FDS: 4096,
     nextfd: function(fd_start, fd_end) {
-      fd_start = fd_start || 0;
-      fd_end = fd_end || PThreadFS.MAX_OPEN_FDS;
+      fd_start = fd_start ||  PThreadFS.MIN_FD;
+      fd_end = fd_end ||  PThreadFS.MIN_FD + PThreadFS.MAX_OPEN_FDS;
       for (var fd = fd_start; fd <= fd_end; fd++) {
         if (!PThreadFS.streams[fd]) {
           return fd;
@@ -1387,36 +1388,6 @@
       PThreadFS.filesystems = {
         'MEMFS_ASYNC': MEMFS_ASYNC,
       };
-    },
-    init: async function(input, output, error) {
-#if ASSERTIONS
-      assert(!PThreadFS.init.initialized, 'PThreadFS.init was previously called. If you want to initialize later with custom parameters, remove any earlier calls (note that one is automatically added to the generated code)');
-#endif
-      PThreadFS.init.initialized = true;
-
-      PThreadFS.ensureErrnoError();
-
-      // Allow Module.stdin etc. to provide defaults, if none explicitly passed to us here
-      Module['stdin'] = input || Module['stdin'];
-      Module['stdout'] = output || Module['stdout'];
-      Module['stderr'] = error || Module['stderr'];
-
-      await PThreadFS.createStandardStreams();
-    },
-    quit: async function() {
-      // TODO(rstz): This function is never called.
-      PThreadFS.init.initialized = false;
-      // force-flush all streams, so we get musl std streams printed out
-      var fflush = Module['_fflush'];
-      if (fflush) fflush(0);
-      // close all of our streams
-      for (var i = 0; i < PThreadFS.streams.length; i++) {
-        var stream = PThreadFS.streams[i];
-        if (!stream) {
-          continue;
-        }
-        await PThreadFS.close(stream);
-      }
     },
 
     //
