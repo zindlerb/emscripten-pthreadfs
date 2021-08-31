@@ -147,18 +147,22 @@ WASI_CAPI_NOARGS_DEF(sync) {
 
 // Syscall definitions
 SYS_CAPI_DEF(open, 5, long path, long flags, ...) {
-  va_list vl;
-  va_start(vl, flags);
-  int varargs = va_arg(vl, int);
-  va_end(vl);
   
   std::string pathname((char*) path);
   if (pathname.rfind("/filesystemaccess", 0) == 0 || pathname.rfind("filesystemaccess", 0) == 0) {
-    SYS_SYNCTOASYNC_NORETURN(open, path, flags, varargs);
+    va_list vl;
+    va_start(vl, flags);
+    mode_t mode = va_arg(vl, mode_t);
+    va_end(vl);
+    SYS_SYNCTOASYNC_NORETURN(open, path, flags, mode);
     fsa_file_descriptors.insert(resume_result_long);
     return resume_result_long;
   }
-  return __sys_open(path, flags, varargs);
+  va_list vl;
+  va_start(vl, flags);
+  long res = __sys_open(path, flags, (int) vl);
+  va_end(vl);
+  return res;
 }
 
 SYS_CAPI_DEF(unlink, 10, long path) {
@@ -252,12 +256,26 @@ SYS_CAPI_DEF(getdents64, 220, long fd, long dirp, long count) {
 }
 
 SYS_CAPI_DEF(fcntl64, 221, long fd, long cmd, ...) {
-va_list vl;
-  va_start(vl, cmd);
-  int varargs = va_arg(vl, int);
-  va_end(vl);
   
-  SYS_SYNCTOASYNC_FD(fcntl64, fd, cmd, varargs);
+  if (fsa_file_descriptors.count(fd) > 0) { 
+    // varargs are currently unused by __sys_fcntl64_async.
+    va_list vl;
+    va_start(vl, cmd);
+    int varargs = va_arg(vl, int);
+    va_end(vl);
+    g_synctoasync_helper.doWork([fd, cmd, varargs](SyncToAsync::Callback resume) {
+      g_resumeFct = [resume]() { 
+        resume(); 
+      };
+      __sys_fcntl64_async(fd, cmd, varargs, &resumeWrapper_l);
+    });
+    return resume_result_long; 
+  } 
+  va_list vl;
+  va_start(vl, cmd);
+  long res =  __sys_fcntl64(fd, cmd, (int) vl);
+  va_end(vl);
+  return res;
 }
 
 SYS_CAPI_DEF(statfs64, 268, long path, long size, long buf) {

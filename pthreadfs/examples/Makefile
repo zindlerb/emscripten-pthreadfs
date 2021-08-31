@@ -20,6 +20,9 @@ SQLITE_SPEEDTEST = speedtest1.c
 SQLITE_SPEEDTEST_URL = https://sqlite.org/src/raw/5e5b805f24cc939656058f6a498f5a2160f9142e4815c54faf758ec798d4cdad?at=speedtest1.c
 SQLITE_SPEEDTEST_SHA1 = f0edde2ad68f090e4676ac30042e0f6b765a8528
 
+.PHONY: all 
+all: sqlite-speedtest emscripten-tests
+
 ## cache
 cache/$(SQLITE_AMALGAMATION).zip:
 	mkdir -p cache
@@ -81,9 +84,6 @@ LINK_FLAGS =  \
 	-pthread \
 	-s PROXY_TO_PTHREAD \
 	-s INITIAL_MEMORY=134217728
-
-.PHONY: all 
-all: sqlite-speedtest emscripten-tests
 
 .PHONY: clean
 clean:

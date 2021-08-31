@@ -7,10 +7,10 @@
 
 int main () {
   emscripten_init_pthreadfs();
-  std::cout << "Proof that stdout works fine.\n";
+  std::cout << "std::cout works fine.\n";
   std::ofstream myfile;
   myfile.open ("filesystemaccess/example");
-  myfile << "Writing a few characters.\n";
+  myfile << "Writing a few characters to the example file.\n";
   myfile.close();
 
   std::string line;
@@ -18,7 +18,8 @@ int main () {
  
   if (myfile_read.is_open()) {
     std::getline(myfile_read, line);
-    EM_ASM({console.log("Read line" + UTF8ToString($0));
+    EM_ASM({
+      console.log("Read line " + UTF8ToString($0));
     }, line.c_str());
     myfile_read.close();
   }
