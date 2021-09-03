@@ -33,6 +33,9 @@ void SyncToAsync::shutdown() {
 }
 
 void SyncToAsync::doWork(std::function<void(SyncToAsync::Callback)> newWork) {
+  // Use the doWorkMutex to prevent more than one doWork being in flight at a
+  // time, so that this is usable from multiple threads safely.
+  std::lock_guard<std::mutex> doWorkLock(doWorkMutex);
   // Send the work over.
   {
     std::lock_guard<std::mutex> lock(mutex);

@@ -190,11 +190,16 @@ public:
   // Run some work on thread. This is a synchronous call, but the thread can do
   // async work for us. To allow us to know when the async work finishes, the
   // worker is given a function to call at that time.
+  //
+  // It is safe to call this method from multiple threads, as it locks itself.
+  // That is, you can create an instance of this and call it from multiple
+  // threads freely.
   void doWork(std::function<void(Callback)> newWork);
 
 private:
   std::thread thread;
   std::mutex mutex;
+  std::mutex doWorkMutex;
   std::condition_variable condition;
   std::function<void(Callback)> work;
   bool readyToWork = false;
