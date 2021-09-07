@@ -152,7 +152,7 @@ WASI_CAPI_NOARGS_DEF(sync) {
 SYS_CAPI_DEF(open, 5, long path, long flags, ...) {
   
   std::string pathname((char*) path);
-  if (pathname.rfind("/filesystemaccess", 0) == 0 || pathname.rfind("filesystemaccess", 0) == 0) {
+  if (pathname.rfind("/pthreadfs", 0) == 0 || pathname.rfind("pthreadfs", 0) == 0) {
     va_list vl;
     va_start(vl, flags);
     mode_t mode = va_arg(vl, mode_t);
@@ -302,7 +302,7 @@ void emscripten_init_pthreadfs() {
   });
   g_synctoasync_helper.doWork([](SyncToAsync::Callback resume) {
     g_resumeFct = [resume]() { resume(); };
-    init_fsafs(&resumeWrapper_v);
+    init_backend(&resumeWrapper_v);
   });
   return;
 }

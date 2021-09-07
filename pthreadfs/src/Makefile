@@ -9,6 +9,6 @@ LIB_SFAFS = $(JSLIB_SRC)/library_sfafs_async.js
 LIB_FSAFS = $(JSLIB_SRC)/library_fsafs.js
 LIB_TTY = $(JSLIB_SRC)/library_tty_async.js 
 
-library_pthreadfs.js:  $(LIB_WRAPPER) $(LIB_SYS) $(LIB_FS) $(LIB_MEMFS) $(LIB_FSAFS) $(LIB_TTY) 
+library_pthreadfs.js:  $(LIB_WRAPPER) $(LIB_SYS) $(LIB_FS) $(LIB_MEMFS) $(LIB_SFAFS) $(LIB_FSAFS) $(LIB_TTY)
 	rm -f $@
 	cat $^ > ../$@

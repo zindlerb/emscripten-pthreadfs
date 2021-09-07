@@ -69,7 +69,7 @@
   return __sys_##name(__VA_ARGS__);
 #define SYS_SYNCTOASYNC_PATH(name, ...) \
   std::string pathname((char*) path); \
-  if (pathname.rfind("/filesystemaccess", 0) == 0 || pathname.rfind("filesystemaccess", 0) == 0) { \
+  if (pathname.rfind("/pthreadfs", 0) == 0 || pathname.rfind("pthreadfs", 0) == 0) { \
     g_synctoasync_helper.doWork([__VA_ARGS__](SyncToAsync::Callback resume) { \
       g_resumeFct = [resume]() { resume(); }; \
       __sys_##name##_async(__VA_ARGS__, &resumeWrapper_l); \
@@ -81,8 +81,7 @@
 extern "C" {
   // Helpers
   extern void init_pthreadfs(void (*fun)(void));
-  extern void init_sfafs(void (*fun)(void));
-  extern void init_fsafs(void (*fun)(void));
+  extern void init_backend(void (*fun)(void));
   void emscripten_init_pthreadfs();
 
   // WASI

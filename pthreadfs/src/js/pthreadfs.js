@@ -56,7 +56,7 @@ function createWasiWrapper(name, args, wrappers) {
   wrapper += `_fd_${name}_async(${full_args}).then((res) => {`;
   wrapper += 'wasmTable.get(resume)(res);});}'
   wrappers[`__fd_${name}_async`] = eval('(' + wrapper + ')');
-  wrappers[`__fd_${name}_async__deps`] = [`fd_${name}_async`, '$ASYNCSYSCALLS', '$FSAFS'];
+  wrappers[`__fd_${name}_async__deps`] = [`fd_${name}_async`, '$ASYNCSYSCALLS', '$FSAFS', '$SFAFS'];
 }
 
 function createSyscallWrapper(name, args, wrappers) {
@@ -70,7 +70,7 @@ function createSyscallWrapper(name, args, wrappers) {
   wrapper += `_${name}_async(${full_args}).then((res) => {`;
   wrapper += 'wasmTable.get(resume)(res);});}'
   wrappers[`__sys_${name}_async`] = eval('(' + wrapper + ')');
-  wrappers[`__sys_${name}_async__deps`] = [`${name}_async`, '$ASYNCSYSCALLS', '$FSAFS'];
+  wrappers[`__sys_${name}_async__deps`] = [`${name}_async`, '$ASYNCSYSCALLS', '$FSAFS', '$SFAFS'];
 }
 
 for (x of WasiFunctions) {
@@ -133,26 +133,54 @@ SyscallWrappers['init_pthreadfs'] = function (resume) {
   });
 }
 
-SyscallWrappers['init_fsafs'] = function(resume) {
-  PThreadFS.mkdir('/filesystemaccess').then(async () => {
-    await PThreadFS.mount(FSAFS, { root: '.' }, '/filesystemaccess');
-    wasmTable.get(resume)();
-  });
-}
+// Initialize a backend for PThreadFS.
+// PThreadFS can only work with a single backend at a time. The initialization code
+// checks which backends are available and picks from the following list:
+// 1. OPFS Access Handles - see https://github.com/WICG/file-system-access/blob/main/AccessHandle.md
+// 2. Storage Foundation API - https://github.com/WICG/storage-foundation-api-explainer
+// 3. Emscripten's in-Memory file system (MEMFS).
+SyscallWrappers['init_backend'] = function(resume) {
 
-SyscallWrappers['init_sfafs'] = function(resume) {
-  PThreadFS.mkdir('/sfa').then(async () => {
-    await PThreadFS.mount(SFAFS, { root: '.' }, '/sfa');
+  let access_handle_detection = async function() {
+    const root = await navigator.storage.getDirectory();
+    const file = await root.getFileHandle('access-handle-detect', { create: true });
+    const present = file.createSyncAccessHandle != undefined;
+    await root.removeEntry('access-handle-detect');
+    return present;
+  }
 
-    // Storage Foundation requires explicit capacity allocations.
-    if (storageFoundation.requestCapacity) {
-      await storageFoundation.requestCapacity(1024*1024*100);
+  let storage_foundation_detection = function() {
+    if (typeof storageFoundation == typeof undefined) {
+      return false;
     }
-    // Delete all old files.
-    let files = await storageFoundation.getAll();
-    for (file of files) {
-      await storageFoundation.delete(file);
+    if (storageFoundation.requestCapacitySync(1) === 0) {
+      return false;
     }
+    return true;
+  }
+
+  PThreadFS.mkdir('/pthreadfs').then(async () => {
+    let has_access_handles = await access_handle_detection();
+    let has_storage_foundation = storage_foundation_detection();
+
+    if (has_access_handles) {
+      await PThreadFS.mount(FSAFS, { root: '.' }, '/pthreadfs');
+      console.log('Initialized PThreadFS with OPFS Access Handles');
+      wasmTable.get(resume)();
+      return;
+    }
+    if (has_storage_foundation) {
+      await PThreadFS.mount(SFAFS, { root: '.' }, '/pthreadfs');
+  
+      // Storage Foundation requires explicit capacity allocations.
+      if (storageFoundation.requestCapacity) {
+        await storageFoundation.requestCapacity(1024*1024*1024);
+      }
+      console.log('Initialized PThreadFS with Storage Foundation API');
+      wasmTable.get(resume)();
+      return;
+    }
+    console.log('Initialized PThreadFS with MEMFS');
     wasmTable.get(resume)();
   });
 }

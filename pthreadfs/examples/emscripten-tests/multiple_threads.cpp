@@ -11,7 +11,7 @@
 void threadMain(int msg) {
   size_t thread_id = std::hash<std::thread::id>{}(std::this_thread::get_id());
   std::ofstream myfile;
-  myfile.open ("filesystemaccess/multi_threading_example", std::ios_base::app);
+  myfile.open ("pthreadfs/multi_threading_example", std::ios_base::app);
   myfile << "Writing from thread " << msg << " Id: " << thread_id << "   ";
   myfile.close();
   EM_ASM({console.log(`Wrote on thread ${$0}`);}, thread_id);
@@ -21,7 +21,7 @@ void threadMain(int msg) {
 int main () {
   emscripten_init_pthreadfs();
   EM_ASM({console.log("Hello from main")});
-  std::remove("filesystemaccess/multi_threading_example"); 
+  std::remove("pthreadfs/multi_threading_example"); 
 
   constexpr int number_of_threads = 10;
 
@@ -35,7 +35,7 @@ int main () {
   }
 
   std::ofstream myfile;
-  myfile.open ("filesystemaccess/multi_threading_example");
+  myfile.open ("pthreadfs/multi_threading_example");
   myfile << "Writing the main thread.\n";
   myfile.close();
   
