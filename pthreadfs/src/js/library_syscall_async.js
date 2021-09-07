@@ -650,7 +650,7 @@ var SyscallsLibrary = {
         }
       }
     },
-    statfs64_async: function(path, size, buf) {
+    statfs64_async: async function(path, size, buf) {
       path = ASYNCSYSCALLS.getStr(path);
       // NOTE: None of the constants here are true. We're just returning safe and
       //       sane values.
