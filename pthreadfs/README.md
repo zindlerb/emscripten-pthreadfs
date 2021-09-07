@@ -5,6 +5,8 @@ The Emscripten Pthread File System (PThreadFS) unlocks using (partly) asynchrono
 PThreadFS works by replacing Emscripten's file system API with a new API that proxies all file system operations to a dedicated pthread. This dedicated thread maintains a virtual file system that can use different APIs as backend (very similar to the way Emscripten's VFS is designed). In particular, PThreadFS comes with built-in support for asynchronous backends such as [OPFS Access Handles](https://docs.google.com/document/d/121OZpRk7bKSF7qU3kQLqAEUVSNxqREnE98malHYwWec/edit#heading=h.gj2fudnvy982).
 Although the underlying storage API is asynchronous, PThreadFS makes it appear synchronous to the C++ application.
 
+If OPFS Access Handles are not available, PThreadFS will attempt to use the [Storage Foundation API](https://github.com/WICG/storage-foundation-api-explainer). As a last fallback, Emscripten's MEMFS in-memory file system is used.
+
 The code is still prototype quality and **should not be used in a production environment** for the time being.
 
 ## Enable and detect OPFS in Chrome
@@ -69,7 +71,7 @@ In order to use the code in a new project, you only need the three files in the 
 #include "pthreadfs.h"
 ```
 - Call `emscripten_init_pthreadfs();` at the top of `main()` (or before any file system syscalls).
-- PThreadFS maintains a virtual file system. The OPFS backend is mounted at `/filesystemaccess/`. Only files in this folder are persisted between sessions. All other files will be stored in-memory through MEMFS.
+- PThreadFS maintains a virtual file system. The OPFS backend is mounted at `/pthreadfs/`. Only files in this folder are persisted between sessions. All other files will be stored in-memory through MEMFS.
 
 ### Build process changes
 
@@ -102,8 +104,8 @@ See `pthreadfs/examples/emscripten-tests/fsafs.cpp` for exemplary usage.
 
 ## Known Limitations
 
-- All files to be stored using the file system access Access Handles must be stored in the `/filesystemaccess` folder.
-- Files in the `/filesystemaccess` folder cannot interact through syscalls with other files (e.g. moving, copying, etc.).
+- All files to be stored using the file system access Access Handles must be stored in the `/pthreadfs` folder.
+- Files in the `/pthreadfs` folder cannot interact through syscalls with other files (e.g. moving, copying, etc.).
 - The code is still prototype quality and **should not be used in a production environment** yet. It is possible that the use of PThreadFS might lead to subtle bugs in other libraries.
 - PThreadFS requires PROXY_TO_PTHREAD to be active. In particular, no system calls interacting with the file system should be called from the main thread.
 - Some functionality of the Emscripten File System API is missing, such as sockets, IndexedDB integration and support for XHRequests.
