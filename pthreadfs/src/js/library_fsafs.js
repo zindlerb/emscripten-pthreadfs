@@ -184,7 +184,7 @@ mergeInto(LibraryManager.library, {
 
       symlink: function(parent, newName, oldPath) {
         console.log('FSAFS error: symlink is not implemented')
-        throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
+        throw new PThreadFS.ErrnoError({{{ cDefine('EXDEV') }}});
       },
 
       readlink: function(node) {

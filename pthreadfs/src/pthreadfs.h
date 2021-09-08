@@ -114,6 +114,9 @@ SYS_JSAPI_DEF(chmod, long path, long mode)
 SYS_CAPI_DEF(access, 33, long path, long amode);
 SYS_JSAPI_DEF(access, long path, long amode)
 
+SYS_CAPI_DEF(rename, 38, long old_path, long new_path);
+SYS_JSAPI_DEF(rename, long old_path, long new_path)
+
 SYS_CAPI_DEF(mkdir, 39, long path, long mode);
 SYS_JSAPI_DEF(mkdir, long path, long mode)
 

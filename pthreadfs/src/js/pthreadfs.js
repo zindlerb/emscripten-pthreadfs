@@ -13,6 +13,7 @@ let SyscallsFunctions = [
   {'name': 'mknod', 'args': ['path', 'mode', 'dev']},
   {'name': 'chmod', 'args': ['path', 'mode']},
   {'name': 'access', 'args': ['path', 'amode']},
+  {'name': 'rename', 'args': ['old_path', 'new_path']},
   {'name': 'mkdir', 'args': ['path', 'mode']},
   {'name': 'rmdir', 'args': ['path']},
   {'name': 'ioctl', 'args': ['fd', 'request', 'varargs']},

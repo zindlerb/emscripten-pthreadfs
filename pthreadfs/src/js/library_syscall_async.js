@@ -12,6 +12,7 @@ List of implemented syscalls:
   {'name': 'mknod', 'args': ['path', 'mode', 'dev']},
   {'name': 'chmod', 'args': ['path', 'mode']},
   {'name': 'access', 'args': ['path', 'amode']},
+  {'name': 'rename', 'args': ['old_path', 'new_path']},
   {'name': 'mkdir', 'args': ['path', 'mode']},
   {'name': 'rmdir', 'args': ['path']},]
   {'name': 'ioctl', 'args': ['fd', 'request', 'varargs']},]
@@ -334,6 +335,12 @@ var SyscallsLibrary = {
     access_async : async function(path, amode) {
       path = ASYNCSYSCALLS.getStr(path);
       return await ASYNCSYSCALLS.doAccess(path, amode);
+    },
+    rename_async: async function(old_path, new_path) {
+      old_path = ASYNCSYSCALLS.getStr(old_path);
+      new_path = ASYNCSYSCALLS.getStr(new_path);
+      await PThreadFS.rename(old_path, new_path);
+      return 0;
     },
     mkdir_async : async function(path, mode) {
       path = ASYNCSYSCALLS.getStr(path);

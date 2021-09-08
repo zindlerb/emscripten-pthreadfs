@@ -188,6 +188,24 @@ SYS_CAPI_DEF(access, 33, long path, long amode) {
   SYS_SYNCTOASYNC_PATH(access, path, amode);
 }
 
+SYS_CAPI_DEF(chmod, 38, long old_path, long new_path) {
+  std::string old_pathname((char*) old_path);
+  std::string new_pathname((char*) new_path);
+
+  if (old_pathname.rfind("/pthreadfs", 0) == 0 || old_pathname.rfind("pthreadfs", 0) == 0) {
+    if (new_pathname.rfind("/pthreadfs", 0) == 0 || new_pathname.rfind("pthreadfs", 0) == 0) {
+      SYS_SYNCTOASYNC_NORETURN(rename, old_path, new_path);
+      return resume_result_long;
+    }
+    return EXDEV;
+  }
+  if (new_pathname.rfind("/pthreadfs", 0) == 0 || new_pathname.rfind("pthreadfs", 0) == 0) {
+    return EXDEV;
+  }
+  long res = __sys_rename(old_path, new_path);
+  return res;
+}
+
 SYS_CAPI_DEF(mkdir, 39, long path, long mode) {
   SYS_SYNCTOASYNC_PATH(mkdir, path, mode);
 }
