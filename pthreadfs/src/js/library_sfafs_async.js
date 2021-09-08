@@ -273,11 +273,48 @@ mergeInto(LibraryManager.library, {
         return node;
       },
 
-      rename: function (oldNode, newParentNode, newName) {
-        // TODO(rstz): Use storageFoundation.rename() to implement this.
+      rename: async function (old_node, new_dir, new_name) {
         SFAFS.debug('rename', arguments);
-        console.log('SFAFS error: rename is not implemented')
-        throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
+        let source_is_open = false;
+
+        let old_path = SFAFS.realPath(old_node);
+        let encoded_old_path = SFAFS.encodePath(old_path);
+        if (old_path in SFAFS.openFileHandles) {
+          await SFAFS.openFileHandles[old_path].close();
+          delete SFAFS.openFileHandles[old_path];
+          source_is_open = true;
+        }
+
+        delete old_node.parent.contents[old_node.name];
+        old_node.parent.timestamp = Date.now()
+        old_node.name = new_name;
+        new_dir.contents[new_name] = old_node;
+        new_dir.timestamp = old_node.parent.timestamp;
+        old_node.parent = new_dir;
+        let new_path = SFAFS.realPath(old_node);
+        let encoded_new_path = SFAFS.encodePath(new_path);
+
+        // Close and delete an existing file if necessary
+        let all_files = await storageFoundation.getAll()
+        if (all_files.includes(encoded_new_path)) {
+          if (new_path in SFAFS.openFileHandles) {
+            await SFAFS.openFileHandles[new_path].close();
+            delete SFAFS.openFileHandles[new_path];
+            console.log("SFAFS Warning: Renamed a file with an open handle. This might lead to unexpected behaviour.")
+          }
+          await storageFoundation.delete(encoded_new_path);
+        }
+        await storageFoundation.rename(encoded_old_path, encoded_new_path);
+        if (source_is_open) {
+          SFAFS.openFileHandles[new_path] = await storageFoundation.open(encoded_new_path);
+          // TODO(rstz): Find a more efficient way of updating PThreadFS.streams          
+          for (stream of PThreadFS.streams){
+            if (typeof stream !== typeof undefined && stream.node == old_node) {
+              stream.handle = SFAFS.openFileHandles[new_path];
+              stream.node.handle = stream.handle;
+            }
+          }            
+        }
       },
 
       unlink: async function(parent, name) {
