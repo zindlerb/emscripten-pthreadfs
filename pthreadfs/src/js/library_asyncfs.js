@@ -179,6 +179,8 @@
       assert(typeof parent === 'object')
 #endif
       var node = new PThreadFS.FSNode(parent, name, mode, rdev);
+      // Timestamps have no meaning in OPFS, just set to current time upon creation.
+      node.timestamp = Date.now();
 
       PThreadFS.hashAddNode(node);
 

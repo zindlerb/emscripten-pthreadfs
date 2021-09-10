@@ -1186,6 +1186,8 @@ mergeInto(LibraryManager.library, SyscallsLibrary);/**
       assert(typeof parent === 'object')
 #endif
       var node = new PThreadFS.FSNode(parent, name, mode, rdev);
+      // Timestamps have no meaning in OPFS, just set to current time upon creation.
+      node.timestamp = Date.now();
 
       PThreadFS.hashAddNode(node);
 
@@ -3439,6 +3441,11 @@ mergeInto(LibraryManager.library, {
         node.contents = {};
       }
       node.timestamp = Date.now();
+      // add the new node to the parent
+      if (parent) {
+        parent.contents[name] = node;
+        parent.timestamp = node.timestamp;
+      }
       return node;
     },
 
@@ -3539,6 +3546,9 @@ mergeInto(LibraryManager.library, {
         node.node_ops = FSAFS.node_ops;
         node.stream_ops = FSAFS.stream_ops;
         node.localReference = childLocalReference;
+        if (childLocalReference.kind === 'directory') {
+          node.contents = {};
+        }
         return node;
       },
 
@@ -3569,17 +3579,32 @@ mergeInto(LibraryManager.library, {
 
       unlink: async function(parent, name) {
         FSAFS.debug('unlink', arguments);
-        delete parent.contents[name];
-        return await parent.localReference.removeEntry(name);
+        let res = await parent.localReference.removeEntry(name);
+
+        if ('contents' in parent) {
+          delete parent.contents[name];
+        }
+        parent.timestamp = Date.now();
+        return res;
       },
 
       rmdir: async function(parent, name) {
         FSAFS.debug('rmdir', arguments);
-        for (var i in node.contents) {
-          throw new FS.ErrnoError({{{ cDefine('ENOTEMPTY') }}});
+        let res;
+        try{
+          res = await parent.localReference.removeEntry(name);
+        } catch(e) {
+          // Look up if any files exist in the folder.
+          for await (const entry of parent.localReference.values()) {
+            throw new FS.ErrnoError({{{ cDefine('ENOTEMPTY') }}});
+          }
+          throw new FS.ErrnoError({{{ cDefine('EINVAL') }}});
         }
-        delete parent.contents[name];
-        return await parent.localReference.removeEntry(name);
+        if ('contents' in parent) {
+          delete parent.contents[name];
+        }
+        parent.timestamp = Date.now();
+        return res
       },
 
       readdir: async function(node) {
@@ -3698,7 +3723,8 @@ mergeInto(LibraryManager.library, {
       },
     }
   }
-});/**
+});
+/**
  * @license
  * Copyright 2013 The Emscripten Authors
  * SPDX-License-Identifier: MIT
