@@ -3,6 +3,7 @@
 
 #include <wasi/api.h>
 #include <thread>
+#include "emscripten.h"
 
 #define EM_PTHREADFS_ASM(code) g_synctoasync_helper.doWork([](SyncToAsync::Callback resume) { \
     g_resumeFct = [resume]() { resume(); }; \

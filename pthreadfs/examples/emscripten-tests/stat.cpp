@@ -52,7 +52,7 @@ void cleanup() {
 void test() {
   int err;
   struct stat s;
-  // struct utimbuf t = {1200000000, 1200000000};
+  struct utimbuf t = {1200000000, 1200000000};
 
   // non-existent
   err = stat("pthreadfs/does_not_exist", &s);
@@ -69,9 +69,11 @@ void test() {
   assert(s.st_nlink);
   assert(s.st_rdev == 0);
   assert(s.st_size);
-  // assert(s.st_atime == 1200000000);
-  // assert(s.st_mtime == 1200000000);
-  // assert(s.st_ctime);
+  assert(s.st_atime);
+  assert(s.st_mtime);
+  // assert(s.st_atime == 1200000000); No support for utime
+  // assert(s.st_mtime == 1200000000);  No support for utime
+  assert(s.st_ctime);
 #ifdef __EMSCRIPTEN__
   assert(s.st_blksize == 4096);
   assert(s.st_blocks == 1);
@@ -87,13 +89,13 @@ void test() {
   assert(s.st_nlink);
   assert(s.st_rdev == 0);
   assert(s.st_size == 6);
-  // assert(s.st_atime == 1200000000);
-  // assert(s.st_mtime == 1200000000);
-  // assert(s.st_ctime);
-#ifdef __EMSCRIPTEN__
+  assert(s.st_atime);
+  assert(s.st_mtime);
+  // assert(s.st_atime == 1200000000); No support for utime
+  // assert(s.st_mtime == 1200000000);  No support for utime
+  assert(s.st_ctime);
   assert(s.st_blksize == 4096);
   assert(s.st_blocks == 1);
-#endif
 
   // fstat a file (should match file stat from above)
   memset(&s, 0, sizeof(s));
@@ -105,13 +107,13 @@ void test() {
   assert(s.st_nlink);
   assert(s.st_rdev == 0);
   assert(s.st_size == 6);
-  // assert(s.st_atime == 1200000000);
-  // assert(s.st_mtime == 1200000000);
-  // assert(s.st_ctime);
-#ifdef __EMSCRIPTEN__
+  assert(s.st_atime);
+  assert(s.st_mtime);
+  // assert(s.st_atime == 1200000000); No support for utime
+  // assert(s.st_mtime == 1200000000);  No support for utime
+  assert(s.st_ctime);
   assert(s.st_blksize == 4096);
   assert(s.st_blocks == 1);
-#endif
 
   // stat a device
   memset(&s, 0, sizeof(s));
@@ -121,18 +123,12 @@ void test() {
   assert(s.st_ino);
   assert(S_ISCHR(s.st_mode));
   assert(s.st_nlink);
-#ifndef __APPLE__
-  // mac uses makedev(3, 2) for /dev/null
-  assert(s.st_rdev == makedev(1, 3));
-#endif
   assert(!s.st_size);
   assert(s.st_atime);
   assert(s.st_mtime);
   assert(s.st_ctime);
-#ifdef __EMSCRIPTEN__
   assert(s.st_blksize == 4096);
   assert(s.st_blocks == 0);
-#endif
 
   // stat a link (should match the file stat from above)
 //   memset(&s, 0, sizeof(s));
@@ -171,14 +167,14 @@ void test() {
 // #endif
 
   // create and unlink files inside a directory and check that mtime updates
-  mkdir("pthreadfs/folder/subdir", 0777);
+  // mkdir("pthreadfs/folder/subdir", 0777);
   // utime("pthreadfs/folder/subdir", &t);
-  create_file("pthreadfs/folder/subdir/file", "abcdef", 0777);
-  err = stat("pthreadfs/folder/subdir", &s);
+  // create_file("pthreadfs/folder/subdir/file", "abcdef", 0777);
+  // err = stat("pthreadfs/folder/subdir", &s);
   // assert(s.st_mtime != 1200000000);
   // utime("pthreadfs/folder/subdir", &t);
-  unlink("pthreadfs/folder/subdir/file");
-  err = stat("pthreadfs/folder/subdir", &s);
+  // unlink("pthreadfs/folder/subdir/file");
+  // err = stat("pthreadfs/folder/subdir", &s);
   // assert(s.st_mtime != 1200000000);
 
   puts("success");

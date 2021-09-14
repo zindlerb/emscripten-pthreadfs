@@ -163,7 +163,7 @@ mergeInto(LibraryManager.library, {
       rename: function (oldNode, newParentNode, newName) {
         FSAFS.debug('rename', arguments);
         console.log('FSAFS error: rename is not implemented')
-        throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
+        throw new PThreadFS.ErrnoError({{{ cDefine('EXDEV') }}});
       },
 
       unlink: async function(parent, name) {
