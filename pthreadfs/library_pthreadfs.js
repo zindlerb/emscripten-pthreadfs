@@ -85,9 +85,7 @@ SyscallWrappers['init_pthreadfs'] = function (resume) {
   
   let access_handle_detection = async function() {
   const root = await navigator.storage.getDirectory();
-  const file = await root.getFileHandle('access-handle-detect', { create: true });
-  const present = file.createSyncAccessHandle != undefined;
-  await root.removeEntry('access-handle-detect');
+  const present = FileSystemFileHandle.prototype.createSyncAccessHandle !== undefined;
   return present;
 }
 
@@ -3105,7 +3103,7 @@ mergeInto(LibraryManager.library, {
 
     listByPrefix: async function(prefix) {
       // Necessary for compiler optimizations.
-var storageFoundation = storageFoundation || {};
+      var storageFoundation = storageFoundation || {};
       let entries = await storageFoundation.getAll();
       return entries.filter(name => name.startsWith(prefix))
     },
@@ -3154,7 +3152,7 @@ var storageFoundation = storageFoundation || {};
     node_ops: {
       getattr: async function(node) {
         // Necessary for compiler optimizations.
-var storageFoundation = storageFoundation || {};
+        var storageFoundation = storageFoundation || {};
         SFAFS.debug('getattr', arguments);
         let attr = {};
         // device numbers reuse inode numbers.
@@ -3199,7 +3197,7 @@ var storageFoundation = storageFoundation || {};
 
       setattr: async function(node, attr) {
         // Necessary for compiler optimizations.
-var storageFoundation = storageFoundation || {};
+        var storageFoundation = storageFoundation || {};
         SFAFS.debug('setattr', arguments);
         if (attr.mode !== undefined) {
           node.mode = attr.mode;
@@ -3278,7 +3276,7 @@ var storageFoundation = storageFoundation || {};
 
       rename: async function (old_node, new_dir, new_name) {
         // Necessary for compiler optimizations.
-var storageFoundation = storageFoundation || {};
+        var storageFoundation = storageFoundation || {};
         SFAFS.debug('rename', arguments);
         let source_is_open = false;
 
@@ -3324,7 +3322,7 @@ var storageFoundation = storageFoundation || {};
 
       unlink: async function(parent, name) {
         // Necessary for compiler optimizations.
-var storageFoundation = storageFoundation || {};
+        var storageFoundation = storageFoundation || {};
         SFAFS.debug('unlink', arguments);
         var path = SFAFS.joinPaths(SFAFS.realPath(parent), name);
         try {
@@ -3372,7 +3370,7 @@ var storageFoundation = storageFoundation || {};
     stream_ops: {
       open: async function (stream) {
         // Necessary for compiler optimizations.
-var storageFoundation = storageFoundation || {};
+        var storageFoundation = storageFoundation || {};
         SFAFS.debug('open', arguments);
         if (!PThreadFS.isFile(stream.node.mode)) {
           console.log('SFAFS error: open is only implemented for files')
@@ -3701,13 +3699,10 @@ mergeInto(LibraryManager.library, {
         //   entries.push(name);
         // }
         let it = node.localReference.values();
-        let done = false;
-        while (!done) {
-          let res = await it.next();
-          done = res.done;
-          if (!done) {
-            entries.push(res.value.name);
-          }
+        let curr = await it.next();
+        while (!curr.done) {
+          entries.push(curr.value.name);
+          curr = await it.next();
         }
         return entries;
       },

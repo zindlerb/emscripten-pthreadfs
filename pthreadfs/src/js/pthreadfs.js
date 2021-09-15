@@ -85,9 +85,7 @@ SyscallWrappers['init_pthreadfs'] = function (resume) {
   
   let access_handle_detection = async function() {
   const root = await navigator.storage.getDirectory();
-  const file = await root.getFileHandle('access-handle-detect', { create: true });
-  const present = file.createSyncAccessHandle != undefined;
-  await root.removeEntry('access-handle-detect');
+  const present = FileSystemFileHandle.prototype.createSyncAccessHandle !== undefined;
   return present;
 }
 

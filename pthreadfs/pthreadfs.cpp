@@ -17,15 +17,6 @@ SyncToAsync::SyncToAsync() : thread(threadMain, this), childLock(mutex) {
   // The child lock is associated with the mutex, which takes the lock, and
   // we free it here. Only the child will lock/unlock it from now on.
   childLock.unlock();
-
-  // doWork([](SyncToAsync::Callback resume) {
-  //   g_resumeFct = [resume]() { resume(); };
-  //   init_pthreadfs(&resumeWrapper_v);
-  // });
-  // doWork([](SyncToAsync::Callback resume) {
-  //   g_resumeFct = [resume]() { resume(); };
-  //   init_backend(&resumeWrapper_v);
-  // });
 }
 
 SyncToAsync::~SyncToAsync() {
@@ -45,7 +36,7 @@ void SyncToAsync::doWork(std::function<void(SyncToAsync::Callback)> newWork) {
   // Use the doWorkMutex to prevent more than one doWork being in flight at a
   // time, so that this is usable from multiple threads safely.
   std::lock_guard<std::mutex> doWorkLock(doWorkMutex);
-  // Initialization
+  // Initialize the PThreadFS file system.
   if (!initialized) {
     {
     std::lock_guard<std::mutex> lock(mutex);
@@ -344,13 +335,5 @@ SYS_CAPI_DEF(fallocate, 324, long fd, long mode, long off_low, long off_high, lo
 
 void emscripten_init_pthreadfs() {
   EM_ASM(console.log('Calling emscripten_init_pthreadfs() is no longer necessary'););
-  // g_synctoasync_helper.doWork([](SyncToAsync::Callback resume) {
-  //   g_resumeFct = [resume]() { resume(); };
-  //   init_pthreadfs(&resumeWrapper_v);
-  // });
-  // g_synctoasync_helper.doWork([](SyncToAsync::Callback resume) {
-  //   g_resumeFct = [resume]() { resume(); };
-  //   init_backend(&resumeWrapper_v);
-  // });
   return;
 }

@@ -36,6 +36,7 @@ void cleanup() {
 void test() {
   char buf[PATH_MAX];
   char *res = realpath("file.txt", buf);
+  // TODO: Assert that the return value is correct.
   assert(res);
   printf("file.txt is at %s.\n", buf);
   res = realpath("doesnotexist.txt", buf);
@@ -44,10 +45,7 @@ void test() {
   res = realpath("emptyfolder/../file.txt", buf);
   assert(res);
   printf("emptyfolder/../file.txt is at %s.\n", buf);
-  // res = realpath("pthreadfs/../file.txt", buf);
-  // assert(res);
-  // printf("pthreadfs/../file.txt is at %s.\n", buf);
-  
+
   res = realpath("pthreadfs/pthreadfile.txt", buf);
   assert(res);
   printf("pthreadfs/pthreadfile.txt is at %s.\n", buf);

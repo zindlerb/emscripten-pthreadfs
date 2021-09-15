@@ -220,13 +220,10 @@ mergeInto(LibraryManager.library, {
         //   entries.push(name);
         // }
         let it = node.localReference.values();
-        let done = false;
-        while (!done) {
-          let res = await it.next();
-          done = res.done;
-          if (!done) {
-            entries.push(res.value.name);
-          }
+        let curr = await it.next();
+        while (!curr.done) {
+          entries.push(curr.value.name);
+          curr = await it.next();
         }
         return entries;
       },
