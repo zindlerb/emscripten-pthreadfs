@@ -162,8 +162,22 @@ mergeInto(LibraryManager.library, {
 
       rename: function (oldNode, newParentNode, newName) {
         FSAFS.debug('rename', arguments);
-        console.log('FSAFS error: rename is not implemented')
-        throw new PThreadFS.ErrnoError({{{ cDefine('EXDEV') }}});
+        try {
+          oldNode.localReference.move(newParentNode.localReference, newName);
+        }
+        catch (e) {
+          console.log('FSAFS error: Rename failed');
+          if (!('localReference' in oldNode )|| !('localReference' in newParentNode)) {
+            console.log('No local reference to one of the nodes stored.');
+          }
+          else if (!('move' in oldNode.localReference)) {
+            console.log('File System Access move() not available. Try enabling Experimental Web Platform features in chrome://flags');
+          }
+          else {
+            console.log('Unknown rename error ' + e);
+          }
+          throw new PThreadFS.ErrnoError({{{ cDefine('EXDEV') }}});
+        }
       },
 
       unlink: async function(parent, name) {
@@ -183,8 +197,10 @@ mergeInto(LibraryManager.library, {
         try{
           res = await parent.localReference.removeEntry(name);
         } catch(e) {
-          // Look up if any files exist in the folder.
-          for await (const entry of parent.localReference.values()) {
+          // Do not use `for await`, since Emscripten's minifier does not support it.
+          let it = parent.localReference.values();
+          let res = await it.next();
+          if (!res.done) {
             throw new FS.ErrnoError({{{ cDefine('ENOTEMPTY') }}});
           }
           throw new FS.ErrnoError({{{ cDefine('EINVAL') }}});
@@ -199,8 +215,18 @@ mergeInto(LibraryManager.library, {
       readdir: async function(node) {
         FSAFS.debug('readdir', arguments);
         let entries = ['.', '..'];
-        for await (let [name, handle] of node.localReference) {
-          entries.push(name);
+        // Do not use `for await` yet, since it's not supported by Emscripten's minifier.
+        // for await (let [name, handle] of node.localReference) {
+        //   entries.push(name);
+        // }
+        let it = node.localReference.values();
+        let done = false;
+        while (!done) {
+          let res = await it.next();
+          done = res.done;
+          if (!done) {
+            entries.push(res.value.name);
+          }
         }
         return entries;
       },

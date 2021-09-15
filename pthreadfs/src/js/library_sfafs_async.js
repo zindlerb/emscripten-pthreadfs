@@ -111,7 +111,9 @@ mergeInto(LibraryManager.library, {
 
 
     listByPrefix: async function(prefix) {
-      entries = await storageFoundation.getAll();
+      // Necessary for compiler optimizations.
+var storageFoundation = storageFoundation || {};
+      let entries = await storageFoundation.getAll();
       return entries.filter(name => name.startsWith(prefix))
     },
 
@@ -158,6 +160,8 @@ mergeInto(LibraryManager.library, {
 
     node_ops: {
       getattr: async function(node) {
+        // Necessary for compiler optimizations.
+var storageFoundation = storageFoundation || {};
         SFAFS.debug('getattr', arguments);
         let attr = {};
         // device numbers reuse inode numbers.
@@ -201,6 +205,8 @@ mergeInto(LibraryManager.library, {
       },
 
       setattr: async function(node, attr) {
+        // Necessary for compiler optimizations.
+var storageFoundation = storageFoundation || {};
         SFAFS.debug('setattr', arguments);
         if (attr.mode !== undefined) {
           node.mode = attr.mode;
@@ -246,7 +252,7 @@ mergeInto(LibraryManager.library, {
             break;
           }
 
-          subdirName = SFAFS.directoryPath(name);
+         let subdirName = SFAFS.directoryPath(name);
           if (path.startsWith(subdirName)) {
             exists = true;
             mode |= {{{ cDefine('S_IFDIR') }}};
@@ -278,6 +284,8 @@ mergeInto(LibraryManager.library, {
       },
 
       rename: async function (old_node, new_dir, new_name) {
+        // Necessary for compiler optimizations.
+var storageFoundation = storageFoundation || {};
         SFAFS.debug('rename', arguments);
         let source_is_open = false;
 
@@ -322,6 +330,8 @@ mergeInto(LibraryManager.library, {
       },
 
       unlink: async function(parent, name) {
+        // Necessary for compiler optimizations.
+var storageFoundation = storageFoundation || {};
         SFAFS.debug('unlink', arguments);
         var path = SFAFS.joinPaths(SFAFS.realPath(parent), name);
         try {
@@ -368,6 +378,8 @@ mergeInto(LibraryManager.library, {
 
     stream_ops: {
       open: async function (stream) {
+        // Necessary for compiler optimizations.
+var storageFoundation = storageFoundation || {};
         SFAFS.debug('open', arguments);
         if (!PThreadFS.isFile(stream.node.mode)) {
           console.log('SFAFS error: open is only implemented for files')

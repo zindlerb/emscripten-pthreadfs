@@ -209,6 +209,8 @@ private:
   bool finishedWork;
   bool quit = false;
 
+  bool initialized = false;
+
   // The child will be asynchronous, and therefore we cannot rely on RAII to
   // unlock for us, we must do it manually.
   std::unique_lock<std::mutex> childLock;

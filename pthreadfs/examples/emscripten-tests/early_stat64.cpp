@@ -199,11 +199,9 @@ void test() {
 }
 
 int main() {
+  int err;
+  struct stat s;
+  err = stat("pthreadfs/", &s);
   emscripten_init_pthreadfs();
-  // atexit(cleanup);
-  //signal(SIGABRT, cleanup);
-  setup();
-  test();
-  cleanup();
   return EXIT_SUCCESS;
 }
