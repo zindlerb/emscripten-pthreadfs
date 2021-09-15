@@ -82,6 +82,22 @@ for (x of SyscallsFunctions) {
 }
 
 SyscallWrappers['init_pthreadfs'] = function (resume) {
+  
+  let access_handle_detection = async function() {
+  const root = await navigator.storage.getDirectory();
+  const present = FileSystemFileHandle.prototype.createSyncAccessHandle !== undefined;
+  return present;
+}
+
+let storage_foundation_detection = function() {
+  if (typeof storageFoundation == typeof undefined) {
+    return false;
+  }
+  if (storageFoundation.requestCapacitySync(1) === 0) {
+    return false;
+  }
+  return true;
+}
   var FSNode = /** @constructor */ function(parent, name, mode, rdev) {
     if (!parent) {
       parent = this;  // root node sets parent to itself
@@ -130,6 +146,28 @@ SyscallWrappers['init_pthreadfs'] = function (resume) {
 
   PThreadFS.staticInit().then(async ()=> {
     PThreadFS.ignorePermissions = false;
+    await PThreadFS.mkdir('/pthreadfs');
+    let has_access_handles = await access_handle_detection();
+    let has_storage_foundation = storage_foundation_detection();
+
+    if (has_access_handles) {
+      await PThreadFS.mount(FSAFS, { root: '.' }, '/pthreadfs');
+      console.log('Initialized PThreadFS with OPFS Access Handles');
+      wasmTable.get(resume)();
+      return;
+    }
+    if (has_storage_foundation) {
+      await PThreadFS.mount(SFAFS, { root: '.' }, '/pthreadfs');
+  
+      // Storage Foundation requires explicit capacity allocations.
+      if (storageFoundation.requestCapacity) {
+        await storageFoundation.requestCapacity(1024*1024*1024);
+      }
+      console.log('Initialized PThreadFS with Storage Foundation API');
+      wasmTable.get(resume)();
+      return;
+    }
+    console.log('Initialized PThreadFS with MEMFS');
     wasmTable.get(resume)();
   });
 }

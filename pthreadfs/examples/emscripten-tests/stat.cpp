@@ -71,11 +71,25 @@ void test() {
   assert(s.st_size);
   // assert(s.st_atime == 1200000000);
   // assert(s.st_mtime == 1200000000);
-  // assert(s.st_ctime);
-#ifdef __EMSCRIPTEN__
+  assert(s.st_ctime);
   assert(s.st_blksize == 4096);
   assert(s.st_blocks == 1);
-#endif
+
+  // stat the pthreadfs folder
+  memset(&s, 0, sizeof(s));
+  err = stat("pthreadfs", &s);
+  assert(!err);
+  assert(s.st_dev);
+  assert(s.st_ino);
+  assert(S_ISDIR(s.st_mode));
+  assert(s.st_nlink);
+  assert(s.st_rdev == 0);
+  assert(s.st_size);
+  assert(s.st_atime);
+  assert(s.st_mtime);
+  assert(s.st_ctime);
+  assert(s.st_blksize == 4096);
+  assert(s.st_blocks == 1);
 
   // stat a file
   memset(&s, 0, sizeof(s));

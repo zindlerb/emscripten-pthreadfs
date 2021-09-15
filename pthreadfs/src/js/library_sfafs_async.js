@@ -111,7 +111,9 @@ mergeInto(LibraryManager.library, {
 
 
     listByPrefix: async function(prefix) {
-      entries = await storageFoundation.getAll();
+      // Necessary for compiler optimizations.
+      var storageFoundation = storageFoundation || {};
+      let entries = await storageFoundation.getAll();
       return entries.filter(name => name.startsWith(prefix))
     },
 
@@ -158,45 +160,53 @@ mergeInto(LibraryManager.library, {
 
     node_ops: {
       getattr: async function(node) {
+        // Necessary for compiler optimizations.
+        var storageFoundation = storageFoundation || {};
         SFAFS.debug('getattr', arguments);
-        let length;
-        if (node.handle) {
-          length = await node.handle.getLength();
-        } 
-        else {
-          // TODO: this double caching of opened files is probably redundant.
-          // Clean up after publishing a clean design for the PThreadFS.
-          var path = SFAFS.realPath(node);
-          if(path in SFAFS.openFileHandles) {
-            let fileHandle = SFAFS.openFileHandles[path]
-            length = await fileHandle.getLength();
+        let attr = {};
+        // device numbers reuse inode numbers.
+        attr.dev = PThreadFS.isChrdev(node.mode) ? node.id : 1;
+        attr.ino = node.id;
+        attr.mode = node.mode;
+        attr.nlink = 1;
+        attr.uid = 0;
+        attr.gid = 0;
+        attr.rdev = node.rdev;
+        if (PThreadFS.isDir(node.mode)) {
+          attr.size = 4096;
+        } else if (PThreadFS.isFile(node.mode)) {
+          if (node.handle) {
+            attr.size = await node.handle.getLength();
           } 
           else {
-            let fileHandle = await storageFoundation.open(SFAFS.encodePath(path));
-            length = await fileHandle.getLength();
-            await fileHandle.close();
+            let path = SFAFS.realPath(node);
+            if (path in SFAFS.openFileHandles) {
+              attr.size = await SFAFS.openFileHandles[path].getLength();
+            }
+            else {
+              let fileHandle = await storageFoundation.open(SFAFS.encodePath(path));
+              attr.size = await fileHandle.getLength();
+              await fileHandle.close();
+            }
           }
+        } else if (PThreadFS.isLink(node.mode)) {
+          attr.size = node.link.length;
+        } else {
+          attr.size = 0;
         }
-
-        let modificationTime = new Date(node.timestamp);
-        return {
-          dev: null,
-          ino: null,
-          mode: node.mode,
-          nlink: 1,
-          uid: 0,
-          gid: 0,
-          rdev: null,
-          size: length,
-          atime: modificationTime,
-          mtime: modificationTime,
-          ctime: modificationTime,
-          blksize: 4096,
-          blocks: Math.ceil(length / 4096),
-        };
+        attr.atime = new Date(node.timestamp);
+        attr.mtime = new Date(node.timestamp);
+        attr.ctime = new Date(node.timestamp);
+        // NOTE: In our implementation, st_blocks = Math.ceil(st_size/st_blksize),
+        //       but this is not required by the standard.
+        attr.blksize = 4096;
+        attr.blocks = Math.ceil(attr.size / attr.blksize);
+        return attr;
       },
 
       setattr: async function(node, attr) {
+        // Necessary for compiler optimizations.
+        var storageFoundation = storageFoundation || {};
         SFAFS.debug('setattr', arguments);
         if (attr.mode !== undefined) {
           node.mode = attr.mode;
@@ -242,7 +252,7 @@ mergeInto(LibraryManager.library, {
             break;
           }
 
-          subdirName = SFAFS.directoryPath(name);
+         let subdirName = SFAFS.directoryPath(name);
           if (path.startsWith(subdirName)) {
             exists = true;
             mode |= {{{ cDefine('S_IFDIR') }}};
@@ -274,6 +284,8 @@ mergeInto(LibraryManager.library, {
       },
 
       rename: async function (old_node, new_dir, new_name) {
+        // Necessary for compiler optimizations.
+        var storageFoundation = storageFoundation || {};
         SFAFS.debug('rename', arguments);
         let source_is_open = false;
 
@@ -318,9 +330,22 @@ mergeInto(LibraryManager.library, {
       },
 
       unlink: async function(parent, name) {
+        // Necessary for compiler optimizations.
+        var storageFoundation = storageFoundation || {};
         SFAFS.debug('unlink', arguments);
         var path = SFAFS.joinPaths(SFAFS.realPath(parent), name);
-        return await storageFoundation.delete(SFAFS.encodePath(path));
+        try {
+          await storageFoundation.delete(SFAFS.encodePath(path));
+        }
+        catch (e) {
+          if (e.name == 'NoModificationAllowedError') {
+            console.log("SFAFS error: Cannot unlink an open file in StorageFoundation.");
+            throw new PThreadFS.ErrnoError({{{ cDefine('EBUSY') }}});
+          }
+          else {
+            throw e;
+          }
+        }
       },
 
       rmdir: function(parent, name) {
@@ -353,6 +378,8 @@ mergeInto(LibraryManager.library, {
 
     stream_ops: {
       open: async function (stream) {
+        // Necessary for compiler optimizations.
+        var storageFoundation = storageFoundation || {};
         SFAFS.debug('open', arguments);
         if (!PThreadFS.isFile(stream.node.mode)) {
           console.log('SFAFS error: open is only implemented for files')

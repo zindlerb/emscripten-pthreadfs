@@ -36,6 +36,26 @@ void SyncToAsync::doWork(std::function<void(SyncToAsync::Callback)> newWork) {
   // Use the doWorkMutex to prevent more than one doWork being in flight at a
   // time, so that this is usable from multiple threads safely.
   std::lock_guard<std::mutex> doWorkLock(doWorkMutex);
+  // Initialize the PThreadFS file system.
+  if (!initialized) {
+    {
+    std::lock_guard<std::mutex> lock(mutex);
+    work = [](SyncToAsync::Callback resume) {
+      g_resumeFct = [resume]() { resume(); };
+      init_pthreadfs(&resumeWrapper_v);
+    };
+    finishedWork = false;
+    readyToWork = true;
+    }
+    condition.notify_one();
+
+    // Wait for it to be complete.
+    std::unique_lock<std::mutex> lock(mutex);
+    condition.wait(lock, [&]() {
+      return finishedWork;
+    });
+    initialized = true;
+  }
   // Send the work over.
   {
     std::lock_guard<std::mutex> lock(mutex);
@@ -188,7 +208,7 @@ SYS_CAPI_DEF(access, 33, long path, long amode) {
   SYS_SYNCTOASYNC_PATH(access, path, amode);
 }
 
-SYS_CAPI_DEF(chmod, 38, long old_path, long new_path) {
+SYS_CAPI_DEF(rename, 38, long old_path, long new_path) {
   std::string old_pathname((char*) old_path);
   std::string new_pathname((char*) new_path);
 
@@ -314,13 +334,6 @@ SYS_CAPI_DEF(fallocate, 324, long fd, long mode, long off_low, long off_high, lo
 // Other helper code
 
 void emscripten_init_pthreadfs() {
-  g_synctoasync_helper.doWork([](SyncToAsync::Callback resume) {
-    g_resumeFct = [resume]() { resume(); };
-    init_pthreadfs(&resumeWrapper_v);
-  });
-  g_synctoasync_helper.doWork([](SyncToAsync::Callback resume) {
-    g_resumeFct = [resume]() { resume(); };
-    init_backend(&resumeWrapper_v);
-  });
+  EM_ASM(console.log('Calling emscripten_init_pthreadfs() is no longer necessary'););
   return;
 }

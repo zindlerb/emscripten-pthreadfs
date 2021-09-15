@@ -3,6 +3,7 @@
 
 #include <wasi/api.h>
 #include <thread>
+#include "emscripten.h"
 
 #define EM_PTHREADFS_ASM(code) g_synctoasync_helper.doWork([](SyncToAsync::Callback resume) { \
     g_resumeFct = [resume]() { resume(); }; \
@@ -207,6 +208,8 @@ private:
   bool readyToWork = false;
   bool finishedWork;
   bool quit = false;
+
+  bool initialized = false;
 
   // The child will be asynchronous, and therefore we cannot rely on RAII to
   // unlock for us, we must do it manually.
