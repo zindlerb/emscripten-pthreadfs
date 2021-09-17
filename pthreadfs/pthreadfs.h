@@ -239,7 +239,6 @@ public:
   // It is safe to call this method from multiple threads, as it locks itself.
   // That is, you can create an instance of this and call it from multiple
   // threads freely.
-  //
   void invoke(std::function<void(Callback)> newWork);
 
   //==============================================================================

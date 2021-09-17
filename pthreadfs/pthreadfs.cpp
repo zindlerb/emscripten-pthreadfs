@@ -40,9 +40,9 @@ sync_to_async::~sync_to_async() {
 }
 
 void sync_to_async::invoke(std::function<void(sync_to_async::Callback)> newWork) {
-  // Use the invokeMutex to prevent more than one doWork being in flight at a
+  // Use the invokeMutex to prevent more than one invoke being in flight at a
   // time, so that this is usable from multiple threads safely.
-  std::lock_guard<std::mutex> doWorkLock(invokeMutex);
+  std::lock_guard<std::mutex> invokeLock(invokeMutex);
   // Initialize the PThreadFS file system.
   if (!pthreadfs_initialized) {
     {
