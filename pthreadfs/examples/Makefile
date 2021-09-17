@@ -101,7 +101,7 @@ $(OBJ)/speedtest1.o: sqlite-src/$(SQLITE_SPEEDTEST) sqlite-src/$(SQLITE_AMALGAMA
 	mkdir -p $(OBJ)
 	$(EMCC) $(CFLAGS) -Isqlite-src/$(SQLITE_AMALGAMATION)/ -c $< -o $@
 
-$(OBJ)/pthreadfs.o : $(PTHREADFS_CPP)
+$(OBJ)/pthreadfs.o : $(PTHREADFS_CPP) $(PTHREADFS_H)
 	mkdir -p $(OBJ)
 	$(EMCC) -c $(CFLAGS) $< -o $@
 

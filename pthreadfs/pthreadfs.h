@@ -12,97 +12,107 @@
 #include <utility>
 #include <wasi/api.h>
 
-#define EM_PTHREADFS_ASM(code) g_sync_to_async_helper.invoke([](emscripten::sync_to_async::Callback resume) { \
-    g_resumeFct = [resume]() { (*resume)(); }; \
-    EM_ASM({(async () => {code wasmTable.get($0)(); \
-    })();}, &resumeWrapper_v); \
+// clang-format will incorrectly transform the Javascript code.
+// clang-format off 
+#define EM_PTHREADFS_ASM(code)                                                                     \
+  g_sync_to_async_helper.invoke([](emscripten::sync_to_async::Callback resume) {                   \
+    g_resumeFct = [resume]() { (*resume)(); };                                                     \
+    EM_ASM({ (async() => { code wasmTable.get($0)(); })(); }, &resumeWrapper_v);                  \
   });
+// clang-format on
 
-#define WASI_JSAPI_DEF(name, ...) \
-  extern void __fd_##name##_async(__wasi_fd_t fd, __VA_ARGS__, void (*fun)(__wasi_errno_t)); \
+#define WASI_JSAPI_DEF(name, ...)                                                                  \
+  extern void __fd_##name##_async(__wasi_fd_t fd, __VA_ARGS__, void (*fun)(__wasi_errno_t));       \
   extern __wasi_errno_t fd_##name(__wasi_fd_t fd, __VA_ARGS__);
-#define WASI_JSAPI_NOARGS_DEF(name) \
-  extern void __fd_##name##_async(__wasi_fd_t fd, void (*fun)(__wasi_errno_t)); \
+#define WASI_JSAPI_NOARGS_DEF(name)                                                                \
+  extern void __fd_##name##_async(__wasi_fd_t fd, void (*fun)(__wasi_errno_t));                    \
   extern __wasi_errno_t fd_##name(__wasi_fd_t fd);
 
 #define WASI_CAPI_DEF(name, ...) __wasi_errno_t __wasi_fd_##name(__wasi_fd_t fd, __VA_ARGS__)
 #define WASI_CAPI_NOARGS_DEF(name) __wasi_errno_t __wasi_fd_##name(__wasi_fd_t fd)
 
-#define WASI_SYNC_TO_ASYNC(name, ...) \
-  if(fsa_file_descriptors.count(fd) > 0) { \
-    g_sync_to_async_helper.invoke([fd, __VA_ARGS__](emscripten::sync_to_async::Callback resume) { \
-      g_resumeFct = [resume]() { (*resume)(); }; \
-      __fd_##name##_async(fd, __VA_ARGS__, &resumeWrapper_wasi); \
-    }); \
-    return resume_result_wasi; \
-  } \
+#define WASI_SYNC_TO_ASYNC(name, ...)                                                              \
+  if (fsa_file_descriptors.count(fd) > 0) {                                                        \
+    g_sync_to_async_helper.invoke([fd, __VA_ARGS__](emscripten::sync_to_async::Callback resume) {  \
+      g_resumeFct = [resume]() { (*resume)(); };                                                   \
+      __fd_##name##_async(fd, __VA_ARGS__, &resumeWrapper_wasi);                                   \
+    });                                                                                            \
+    return resume_result_wasi;                                                                     \
+  }                                                                                                \
   return fd_##name(fd, __VA_ARGS__);
-#define WASI_SYNC_TO_ASYNC_NOARGS(name) \
-  if(fsa_file_descriptors.count(fd) > 0) { \
-    g_sync_to_async_helper.invoke([fd](emscripten::sync_to_async::Callback resume) { \
-      g_resumeFct = [resume]() { (*resume)(); }; \
-      __fd_##name##_async(fd, &resumeWrapper_wasi); \
-    }); \
-    return resume_result_wasi; \
-  } \
+#define WASI_SYNC_TO_ASYNC_NOARGS(name)                                                            \
+  if (fsa_file_descriptors.count(fd) > 0) {                                                        \
+    g_sync_to_async_helper.invoke([fd](emscripten::sync_to_async::Callback resume) {               \
+      g_resumeFct = [resume]() { (*resume)(); };                                                   \
+      __fd_##name##_async(fd, &resumeWrapper_wasi);                                                \
+    });                                                                                            \
+    return resume_result_wasi;                                                                     \
+  }                                                                                                \
   return fd_##name(fd);
 
 // Classic Syscalls
 
-#define SYS_JSAPI_DEF(name, ...) \
-  extern void __sys_##name##_async(__VA_ARGS__, void (*fun)(long)); \
+#define SYS_JSAPI_DEF(name, ...)                                                                   \
+  extern void __sys_##name##_async(__VA_ARGS__, void (*fun)(long));                                \
   extern long __sys_##name(__VA_ARGS__);
 
-#define SYS_JSAPI_NOARGS_DEF(name) \
-  extern void __sys_##name##_async(void (*fun)(long)); \
+#define SYS_JSAPI_NOARGS_DEF(name)                                                                 \
+  extern void __sys_##name##_async(void (*fun)(long));                                             \
   extern long __sys_##name();
 
 #define SYS_CAPI_DEF(name, number, ...) long __syscall##number(__VA_ARGS__)
 
-#define SYS_DEF(name, number, ...) SYS_CAPI_DEF(name, number, __VA_ARGS__); SYS_JSAPI_DEF(name, __VA_ARGS__)
+#define SYS_DEF(name, number, ...)                                                                 \
+  SYS_CAPI_DEF(name, number, __VA_ARGS__);                                                         \
+  SYS_JSAPI_DEF(name, __VA_ARGS__)
 
 #define SYS_JSAPI(name, ...) __sys_##name##_async(__VA_ARGS__)
-#define SYS_SYNC_TO_ASYNC_NORETURN(name, ...) g_sync_to_async_helper.invoke([__VA_ARGS__](emscripten::sync_to_async::Callback resume) { \
-    g_resumeFct = [resume]() { (*resume)(); }; \
-    SYS_JSAPI(name, __VA_ARGS__, &resumeWrapper_l); \
+#define SYS_SYNC_TO_ASYNC_NORETURN(name, ...)                                                      \
+  g_sync_to_async_helper.invoke([__VA_ARGS__](emscripten::sync_to_async::Callback resume) {        \
+    g_resumeFct = [resume]() { (*resume)(); };                                                     \
+    SYS_JSAPI(name, __VA_ARGS__, &resumeWrapper_l);                                                \
   });
-#define SYS_SYNC_TO_ASYNC_FD(name, ...) \
-  if(fsa_file_descriptors.count(fd) > 0) { \
-    g_sync_to_async_helper.invoke([__VA_ARGS__](emscripten::sync_to_async::Callback resume) { \
-      g_resumeFct = [resume]() { (*resume)(); }; \
-      __sys_##name##_async(__VA_ARGS__, &resumeWrapper_l); \
-    }); \
-    return resume_result_long; \
-  } \
+#define SYS_SYNC_TO_ASYNC_FD(name, ...)                                                            \
+  if (fsa_file_descriptors.count(fd) > 0) {                                                        \
+    g_sync_to_async_helper.invoke([__VA_ARGS__](emscripten::sync_to_async::Callback resume) {      \
+      g_resumeFct = [resume]() { (*resume)(); };                                                   \
+      __sys_##name##_async(__VA_ARGS__, &resumeWrapper_l);                                         \
+    });                                                                                            \
+    return resume_result_long;                                                                     \
+  }                                                                                                \
   return __sys_##name(__VA_ARGS__);
-#define SYS_SYNC_TO_ASYNC_PATH(name, ...) \
-  std::string pathname((char*) path); \
-  if (pathname.rfind("/pthreadfs", 0) == 0 || pathname.rfind("pthreadfs", 0) == 0) { \
-    g_sync_to_async_helper.invoke([__VA_ARGS__](emscripten::sync_to_async::Callback resume) { \
-      g_resumeFct = [resume]() { (*resume)(); }; \
-      __sys_##name##_async(__VA_ARGS__, &resumeWrapper_l); \
-    }); \
-    return resume_result_long; \
-  } \
+#define SYS_SYNC_TO_ASYNC_PATH(name, ...)                                                          \
+  std::string pathname((char*)path);                                                               \
+  if (pathname.rfind("/pthreadfs", 0) == 0 || pathname.rfind("pthreadfs", 0) == 0) {               \
+    g_sync_to_async_helper.invoke([__VA_ARGS__](emscripten::sync_to_async::Callback resume) {      \
+      g_resumeFct = [resume]() { (*resume)(); };                                                   \
+      __sys_##name##_async(__VA_ARGS__, &resumeWrapper_l);                                         \
+    });                                                                                            \
+    return resume_result_long;                                                                     \
+  }                                                                                                \
   return __sys_##name(__VA_ARGS__);
 
 extern "C" {
-  // Helpers
-  extern void init_pthreadfs(void (*fun)(void));
-  void emscripten_init_pthreadfs();
+// Helpers
+extern void init_pthreadfs(void (*fun)(void));
+void emscripten_init_pthreadfs();
 
-  // WASI
-  WASI_JSAPI_DEF(write, const __wasi_ciovec_t *iovs, size_t iovs_len, __wasi_size_t *nwritten)
-  WASI_JSAPI_DEF(read, const __wasi_iovec_t *iovs, size_t iovs_len, __wasi_size_t *nread)
-  WASI_JSAPI_DEF(pwrite, const __wasi_ciovec_t *iovs, size_t iovs_len, __wasi_filesize_t offset, __wasi_size_t *nwritten)
-  WASI_JSAPI_DEF(pread, const __wasi_iovec_t *iovs, size_t iovs_len, __wasi_filesize_t offset, __wasi_size_t *nread)
-  WASI_JSAPI_DEF(seek, __wasi_filedelta_t offset, __wasi_whence_t whence, __wasi_filesize_t *newoffset)
-  WASI_JSAPI_DEF(fdstat_get, __wasi_fdstat_t *stat)
-  WASI_JSAPI_NOARGS_DEF(close)
-  WASI_JSAPI_NOARGS_DEF(sync)
+// WASI
+WASI_JSAPI_DEF(write, const __wasi_ciovec_t* iovs, size_t iovs_len, __wasi_size_t* nwritten)
+WASI_JSAPI_DEF(read, const __wasi_iovec_t* iovs, size_t iovs_len, __wasi_size_t* nread)
+WASI_JSAPI_DEF(pwrite, const __wasi_ciovec_t* iovs, size_t iovs_len, __wasi_filesize_t offset,
+  __wasi_size_t* nwritten)
+WASI_JSAPI_DEF(pread, const __wasi_iovec_t* iovs, size_t iovs_len, __wasi_filesize_t offset,
+  __wasi_size_t* nread)
+WASI_JSAPI_DEF(
+  seek, __wasi_filedelta_t offset, __wasi_whence_t whence, __wasi_filesize_t* newoffset)
+WASI_JSAPI_DEF(fdstat_get, __wasi_fdstat_t* stat)
+WASI_JSAPI_NOARGS_DEF(close)
+WASI_JSAPI_NOARGS_DEF(sync)
 
-  // Syscalls
-  // see https://github.com/emscripten-core/emscripten/blob/main/system/lib/libc/musl/arch/emscripten/syscall_arch.h
+// Syscalls
+// see
+// https://github.com/emscripten-core/emscripten/blob/main/system/lib/libc/musl/arch/emscripten/syscall_arch.h
 SYS_CAPI_DEF(open, 5, long path, long flags, ...);
 SYS_JSAPI_DEF(open, long path, long flags, int varargs)
 
@@ -131,7 +141,7 @@ SYS_CAPI_DEF(rmdir, 40, long path);
 SYS_JSAPI_DEF(rmdir, long path)
 
 SYS_CAPI_DEF(ioctl, 54, long fd, long request, ...);
-SYS_JSAPI_DEF(ioctl, long fd, long request, void *const varargs)
+SYS_JSAPI_DEF(ioctl, long fd, long request, void* const varargs)
 
 SYS_CAPI_DEF(readlink, 85, long path, long buf, long bufsize);
 SYS_JSAPI_DEF(readlink, long path, long buf, long bufsize)
@@ -181,9 +191,10 @@ SYS_JSAPI_DEF(statfs64, long path, long size, long buf)
 SYS_CAPI_DEF(fstatfs64, 269, long fd, long size, long buf);
 SYS_JSAPI_DEF(fstatfs64, long fd, long size, long buf)
 
-SYS_CAPI_DEF(fallocate, 324, long fd, long mode, long off_low, long off_high, long len_low, long len_high);
-SYS_JSAPI_DEF(fallocate, long fd, long mode, long off_low, long off_high, long len_low, long len_high)
-
+SYS_CAPI_DEF(
+  fallocate, 324, long fd, long mode, long off_low, long off_high, long len_low, long len_high);
+SYS_JSAPI_DEF(
+  fallocate, long fd, long mode, long off_low, long off_high, long len_low, long len_high)
 }
 
 namespace emscripten {
@@ -231,8 +242,8 @@ public:
   //
   void invoke(std::function<void(Callback)> newWork);
 
-//==============================================================================
-// End Public API
+  //==============================================================================
+  // End Public API
 
 private:
   std::unique_ptr<std::thread> thread;
@@ -270,5 +281,4 @@ void resumeWrapper_l(long retVal);
 
 void resumeWrapper_wasi(__wasi_errno_t retVal);
 
-
-#endif  // PTHREADFS_H
+#endif // PTHREADFS_H
