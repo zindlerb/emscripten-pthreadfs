@@ -5,43 +5,51 @@
 #include <pthread.h>
 #include <wasi/api.h>
 
-#include <thread>
 #include <functional>
+#include <memory>
 #include <iostream>
 #include <string>
 #include <set>
+#include <thread>
+#include <utility>
 
 #include <stdarg.h>
 
-SyncToAsync::SyncToAsync() : thread(threadMain, this), childLock(mutex) {
-  // The child lock is associated with the mutex, which takes the lock, and
-  // we free it here. Only the child will lock/unlock it from now on.
+
+// The following uses Emscripten's Threadutil, see 
+// https://github.com/emscripten-core/emscripten/pull/14666 for details.
+namespace emscripten {
+
+sync_to_async::sync_to_async() : childLock(mutex) {
+  // The child lock is associated with the mutex, which takes the lock as we
+  // connect them, and so we must free it here so that the child can use it.
+  // Only the child will lock/unlock it from now on.
   childLock.unlock();
+
+  // Create the thread after the lock is ready.
+  thread = std::make_unique<std::thread>(threadMain, this);
 }
 
-SyncToAsync::~SyncToAsync() {
-  quit = true;
+sync_to_async::~sync_to_async() {
+  // Wake up the child to tell it to quit.
+    invoke([&](Callback func){
+      quit = true;
+      (*func)();
+    });
 
-  shutdown();
-
-  thread.join();
+    thread->join();
 }
 
-void SyncToAsync::shutdown() {
-  readyToWork = true;
-  condition.notify_one();
-}
-
-void SyncToAsync::doWork(std::function<void(SyncToAsync::Callback)> newWork) {
-  // Use the doWorkMutex to prevent more than one doWork being in flight at a
+void sync_to_async::invoke(std::function<void(sync_to_async::Callback)> newWork) {
+  // Use the invokeMutex to prevent more than one doWork being in flight at a
   // time, so that this is usable from multiple threads safely.
-  std::lock_guard<std::mutex> doWorkLock(doWorkMutex);
+  std::lock_guard<std::mutex> doWorkLock(invokeMutex);
   // Initialize the PThreadFS file system.
-  if (!initialized) {
+  if (!pthreadfs_initialized) {
     {
     std::lock_guard<std::mutex> lock(mutex);
-    work = [](SyncToAsync::Callback resume) {
-      g_resumeFct = [resume]() { resume(); };
+    work = [](sync_to_async::Callback done) {
+      g_resumeFct = [done]() { (*done)(); };
       init_pthreadfs(&resumeWrapper_v);
     };
     finishedWork = false;
@@ -54,7 +62,7 @@ void SyncToAsync::doWork(std::function<void(SyncToAsync::Callback)> newWork) {
     condition.wait(lock, [&]() {
       return finishedWork;
     });
-    initialized = true;
+    pthreadfs_initialized = true;
   }
   // Send the work over.
   {
@@ -72,39 +80,43 @@ void SyncToAsync::doWork(std::function<void(SyncToAsync::Callback)> newWork) {
   });
 }
 
-void* SyncToAsync::threadMain(void* arg) {
+void* sync_to_async::threadMain(void* arg) {
   // Prevent the pthread from shutting down too early.
   EM_ASM(runtimeKeepalivePush(););
   emscripten_async_call(threadIter, arg, 0);
   return 0;
 }
 
-void SyncToAsync::threadIter(void* arg) {
-  auto* parent = (SyncToAsync*)arg;
+void sync_to_async::threadIter(void* arg) {
+  auto* parent = (sync_to_async*)arg;
+  if (parent->quit) {
+    EM_ASM(runtimeKeepalivePop(););
+    pthread_exit(0);
+  }
   // Wait until we get something to do.
   parent->childLock.lock();
   parent->condition.wait(parent->childLock, [&]() {
     return parent->readyToWork;
   });
-  if (parent->quit) {
-    EM_ASM(runtimeKeepalivePop(););
-    return;
-  }
   auto work = parent->work;
   parent->readyToWork = false;
-  // Do the work.
-  work([parent, arg]() {
+  // Allocate a resume function, and stash it on the parent.
+  parent->resume = std::make_unique<std::function<void()>>([parent, arg]() {
     // We are called, so the work was finished. Notify the caller.
     parent->finishedWork = true;
     parent->childLock.unlock();
     parent->condition.notify_one();
+    // Look for more work. 
+    // For performance reasons, this is an asynchronous call. If a synchronous API
+    // were to be called, these chained calls would lead to an out-of-stack error.
     threadIter(arg);
   });
+  // Run the work function the user gave us. Give it a pointer to the resume
+  // function.
+  work(parent->resume.get());
 }
 
-// Define global variables to be populated by resume;
-SyncToAsync::Callback g_resumeFct;
-SyncToAsync g_synctoasync_helper;
+} // namespace emscripten
 
 // Static functions calling resumFct and setting the return value.
 void resumeWrapper_v()
@@ -132,28 +144,28 @@ std::set<std::string> mounted_directories;
 
 // Wasi definitions
 WASI_CAPI_DEF(write, const __wasi_ciovec_t *iovs, size_t iovs_len, __wasi_size_t *nwritten) {
-  WASI_SYNCTOASYNC(write, iovs, iovs_len, nwritten);
+  WASI_SYNC_TO_ASYNC(write, iovs, iovs_len, nwritten);
 }
 
 WASI_CAPI_DEF(read, const __wasi_iovec_t *iovs, size_t iovs_len, __wasi_size_t *nread) {
-  WASI_SYNCTOASYNC(read, iovs, iovs_len, nread);
+  WASI_SYNC_TO_ASYNC(read, iovs, iovs_len, nread);
 }
 WASI_CAPI_DEF(pwrite, const __wasi_ciovec_t *iovs, size_t iovs_len, __wasi_filesize_t offset, __wasi_size_t *nwritten) {
-  WASI_SYNCTOASYNC(pwrite, iovs, iovs_len, offset, nwritten);
+  WASI_SYNC_TO_ASYNC(pwrite, iovs, iovs_len, offset, nwritten);
 }
 WASI_CAPI_DEF(pread, const __wasi_iovec_t *iovs, size_t iovs_len, __wasi_filesize_t offset, __wasi_size_t *nread) {
-  WASI_SYNCTOASYNC(pread, iovs, iovs_len, offset, nread);
+  WASI_SYNC_TO_ASYNC(pread, iovs, iovs_len, offset, nread);
 }
 WASI_CAPI_DEF(seek, __wasi_filedelta_t offset, __wasi_whence_t whence, __wasi_filesize_t *newoffset) {
-  WASI_SYNCTOASYNC(seek, offset, whence, newoffset);
+  WASI_SYNC_TO_ASYNC(seek, offset, whence, newoffset);
 }
 WASI_CAPI_DEF(fdstat_get, __wasi_fdstat_t *stat) {
-  WASI_SYNCTOASYNC(fdstat_get, stat);
+  WASI_SYNC_TO_ASYNC(fdstat_get, stat);
 }
 WASI_CAPI_NOARGS_DEF(close) {
   if(fsa_file_descriptors.count(fd) > 0) {
-     g_synctoasync_helper.doWork([fd](SyncToAsync::Callback resume) { 
-      g_resumeFct = [resume]() { resume(); };
+     g_sync_to_async_helper.invoke([fd](emscripten::sync_to_async::Callback resume) { 
+      g_resumeFct = [resume]() { (*resume)(); };
       __fd_close_async(fd, &resumeWrapper_wasi); 
       });
     if (resume_result_wasi == __WASI_ERRNO_SUCCESS) {
@@ -164,7 +176,7 @@ WASI_CAPI_NOARGS_DEF(close) {
   return fd_close(fd);
 }
 WASI_CAPI_NOARGS_DEF(sync) {
-  WASI_SYNCTOASYNC_NOARGS(sync);
+  WASI_SYNC_TO_ASYNC_NOARGS(sync);
 }
 
 // Syscall definitions
@@ -176,7 +188,7 @@ SYS_CAPI_DEF(open, 5, long path, long flags, ...) {
     va_start(vl, flags);
     mode_t mode = va_arg(vl, mode_t);
     va_end(vl);
-    SYS_SYNCTOASYNC_NORETURN(open, path, flags, mode);
+    SYS_SYNC_TO_ASYNC_NORETURN(open, path, flags, mode);
     fsa_file_descriptors.insert(resume_result_long);
     return resume_result_long;
   }
@@ -188,23 +200,23 @@ SYS_CAPI_DEF(open, 5, long path, long flags, ...) {
 }
 
 SYS_CAPI_DEF(unlink, 10, long path) {
-  SYS_SYNCTOASYNC_PATH(unlink, path);
+  SYS_SYNC_TO_ASYNC_PATH(unlink, path);
 }
 
 SYS_CAPI_DEF(chdir, 12, long path) {
-  SYS_SYNCTOASYNC_PATH(chdir, path);
+  SYS_SYNC_TO_ASYNC_PATH(chdir, path);
 }
 
 SYS_CAPI_DEF(mknod, 14, long path, long mode, long dev) {
-  SYS_SYNCTOASYNC_PATH(mknod, path, mode, dev);
+  SYS_SYNC_TO_ASYNC_PATH(mknod, path, mode, dev);
 }
 
 SYS_CAPI_DEF(chmod, 15, long path, long mode) {
-  SYS_SYNCTOASYNC_PATH(chmod, path, mode);
+  SYS_SYNC_TO_ASYNC_PATH(chmod, path, mode);
 }
 
 SYS_CAPI_DEF(access, 33, long path, long amode) {
-  SYS_SYNCTOASYNC_PATH(access, path, amode);
+  SYS_SYNC_TO_ASYNC_PATH(access, path, amode);
 }
 
 SYS_CAPI_DEF(rename, 38, long old_path, long new_path) {
@@ -213,7 +225,7 @@ SYS_CAPI_DEF(rename, 38, long old_path, long new_path) {
 
   if (old_pathname.rfind("/pthreadfs", 0) == 0 || old_pathname.rfind("pthreadfs", 0) == 0) {
     if (new_pathname.rfind("/pthreadfs", 0) == 0 || new_pathname.rfind("pthreadfs", 0) == 0) {
-      SYS_SYNCTOASYNC_NORETURN(rename, old_path, new_path);
+      SYS_SYNC_TO_ASYNC_NORETURN(rename, old_path, new_path);
       return resume_result_long;
     }
     return EXDEV;
@@ -226,11 +238,11 @@ SYS_CAPI_DEF(rename, 38, long old_path, long new_path) {
 }
 
 SYS_CAPI_DEF(mkdir, 39, long path, long mode) {
-  SYS_SYNCTOASYNC_PATH(mkdir, path, mode);
+  SYS_SYNC_TO_ASYNC_PATH(mkdir, path, mode);
 }
 
 SYS_CAPI_DEF(rmdir, 40, long path) {
-  SYS_SYNCTOASYNC_PATH(rmdir, path);
+  SYS_SYNC_TO_ASYNC_PATH(rmdir, path);
 }
 
 SYS_CAPI_DEF(ioctl, 54, long fd, long request, ...) {
@@ -240,59 +252,59 @@ SYS_CAPI_DEF(ioctl, 54, long fd, long request, ...) {
 	arg = va_arg(ap, void *);
 	va_end(ap);
   
-  SYS_SYNCTOASYNC_FD(ioctl, fd, request, arg);
+  SYS_SYNC_TO_ASYNC_FD(ioctl, fd, request, arg);
 }
 
 SYS_CAPI_DEF(readlink, 85, long path, long buf, long bufsize) {
-  SYS_SYNCTOASYNC_PATH(readlink, path, buf, bufsize);
+  SYS_SYNC_TO_ASYNC_PATH(readlink, path, buf, bufsize);
 }
 
 SYS_CAPI_DEF(fchmod, 94, long fd, long mode) {
-  SYS_SYNCTOASYNC_FD(fchmod, fd, mode);
+  SYS_SYNC_TO_ASYNC_FD(fchmod, fd, mode);
 }
 
 SYS_CAPI_DEF(fchdir, 133, long fd) {
-  SYS_SYNCTOASYNC_FD(fchdir, fd);
+  SYS_SYNC_TO_ASYNC_FD(fchdir, fd);
 }
 
 SYS_CAPI_DEF(fdatasync, 148, long fd) {
-  SYS_SYNCTOASYNC_FD(fdatasync, fd);
+  SYS_SYNC_TO_ASYNC_FD(fdatasync, fd);
 }
 
 SYS_CAPI_DEF(truncate64, 193, long path, long zero, long low, long high) {
-  SYS_SYNCTOASYNC_PATH(truncate64, path, zero, low, high);
+  SYS_SYNC_TO_ASYNC_PATH(truncate64, path, zero, low, high);
 }
 
 SYS_CAPI_DEF(ftruncate64, 194, long fd, long zero, long low, long high) {
-  SYS_SYNCTOASYNC_FD(ftruncate64, fd, zero, low, high);
+  SYS_SYNC_TO_ASYNC_FD(ftruncate64, fd, zero, low, high);
 }
 
 SYS_CAPI_DEF(stat64, 195, long path, long buf) {
-  SYS_SYNCTOASYNC_PATH(stat64, path, buf);
+  SYS_SYNC_TO_ASYNC_PATH(stat64, path, buf);
 }
 
 SYS_CAPI_DEF(lstat64, 196, long path, long buf) {
-  SYS_SYNCTOASYNC_PATH(lstat64, path, buf);
+  SYS_SYNC_TO_ASYNC_PATH(lstat64, path, buf);
 }
 
 SYS_CAPI_DEF(fstat64, 197, long fd, long buf) {
-  SYS_SYNCTOASYNC_FD(fstat64, fd, buf);
+  SYS_SYNC_TO_ASYNC_FD(fstat64, fd, buf);
 }
 
 SYS_CAPI_DEF(lchown32, 198, long path, long owner, long group) {
-  SYS_SYNCTOASYNC_PATH(lchown32, path, owner, group);
+  SYS_SYNC_TO_ASYNC_PATH(lchown32, path, owner, group);
 }
 
 SYS_CAPI_DEF(fchown32, 207, long fd, long owner, long group) {
-  SYS_SYNCTOASYNC_FD(fchown32, fd, owner, group);
+  SYS_SYNC_TO_ASYNC_FD(fchown32, fd, owner, group);
 }
 
 SYS_CAPI_DEF(chown32, 212, long path, long owner, long group) {
-  SYS_SYNCTOASYNC_PATH(chown32, path, owner, group);
+  SYS_SYNC_TO_ASYNC_PATH(chown32, path, owner, group);
 }
 
 SYS_CAPI_DEF(getdents64, 220, long fd, long dirp, long count) {
-  SYS_SYNCTOASYNC_FD(getdents64, fd, dirp, count);
+  SYS_SYNC_TO_ASYNC_FD(getdents64, fd, dirp, count);
 }
 
 SYS_CAPI_DEF(fcntl64, 221, long fd, long cmd, ...) {
@@ -303,9 +315,9 @@ SYS_CAPI_DEF(fcntl64, 221, long fd, long cmd, ...) {
     va_start(vl, cmd);
     int varargs = va_arg(vl, int);
     va_end(vl);
-    g_synctoasync_helper.doWork([fd, cmd, varargs](SyncToAsync::Callback resume) {
+    g_sync_to_async_helper.invoke([fd, cmd, varargs](emscripten::sync_to_async::Callback resume) {
       g_resumeFct = [resume]() { 
-        resume(); 
+        (*resume)(); 
       };
       __sys_fcntl64_async(fd, cmd, varargs, &resumeWrapper_l);
     });
@@ -319,16 +331,20 @@ SYS_CAPI_DEF(fcntl64, 221, long fd, long cmd, ...) {
 }
 
 SYS_CAPI_DEF(statfs64, 268, long path, long size, long buf) {
-  SYS_SYNCTOASYNC_PATH(statfs64, path, size, buf);
+  SYS_SYNC_TO_ASYNC_PATH(statfs64, path, size, buf);
 }
 
 SYS_CAPI_DEF(fstatfs64, 269, long fd, long size, long buf) {
-  SYS_SYNCTOASYNC_FD(fstatfs64, fd, size, buf);
+  SYS_SYNC_TO_ASYNC_FD(fstatfs64, fd, size, buf);
 }
 
 SYS_CAPI_DEF(fallocate, 324, long fd, long mode, long off_low, long off_high, long len_low, long len_high) {
-  SYS_SYNCTOASYNC_FD(fallocate, fd, mode, off_low, off_high, len_low, len_high);
+  SYS_SYNC_TO_ASYNC_FD(fallocate, fd, mode, off_low, off_high, len_low, len_high);
 }
+
+// Define global variables to be populated by resume;
+std::function<void()> g_resumeFct;
+emscripten::sync_to_async g_sync_to_async_helper;
 
 // Other helper code
 
