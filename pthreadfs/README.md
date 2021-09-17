@@ -9,51 +9,14 @@ If OPFS Access Handles are not available, PThreadFS will attempt to use the [Sto
 
 The code is still prototype quality and **should not be used in a production environment** for the time being.
 
-## Enable and detect OPFS in Chrome
+## Enable OPFS Access Handles in Chrome
 
-OPFS Access Handles require very recent versions of Google Chrome Canary. PThreadFS has been successfully tested with Version 94.0.4597.0.
+OPFS Access Handles require recent versions of Google Chrome Canary. "Experimental Web Platform Features" must be enabled in [chrome://flags](chrome://flags).
 
-To enable the API, the " --enable-features=FileSystemAccessAccessHandle" flag must be set when starting Chrome from the console. On MacOS, this can be done through
+Alternatively, you may enable the API with Chrome's " --enable-runtime-features=FileSystemAccessAccessHandle". On MacOS, this can be done through
 ```
-open -a /Applications/Google\ Chrome\ Canary.app --args --enable-features=FileSystemAccessAccessHandle
+open -a /Applications/Google\ Chrome\ Canary.app --args --enable-runtime-features=FileSystemAccessAccessHandle
 ```
-
-Support for AccesHandles in OPFS can be detected through
-```
-async function detectAccessHandleWorker() {
-  const root = await navigator.storage.getDirectory();
-  const file = await root.getFileHandle('access-handle-detect', { create: true });
-  const present = file.createSyncAccessHandle != undefined;
-  await root.removeEntry('access-handle-detect');
-  return present;
-}
-
-async function detectAccessHandleMainThread() {
-  const detectAccessHandleAndPostMessage = async function(){
-    const root = await navigator.storage.getDirectory();
-    const file = await root.getFileHandle('access-handle-detect', { create: true });
-    const present = file.createSyncAccessHandle != undefined;
-    await root.removeEntry('access-handle-detect');
-    postMessage(present);
-  };
-
-  return new Promise((resolve, reject) => {
-    const detectBlob = new Blob(['('+detectAccessHandleAndPostMessage.toString()+')()'], {type: 'text/javascript'})
-    const detectWorker = new Worker(window.URL.createObjectURL(detectBlob));
-    
-    detectWorker.onmessage = result => {
-      resolve(result.data);
-      detectWorker.terminate();
-    };
-
-    detectWorker.onerror = error => {
-      reject(error);
-      detectWorker.terminate();
-    };
-  });
-}
-```
-
 ## Getting the code
 
 PthreadFS is available on Github in the [emscripten-pthreadfs](https://github.com/rstz/emscripten-pthreadfs) repository. All code resides in the `pthreadfs` folder. It should be usable with any up-to-date Emscripten version. 
@@ -70,7 +33,6 @@ In order to use the code in a new project, you only need the three files in the 
 ```
 #include "pthreadfs.h"
 ```
-- Call `emscripten_init_pthreadfs();` at the top of `main()` (or before any file system syscalls).
 - PThreadFS maintains a virtual file system. The OPFS backend is mounted at `/pthreadfs/`. Only files in this folder are persisted between sessions. All other files will be stored in-memory through MEMFS.
 
 ### Build process changes
@@ -79,7 +41,7 @@ There are two changes required to build a project with PThreadFS:
 - Compile `pthreadfs.h` and `pthreadfs.cpp` and link the resulting object to your application. Add `-pthread` to the compiler flag to include support for pthreads.
 - Add the following options to the linking step:
 ```
--pthread -O3 -s PROXY_TO_PTHREAD --js-library=library_pthreadsfs.js
+-pthread -O2 -s PROXY_TO_PTHREAD --js-library=library_pthreadsfs.js
 ```
 **Example**
 If your build process was 
@@ -108,9 +70,10 @@ See `pthreadfs/examples/emscripten-tests/fsafs.cpp` for exemplary usage.
 - Files in the `/pthreadfs` folder cannot interact through syscalls with other files (e.g. moving, copying, etc.).
 - The code is still prototype quality and **should not be used in a production environment** yet. It is possible that the use of PThreadFS might lead to subtle bugs in other libraries.
 - PThreadFS requires PROXY_TO_PTHREAD to be active. In particular, no system calls interacting with the file system should be called from the main thread.
-- Some functionality of the Emscripten File System API is missing, such as sockets, IndexedDB integration and support for XHRequests.
-- PThreadFS depends on C++ libraries. `EM_PTRHEADFS_ASM()` cannot be used within C files (although initializing through `emscripten_init_pthreadfs()` is possible, see the `pthreadfs/examples/sqlite-speedtest` for an example).
-- Performance is good if and only if full optimizations (compiler option `-O3`) are enabled and DevTools are closed.
+- Some functionality of the Emscripten File System API is missing, such as sockets, file packager, IndexedDB integration and support for XHRequests.
+- PThreadFS depends on C++ libraries. `EM_PTRHEADFS_ASM()` cannot be used within C files.
+- Performance is good if and only if optimizations (compiler option `-O2`) are enabled and DevTools are closed.
+- Accessing the file system before `main()` is called may not work. 
 
 ## Examples
 
@@ -136,7 +99,7 @@ _OPFS Access Handles_ [enabled](#enable-and-detect-opfs-in-chrome):
 
 ### Other tests
 
-The folder `pthreadfs/examples/emscripten-tests` contains a number of other file system tests taken from Emscripten's standard test suite.
+The folder `pthreadfs/examples/emscripten-tests` contains a number of other file system tests, mostly taken from Emscripten's standard test suite.
 
 To compile, navigate to the `pthreadfs/examples/` directory and run
 
