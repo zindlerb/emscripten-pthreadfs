@@ -6,7 +6,6 @@
 #include "pthreadfs.h"
 
 int main () {
-  emscripten_init_pthreadfs();
   std::cout << "Proof that stdout works fine.\n";
   std::ofstream myfile;
   myfile.open ("pthreadfs/example");
@@ -39,9 +38,10 @@ int main () {
   EM_ASM(console.log('after close'););
   EM_PTHREADFS_ASM( function timeout(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
     await timeout(3000);
-    console.log("3 seconds after close");)
+    console.log("Promise resolving 3 seconds after closing the file");)
   EM_PTHREADFS_ASM( function timeout(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
     await timeout(1000);
-    console.log("4 seconds after close");)
+    console.log("Promise resolving 1 second after the previous promise");
+    console.log("Success");)
   return 0;
 }

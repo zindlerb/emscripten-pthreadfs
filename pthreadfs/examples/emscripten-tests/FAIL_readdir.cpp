@@ -15,7 +15,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include "pthreadfs.h"
 
 static void create_file(const char *path, const char *buffer, int mode) {
   int fd = open(path, O_WRONLY | O_CREAT | O_EXCL, mode);
@@ -44,7 +43,7 @@ void cleanup() {
   unlink("pthreadfs/file.txt");
 }
 
-void test(char* foldername) {
+void test(const char* foldername) {
   int err;
   long loc, loc2;
   DIR *dir;
@@ -189,7 +188,6 @@ void test_scandir() {
 }
 
 int main() {
-  emscripten_init_pthreadfs();
   puts("WARNING: This test will fail when using the StorageFoundation or OPFS backend. Update this message if the test succeeds.");
   setup();
   test("foobar");

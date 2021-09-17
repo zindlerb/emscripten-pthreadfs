@@ -1,10 +1,11 @@
 #include <assert.h>
+#include <fcntl.h>
 #include <limits.h> /* PATH_MAX */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "pthreadfs.h"
 
 
 static void create_file(const char *path, const char *buffer, int mode) {
@@ -63,7 +64,6 @@ void test() {
 }
 
 int main() {
-  emscripten_init_pthreadfs();
   puts("WARNING: This test will fail. Update this message if the test succeeds.");
   setup();
   test();

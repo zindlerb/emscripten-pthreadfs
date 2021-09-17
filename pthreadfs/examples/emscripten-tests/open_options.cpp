@@ -19,7 +19,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/sysmacros.h>
-#include "pthreadfs.h"
 
 void create_file(const char *path, const char *buffer, int mode) {
   int fd = open(path, O_CREAT | O_TRUNC | O_RDWR , mode);
@@ -55,7 +54,6 @@ void test() {
 }
 
 int main() {
-  emscripten_init_pthreadfs();
   setup();
   test();
   cleanup();

@@ -62,7 +62,9 @@ sqlite-src/$(SQLITE_SPEEDTEST): cache/$(SQLITE_SPEEDTEST)
 
 
 # build options
-OPTIMIZATION_LEVEL = O0
+OPTIMIZATION_LEVEL = O2
+DEBUGGING_FLAGS = -gsource-map \
+	--source-map-base http://localhost:8991/$(EMTESTS)/
 
 CFLAGS = \
 	-$(OPTIMIZATION_LEVEL) \
@@ -83,7 +85,10 @@ CFLAGS_SQLITE = \
 LINK_FLAGS =  \
 	-pthread \
 	-s PROXY_TO_PTHREAD \
-	-$(OPTIMIZATION_LEVEL)
+	-$(OPTIMIZATION_LEVEL) \
+	-s INITIAL_MEMORY=134217728 \
+#	$(DEBUGGING_FLAGS)
+
 
 .PHONY: clean
 clean:

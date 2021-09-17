@@ -11,7 +11,6 @@
 #include "pthreadfs.h"
 
 int main() {
-  emscripten_init_pthreadfs();
   puts("WARNING: This test will fail. Update this message if the test succeeds.");
 
   EM_PTHREADFS_ASM(
@@ -23,7 +22,7 @@ int main() {
     await PThreadFS.mkdir('folder');
   );
 
-  char* files[] = {"link", "file", "folder"};
+  const char* files[] = {"link", "file", "folder"};
   char buffer[256] = {0};
 
   for (int i = 0; i < sizeof files / sizeof files[0]; i++) {

@@ -75,7 +75,6 @@ void SyncToAsync::doWork(std::function<void(SyncToAsync::Callback)> newWork) {
 void* SyncToAsync::threadMain(void* arg) {
   // Prevent the pthread from shutting down too early.
   EM_ASM(runtimeKeepalivePush(););
-  auto* parent = (SyncToAsync*)arg;
   emscripten_async_call(threadIter, arg, 0);
   return 0;
 }
