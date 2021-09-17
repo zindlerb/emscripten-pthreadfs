@@ -29,10 +29,6 @@ In order to use the code in a new project, you only need the three files in the 
 
 ### Code changes
 
-- Include `pthreadfs.h` in the C++ file containing `main()`:
-```
-#include "pthreadfs.h"
-```
 - PThreadFS maintains a virtual file system. The OPFS backend is mounted at `/pthreadfs/`. Only files in this folder are persisted between sessions. All other files will be stored in-memory through MEMFS.
 
 ### Build process changes
@@ -76,6 +72,7 @@ See `pthreadfs/examples/emscripten-tests/fsafs.cpp` for exemplary usage.
 - Accessing the file system before `main()` is called may not work. 
 - The Storage Foundation backend is particularly experimental.
 - Compiling with the Closure Compiler is not supported.
+- Compiling with optimization `-O3` is not yet supported and may lead to a faulty build.
 
 ## Examples
 
