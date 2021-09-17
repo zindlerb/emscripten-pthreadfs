@@ -71,10 +71,11 @@ See `pthreadfs/examples/emscripten-tests/fsafs.cpp` for exemplary usage.
 - The code is still prototype quality and **should not be used in a production environment** yet. It is possible that the use of PThreadFS might lead to subtle bugs in other libraries.
 - PThreadFS requires PROXY_TO_PTHREAD to be active. In particular, no system calls interacting with the file system should be called from the main thread.
 - Some functionality of the Emscripten File System API is missing, such as sockets, file packager, IndexedDB integration and support for XHRequests.
-- PThreadFS depends on C++ libraries. `EM_PTRHEADFS_ASM()` cannot be used within C files.
+- PThreadFS depends on C++ libraries. `EM_PTHREADFS_ASM()` cannot be used within C files.
 - Performance is good if and only if optimizations (compiler option `-O2`) are enabled and DevTools are closed.
 - Accessing the file system before `main()` is called may not work. 
 - The Storage Foundation backend is particularly experimental.
+- Compiling with the Closure Compiler is not supported.
 
 ## Examples
 

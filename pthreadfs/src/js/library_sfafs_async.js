@@ -111,8 +111,6 @@ mergeInto(LibraryManager.library, {
 
 
     listByPrefix: async function(prefix) {
-      // Necessary for compiler optimizations.
-      var storageFoundation = storageFoundation || {};
       let entries = await storageFoundation.getAll();
       return entries.filter(name => name.startsWith(prefix))
     },
@@ -160,8 +158,6 @@ mergeInto(LibraryManager.library, {
 
     node_ops: {
       getattr: async function(node) {
-        // Necessary for compiler optimizations.
-        var storageFoundation = storageFoundation || {};
         SFAFS.debug('getattr', arguments);
         let attr = {};
         // device numbers reuse inode numbers.
@@ -205,8 +201,6 @@ mergeInto(LibraryManager.library, {
       },
 
       setattr: async function(node, attr) {
-        // Necessary for compiler optimizations.
-        var storageFoundation = storageFoundation || {};
         SFAFS.debug('setattr', arguments);
         if (attr.mode !== undefined) {
           node.mode = attr.mode;
@@ -219,7 +213,8 @@ mergeInto(LibraryManager.library, {
           let fileHandle = node.handle;
           try {
             if (!fileHandle) {
-              // Open a handle that is closed later.
+              // Setting a file's length requires an open file handle.
+              // Since the file has no open handle, open a handle and close it later.
               useOpen = true;
               fileHandle = await storageFoundation.open(SFAFS.encodedPath(node));
             }
@@ -284,8 +279,6 @@ mergeInto(LibraryManager.library, {
       },
 
       rename: async function (old_node, new_dir, new_name) {
-        // Necessary for compiler optimizations.
-        var storageFoundation = storageFoundation || {};
         SFAFS.debug('rename', arguments);
         let source_is_open = false;
 
@@ -330,8 +323,6 @@ mergeInto(LibraryManager.library, {
       },
 
       unlink: async function(parent, name) {
-        // Necessary for compiler optimizations.
-        var storageFoundation = storageFoundation || {};
         SFAFS.debug('unlink', arguments);
         var path = SFAFS.joinPaths(SFAFS.realPath(parent), name);
         try {
@@ -348,10 +339,15 @@ mergeInto(LibraryManager.library, {
         }
       },
 
-      rmdir: function(parent, name) {
+      rmdir: async function(parent, name) {
         SFAFS.debug('rmdir', arguments);
-        console.log('SFAFS error: rmdir is not implemented')
-        throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
+        let path = SFAFS.directoryPath(SFAFS.joinPaths(SFAFS.realPath(parent), name));
+        let files_in_folder = await SFAFS.listByPrefix(SFAFS.encodePath(path));
+        if (files_in_folder.length > 0) {
+          throw new FS.ErrnoError({{{ cDefine('ENOTEMPTY') }}});
+        }
+        // SFAFS does not store folders through the API.
+        return true;
       },
 
       readdir: async function(node) {
@@ -378,8 +374,6 @@ mergeInto(LibraryManager.library, {
 
     stream_ops: {
       open: async function (stream) {
-        // Necessary for compiler optimizations.
-        var storageFoundation = storageFoundation || {};
         SFAFS.debug('open', arguments);
         if (!PThreadFS.isFile(stream.node.mode)) {
           console.log('SFAFS error: open is only implemented for files')
