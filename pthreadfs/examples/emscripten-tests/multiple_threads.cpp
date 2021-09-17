@@ -19,8 +19,7 @@ void threadMain(int msg) {
 }
 
 int main () {
-  emscripten_init_pthreadfs();
-  EM_ASM({console.log("Hello from main")});
+  EM_ASM({console.log("Hello from main");});
   std::remove("pthreadfs/multi_threading_example"); 
 
   constexpr int number_of_threads = 10;
@@ -46,6 +45,7 @@ int main () {
   EM_ASM({
     console.log('Remember to check that the contents of file multi_threading_example are correct.');
   });
+  std::cout << "Success\n";
 
   return 0;
 }

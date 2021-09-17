@@ -6,8 +6,6 @@
 
 int main()
 {
-  emscripten_init_pthreadfs();
-
   std::cout << "Start Rename test\n";
 
   // MEMFS file that is closed when renaming.
@@ -85,5 +83,5 @@ int main()
   }
   std::cout << "Removed open_pthreadfs_file\n";
 
-  std::cout << "End Rename test\n";
+  std::cout << "Success\n";
 }

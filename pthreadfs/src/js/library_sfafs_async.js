@@ -111,8 +111,6 @@ mergeInto(LibraryManager.library, {
 
 
     listByPrefix: async function(prefix) {
-      // Necessary for compiler optimizations.
-      var storageFoundation = storageFoundation || {};
       let entries = await storageFoundation.getAll();
       return entries.filter(name => name.startsWith(prefix))
     },
@@ -160,8 +158,6 @@ mergeInto(LibraryManager.library, {
 
     node_ops: {
       getattr: async function(node) {
-        // Necessary for compiler optimizations.
-        var storageFoundation = storageFoundation || {};
         SFAFS.debug('getattr', arguments);
         let attr = {};
         // device numbers reuse inode numbers.
@@ -184,6 +180,9 @@ mergeInto(LibraryManager.library, {
               attr.size = await SFAFS.openFileHandles[path].getLength();
             }
             else {
+              if (SFAFS.encodePath(path).length > 100) {
+                console.log("SFAFS warning (getattr): Path length might be to long.");
+              }
               let fileHandle = await storageFoundation.open(SFAFS.encodePath(path));
               attr.size = await fileHandle.getLength();
               await fileHandle.close();
@@ -205,8 +204,6 @@ mergeInto(LibraryManager.library, {
       },
 
       setattr: async function(node, attr) {
-        // Necessary for compiler optimizations.
-        var storageFoundation = storageFoundation || {};
         SFAFS.debug('setattr', arguments);
         if (attr.mode !== undefined) {
           node.mode = attr.mode;
@@ -219,8 +216,12 @@ mergeInto(LibraryManager.library, {
           let fileHandle = node.handle;
           try {
             if (!fileHandle) {
-              // Open a handle that is closed later.
+              // Setting a file's length requires an open file handle.
+              // Since the file has no open handle, open a handle and close it later.
               useOpen = true;
+              if (SFAFS.encodedPath(node).length > 100) {
+                console.log("SFAFS warning (setattr): Path length might be to long.");
+              }
               fileHandle = await storageFoundation.open(SFAFS.encodedPath(node));
             }
             await fileHandle.setLength(attr.size);
@@ -284,8 +285,6 @@ mergeInto(LibraryManager.library, {
       },
 
       rename: async function (old_node, new_dir, new_name) {
-        // Necessary for compiler optimizations.
-        var storageFoundation = storageFoundation || {};
         SFAFS.debug('rename', arguments);
         let source_is_open = false;
 
@@ -305,6 +304,9 @@ mergeInto(LibraryManager.library, {
         old_node.parent = new_dir;
         let new_path = SFAFS.realPath(old_node);
         let encoded_new_path = SFAFS.encodePath(new_path);
+        if (encoded_new_path.length > 100) {
+          console.log("SFAFS warning (rename): Path length might be to long.");
+        }
 
         // Close and delete an existing file if necessary
         let all_files = await storageFoundation.getAll()
@@ -330,8 +332,6 @@ mergeInto(LibraryManager.library, {
       },
 
       unlink: async function(parent, name) {
-        // Necessary for compiler optimizations.
-        var storageFoundation = storageFoundation || {};
         SFAFS.debug('unlink', arguments);
         var path = SFAFS.joinPaths(SFAFS.realPath(parent), name);
         try {
@@ -348,10 +348,15 @@ mergeInto(LibraryManager.library, {
         }
       },
 
-      rmdir: function(parent, name) {
+      rmdir: async function(parent, name) {
         SFAFS.debug('rmdir', arguments);
-        console.log('SFAFS error: rmdir is not implemented')
-        throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
+        let path = SFAFS.directoryPath(SFAFS.joinPaths(SFAFS.realPath(parent), name));
+        let files_in_folder = await SFAFS.listByPrefix(SFAFS.encodePath(path));
+        if (files_in_folder.length > 0) {
+          throw new FS.ErrnoError({{{ cDefine('ENOTEMPTY') }}});
+        }
+        // SFAFS does not store folders through the API.
+        return true;
       },
 
       readdir: async function(node) {
@@ -378,8 +383,6 @@ mergeInto(LibraryManager.library, {
 
     stream_ops: {
       open: async function (stream) {
-        // Necessary for compiler optimizations.
-        var storageFoundation = storageFoundation || {};
         SFAFS.debug('open', arguments);
         if (!PThreadFS.isFile(stream.node.mode)) {
           console.log('SFAFS error: open is only implemented for files')
@@ -393,6 +396,10 @@ mergeInto(LibraryManager.library, {
           ++stream.node.refcount;
         } else {
           var path = SFAFS.realPath(stream.node);
+
+          if (SFAFS.encodePath(path).length > 100) {
+            console.log("SFAFS warning (open): Path length might be to long.");
+          }
 
           // Open existing file.
           if(!(path in SFAFS.openFileHandles)) {

@@ -54,15 +54,12 @@ sqlite-src/$(SQLITE_SPEEDTEST): cache/$(SQLITE_SPEEDTEST)
 	echo '$(SQLITE_SPEEDTEST_SHA1)  ./cache/$(SQLITE_SPEEDTEST)' > cache/check.txt
 	shasum -c cache/check.txt
 	cp 'cache/$(SQLITE_SPEEDTEST)' $@
-	echo 'extern void emscripten_init_pthreadfs();' > includeline.tmp
-	mv $@ input.tmp
-	cat includeline.tmp input.tmp > $@
-	rm input.tmp includeline.tmp
-	sed -i '' -e '/int main(/a\'$$'\n''emscripten_init_pthreadfs();' $@
 
-
-# build options
-OPTIMIZATION_LEVEL = O0
+# Optimization Flags
+## With debugging flags enabled, optimization level is O0.
+OPTIMIZATION_LEVEL = O2
+DEBUGGING_FLAGS = -gsource-map \
+	--source-map-base http://localhost:8992/$(EMTESTS)/
 
 CFLAGS = \
 	-$(OPTIMIZATION_LEVEL) \
@@ -80,10 +77,14 @@ CFLAGS_SQLITE = \
 	-DSQLITE_ENABLE_NORMALIZE \
 	-Isqlite-src/$(SQLITE_AMALGAMATION)/
 
+# Allocate 128 MiB to prevent OOM errors in some tests.
 LINK_FLAGS =  \
 	-pthread \
 	-s PROXY_TO_PTHREAD \
-	-$(OPTIMIZATION_LEVEL)
+	-$(OPTIMIZATION_LEVEL) \
+	-s INITIAL_MEMORY=134217728 \
+	$(DEBUGGING_FLAGS)
+
 
 .PHONY: clean
 clean:
@@ -100,7 +101,7 @@ $(OBJ)/speedtest1.o: sqlite-src/$(SQLITE_SPEEDTEST) sqlite-src/$(SQLITE_AMALGAMA
 	mkdir -p $(OBJ)
 	$(EMCC) $(CFLAGS) -Isqlite-src/$(SQLITE_AMALGAMATION)/ -c $< -o $@
 
-$(OBJ)/pthreadfs.o : $(PTHREADFS_CPP)
+$(OBJ)/pthreadfs.o : $(PTHREADFS_CPP) $(PTHREADFS_H)
 	mkdir -p $(OBJ)
 	$(EMCC) -c $(CFLAGS) $< -o $@
 

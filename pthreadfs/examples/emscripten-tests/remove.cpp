@@ -19,7 +19,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/sysmacros.h>
-#include "pthreadfs.h"
 
 void create_file(const char *path, const char *buffer, int mode) {
   int fd = open(path, O_CREAT | O_TRUNC | O_RDWR, mode);
@@ -32,34 +31,22 @@ void create_file(const char *path, const char *buffer, int mode) {
 }
 
 void setup() {
-  // struct utimbuf t = {1200000000, 1200000000};
-
   mkdir("pthreadfs/folder", 0777);
   create_file("pthreadfs/folder/file", "abcdef", 0777);
-  //symlink("file", "folder/file-link");
-
-  //utime("folder/file", &t);
-  //utime("folder", &t);
 }
 
 void cleanup() {
   unlink("pthreadfs/folder/file");
-  // unlink("folder/file-link");
   rmdir("pthreadfs/folder");
 }
 
 void test() {
   remove("pthreadfs/folder/file");
   remove("pthreadfs/folder");
-
-
   puts("success");
 }
 
 int main() {
-  emscripten_init_pthreadfs();
-  // atexit(cleanup);
-  //signal(SIGABRT, cleanup);
   setup();
   test();
   cleanup();
