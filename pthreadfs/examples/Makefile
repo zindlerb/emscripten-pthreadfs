@@ -1,14 +1,18 @@
 # Emscripten
 EMCC = emcc
+FILE_PACKAGER = ../../tools/file_packager.py
 
 # Define some folders
 EMTESTS = emscripten-tests
 SQLITETESTS = sqlite-speedtest
+PRELOADTESTS = preload-tests
 OBJ = out/bc
 
 PTHREADFS_JS = ../library_pthreadfs.js
 PTHREADFS_H = ../pthreadfs.h
 PTHREADFS_CPP = ../pthreadfs.cpp
+
+PRELOADFILES = $(PRELOADTESTS)/input/smallfile.txt $(PRELOADTESTS)/input/subfolder/mediumfile.txt $(PRELOADTESTS)/input/bigfile.txt
 
 # I got this handy makefile syntax from : https://github.com/mandel59/sqlite-wasm (MIT License) Credited in LICENSE
 # To use another version of Sqlite, visit https://www.sqlite.org/download.html and copy the appropriate values here:
@@ -109,6 +113,10 @@ $(OBJ)/%.o : $(EMTESTS)/%.cpp
 	mkdir -p $(OBJ)
 	$(EMCC) -c $(CFLAGS) $< -o $@
 
+$(OBJ)/%.o : $(PRELOADTESTS)/%.cpp
+	mkdir -p $(OBJ)
+	$(EMCC) -c $(CFLAGS) $< -o $@
+
 # Don't delete my precious object files
 .PRECIOUS: $(OBJ)/%.out
 
@@ -126,3 +134,18 @@ dist/$(EMTESTS)/%.html : $(OBJ)/%.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
 	mkdir -p dist/$(EMTESTS)
 	$(EMCC) $(LINK_FLAGS) --js-library=$(PTHREADFS_JS) $< $(word 2,$^) -o $@
 	
+
+.PHONY: preload-tests
+preload-tests: dist/$(PRELOADTESTS)/no_pthreadfs.html dist/$(PRELOADTESTS)/preload_pthreadfs.html
+
+dist/$(PRELOADTESTS)/preload_files/preload_filepackage.js: $(PRELOADFILES) $(FILE_PACKAGER)
+	mkdir -p dist/preload-tests/preload_files/
+	python3 $(FILE_PACKAGER) $(addsuffix .data, $(basename $@)) --preload ./$(PRELOADTESTS)/input@/pthreadfs --use_pthreadfs --js-output=$@
+
+dist/$(PRELOADTESTS)/preload_pthreadfs.html: $(OBJ)/preload.o $(OBJ)/pthreadfs.o dist/$(PRELOADTESTS)/preload_files/preload_experimental_filepackage.js $(PTHREADFS_JS)
+	mkdir -p dist/preload-tests
+	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS)  --pre-js $(word 3,$^)  $< $(word 2,$^) 
+	
+dist/$(PRELOADTESTS)/no_pthreadfs.html: $(OBJ)/preload.o $(PRELOADFILES)
+	mkdir -p dist/preload-tests
+	$(EMCC) $(LINK_FLAGS) -o $@ --preload-file $(PRELOADTESTS)/input@/pthreadfs $<

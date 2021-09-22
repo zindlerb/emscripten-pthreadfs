@@ -153,6 +153,13 @@ let storage_foundation_detection = function() {
     if (has_access_handles) {
       await PThreadFS.mount(FSAFS, { root: '.' }, '/pthreadfs');
       console.log('Initialized PThreadFS with OPFS Access Handles');
+
+      if ("pthreadfs_preload" in Module) {
+        await Module["pthreadfs_preload"]();
+      }
+      else {
+        console.log('No init code provided');
+      }
       wasmTable.get(resume)();
       return;
     }
