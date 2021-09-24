@@ -281,6 +281,10 @@ def main():
           file=sys.stderr)
     return 1
 
+  if use_pthreadfs and lz4:
+    print('error: --use_pthreadfs should is incompatible with --lz4',
+          file=sys.stderr)
+    return 1
 
   if jsoutput and os.path.abspath(jsoutput) == os.path.abspath(data_target):
     print('error: TARGET should not be the same value of --js-output',
@@ -307,7 +311,7 @@ def main():
   '''
   else:
     ret += '''
-let opfs_preload =
+let pthreadfs_preload =
   async function() {
   var loadPackage = async function(metadata) {
   '''
@@ -512,7 +516,10 @@ let opfs_preload =
           var that = this;
 
           // Remove potential old versions of this file.
-          await PThreadFS.unlink(this.name);
+          try {
+            await PThreadFS.unlink(this.name);
+          }
+          catch {}
           await PThreadFS.createDataFile(this.name, null, byteArray, true, true,
             true); // canOwn this data in the filesystem, it is a slide into the heap that will
                    // never change
@@ -1081,9 +1088,7 @@ let opfs_preload =
     }
 
       if (!("pthreadfs_preload" in Module)) {
-        Module["pthreadfs_preload"] = async () => {
-          let root = await opfs_preload();
-        }
+        Module["pthreadfs_preload"] = pthreadfs_preload;
       }
     ''' % _metadata_template
 

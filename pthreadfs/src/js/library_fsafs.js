@@ -160,10 +160,10 @@ mergeInto(LibraryManager.library, {
         return node;
       },
 
-      rename: function (oldNode, newParentNode, newName) {
+      rename: async function (oldNode, newParentNode, newName) {
         FSAFS.debug('rename', arguments);
         try {
-          oldNode.localReference.move(newParentNode.localReference, newName);
+          await oldNode.localReference.move(newParentNode.localReference, newName);
         }
         catch (e) {
           console.log('FSAFS error: Rename failed');
@@ -172,6 +172,9 @@ mergeInto(LibraryManager.library, {
           }
           else if (!('move' in oldNode.localReference)) {
             console.log('File System Access move() not available. Try enabling Experimental Web Platform features in chrome://flags');
+          }
+          else if (e.name == "InvalidStateError") {
+            console.log('Rename error: Did you try to rename an open file?');
           }
           else {
             console.log('Unknown rename error ' + e);
@@ -245,11 +248,11 @@ mergeInto(LibraryManager.library, {
       open: async function (stream) {
         FSAFS.debug('open', arguments);
         if (PThreadFS.isDir(stream.node.mode)) {
-          console.log('FSAFS error: open for directories is not fully implemented')
-          throw new PThreadFS.ErrnoError({{{ cDefine('EISDIR') }}});
+          // Everything is correctly set up already
+          return;
         }
         if (!PThreadFS.isFile(stream.node.mode)) {
-          console.log('FSAFS error: open is only implemented for files')
+          console.log('FSAFS error: open is only implemented for files and directories')
           throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
         }
 
@@ -265,8 +268,12 @@ mergeInto(LibraryManager.library, {
 
       close: async function (stream) {
         FSAFS.debug('close', arguments);
+        if (PThreadFS.isDir(stream.node.mode)) {
+          // Everything is correctly set up already
+          return;
+        }
         if (!PThreadFS.isFile(stream.node.mode)) {
-          console.log('FSAFS error: close is only implemented for files');
+          console.log('FSAFS error: close is only implemented for files and directories');
           throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
         }
 

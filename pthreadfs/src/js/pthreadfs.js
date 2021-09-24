@@ -153,17 +153,8 @@ let storage_foundation_detection = function() {
     if (has_access_handles) {
       await PThreadFS.mount(FSAFS, { root: '.' }, '/pthreadfs');
       console.log('Initialized PThreadFS with OPFS Access Handles');
-
-      if ("pthreadfs_preload" in Module) {
-        await Module["pthreadfs_preload"]();
-      }
-      else {
-        console.log('No init code provided');
-      }
-      wasmTable.get(resume)();
-      return;
     }
-    if (has_storage_foundation) {
+    else if (has_storage_foundation) {
       await PThreadFS.mount(SFAFS, { root: '.' }, '/pthreadfs');
   
       // Storage Foundation requires explicit capacity allocations.
@@ -171,62 +162,13 @@ let storage_foundation_detection = function() {
         await storageFoundation.requestCapacity(1024*1024*1024);
       }
       console.log('Initialized PThreadFS with Storage Foundation API');
-      wasmTable.get(resume)();
-      return;
     }
-    console.log('Initialized PThreadFS with MEMFS');
-    wasmTable.get(resume)();
-  });
-}
-
-// Initialize a backend for PThreadFS.
-// PThreadFS can only work with a single backend at a time. The initialization code
-// checks which backends are available and picks from the following list:
-// 1. OPFS Access Handles - see https://github.com/WICG/file-system-access/blob/main/AccessHandle.md
-// 2. Storage Foundation API - https://github.com/WICG/storage-foundation-api-explainer
-// 3. Emscripten's in-Memory file system (MEMFS).
-SyscallWrappers['init_backend'] = function(resume) {
-
-  let access_handle_detection = async function() {
-    const root = await navigator.storage.getDirectory();
-    const file = await root.getFileHandle('access-handle-detect', { create: true });
-    const present = file.createSyncAccessHandle != undefined;
-    await root.removeEntry('access-handle-detect');
-    return present;
-  }
-
-  let storage_foundation_detection = function() {
-    if (typeof storageFoundation == typeof undefined) {
-      return false;
+    else {
+      console.log('Initialized PThreadFS with MEMFS');
     }
-    if (storageFoundation.requestCapacitySync(1) === 0) {
-      return false;
+    if ("pthreadfs_preload" in Module) {
+      await Module["pthreadfs_preload"]();
     }
-    return true;
-  }
-
-  PThreadFS.mkdir('/pthreadfs').then(async () => {
-    let has_access_handles = await access_handle_detection();
-    let has_storage_foundation = storage_foundation_detection();
-
-    if (has_access_handles) {
-      await PThreadFS.mount(FSAFS, { root: '.' }, '/pthreadfs');
-      console.log('Initialized PThreadFS with OPFS Access Handles');
-      wasmTable.get(resume)();
-      return;
-    }
-    if (has_storage_foundation) {
-      await PThreadFS.mount(SFAFS, { root: '.' }, '/pthreadfs');
-  
-      // Storage Foundation requires explicit capacity allocations.
-      if (storageFoundation.requestCapacity) {
-        await storageFoundation.requestCapacity(1024*1024*1024);
-      }
-      console.log('Initialized PThreadFS with Storage Foundation API');
-      wasmTable.get(resume)();
-      return;
-    }
-    console.log('Initialized PThreadFS with MEMFS');
     wasmTable.get(resume)();
   });
 }

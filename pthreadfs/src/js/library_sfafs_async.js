@@ -241,7 +241,9 @@ mergeInto(LibraryManager.library, {
         SFAFS.debug('lookup', arguments);
         var parentPath = SFAFS.directoryPath(SFAFS.realPath(parent));
 
-        var children = await SFAFS.listByPrefix(parentPath);
+        var encoded_children = await SFAFS.listByPrefix(SFAFS.encodePath(parentPath));
+
+        let children = encoded_children.map((child) => SFAFS.decodePath(child));
 
         var exists = false;
         var mode = 511 /* 0777 */
@@ -361,11 +363,11 @@ mergeInto(LibraryManager.library, {
 
       readdir: async function(node) {
         SFAFS.debug('readdir', arguments);
-        var parentPath = SFAFS.realPath(node);
-        var children = await SFAFS.listByPrefix(SFAFS.encodePath(parentPath));
-        children = children.map(child => SFAFS.extractFilename(parentPath, child));
-        // Remove duplicates.
-        return Array.from(new Set(children));
+        let entries = ['.', '..'];
+        let parentPath = SFAFS.directoryPath(SFAFS.realPath(node));
+        let children = await SFAFS.listByPrefix(SFAFS.encodePath(parentPath));
+        children = children.map(child => SFAFS.extractFilename(parentPath, SFAFS.decodePath(child)));
+        return entries.concat(children);;
       },
 
       symlink: function(parent, newName, oldPath) {
@@ -384,6 +386,10 @@ mergeInto(LibraryManager.library, {
     stream_ops: {
       open: async function (stream) {
         SFAFS.debug('open', arguments);
+        if (PThreadFS.isDir(stream.node.mode)) {
+          // Everything is correctly set up already
+          return;
+        }
         if (!PThreadFS.isFile(stream.node.mode)) {
           console.log('SFAFS error: open is only implemented for files')
           throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
@@ -414,6 +420,10 @@ mergeInto(LibraryManager.library, {
 
       close: async function (stream) {
         SFAFS.debug('close', arguments);
+        if (PThreadFS.isDir(stream.node.mode)) {
+          // Everything is correctly set up already
+          return;
+        }
         if (!PThreadFS.isFile(stream.node.mode)) {
           console.log('SFAFS error: close is only implemented for files');
           throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});

@@ -25,7 +25,7 @@ SQLITE_SPEEDTEST_URL = https://sqlite.org/src/raw/5e5b805f24cc939656058f6a498f5a
 SQLITE_SPEEDTEST_SHA1 = f0edde2ad68f090e4676ac30042e0f6b765a8528
 
 .PHONY: all 
-all: sqlite-speedtest emscripten-tests
+all: sqlite-speedtest emscripten-tests preload-tests
 
 ## cache
 cache/$(SQLITE_AMALGAMATION).zip:
@@ -135,14 +135,18 @@ dist/$(EMTESTS)/%.html : $(OBJ)/%.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
 	$(EMCC) $(LINK_FLAGS) --js-library=$(PTHREADFS_JS) $< $(word 2,$^) -o $@
 	
 
+# Compiling the preload-tests requires manual creation of the following files
+# - $(PRELOADTESTS)/input/smallfile.txt: Size 188 bytes, first line "These are the contents of a very small file."
+# - $(PRELOADTESTS)/input/subfolder/mediumfile.txt: Size 138670 bytes, first line "Begin mediumfile.txt -------------------------------------------"
+# - $(PRELOADTESTS)/input/bigfile.txt: Size 212992000 bytes, first line "Begin bigfile.txt ----------------------------------------------"
 .PHONY: preload-tests
 preload-tests: dist/$(PRELOADTESTS)/no_pthreadfs.html dist/$(PRELOADTESTS)/preload_pthreadfs.html
 
-dist/$(PRELOADTESTS)/preload_files/preload_filepackage.js: $(PRELOADFILES) $(FILE_PACKAGER)
-	mkdir -p dist/preload-tests/preload_files/
+dist/$(PRELOADTESTS)/preload_filepackage.js: $(PRELOADFILES) $(FILE_PACKAGER)
+	mkdir -p dist/preload-tests/
 	python3 $(FILE_PACKAGER) $(addsuffix .data, $(basename $@)) --preload ./$(PRELOADTESTS)/input@/pthreadfs --use_pthreadfs --js-output=$@
 
-dist/$(PRELOADTESTS)/preload_pthreadfs.html: $(OBJ)/preload.o $(OBJ)/pthreadfs.o dist/$(PRELOADTESTS)/preload_files/preload_experimental_filepackage.js $(PTHREADFS_JS)
+dist/$(PRELOADTESTS)/preload_pthreadfs.html: $(OBJ)/preload.o $(OBJ)/pthreadfs.o dist/$(PRELOADTESTS)/preload_filepackage.js $(PTHREADFS_JS)
 	mkdir -p dist/preload-tests
 	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS)  --pre-js $(word 3,$^)  $< $(word 2,$^) 
 	
