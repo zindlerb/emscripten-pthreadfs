@@ -153,10 +153,8 @@ let storage_foundation_detection = function() {
     if (has_access_handles) {
       await PThreadFS.mount(FSAFS, { root: '.' }, '/pthreadfs');
       console.log('Initialized PThreadFS with OPFS Access Handles');
-      wasmTable.get(resume)();
-      return;
     }
-    if (has_storage_foundation) {
+    else if (has_storage_foundation) {
       await PThreadFS.mount(SFAFS, { root: '.' }, '/pthreadfs');
   
       // Storage Foundation requires explicit capacity allocations.
@@ -164,62 +162,13 @@ let storage_foundation_detection = function() {
         await storageFoundation.requestCapacity(1024*1024*1024);
       }
       console.log('Initialized PThreadFS with Storage Foundation API');
-      wasmTable.get(resume)();
-      return;
     }
-    console.log('Initialized PThreadFS with MEMFS');
-    wasmTable.get(resume)();
-  });
-}
-
-// Initialize a backend for PThreadFS.
-// PThreadFS can only work with a single backend at a time. The initialization code
-// checks which backends are available and picks from the following list:
-// 1. OPFS Access Handles - see https://github.com/WICG/file-system-access/blob/main/AccessHandle.md
-// 2. Storage Foundation API - https://github.com/WICG/storage-foundation-api-explainer
-// 3. Emscripten's in-Memory file system (MEMFS).
-SyscallWrappers['init_backend'] = function(resume) {
-
-  let access_handle_detection = async function() {
-    const root = await navigator.storage.getDirectory();
-    const file = await root.getFileHandle('access-handle-detect', { create: true });
-    const present = file.createSyncAccessHandle != undefined;
-    await root.removeEntry('access-handle-detect');
-    return present;
-  }
-
-  let storage_foundation_detection = function() {
-    if (typeof storageFoundation == typeof undefined) {
-      return false;
+    else {
+      console.log('Initialized PThreadFS with MEMFS');
     }
-    if (storageFoundation.requestCapacitySync(1) === 0) {
-      return false;
+    if ("pthreadfs_preload" in Module) {
+      await Module["pthreadfs_preload"]();
     }
-    return true;
-  }
-
-  PThreadFS.mkdir('/pthreadfs').then(async () => {
-    let has_access_handles = await access_handle_detection();
-    let has_storage_foundation = storage_foundation_detection();
-
-    if (has_access_handles) {
-      await PThreadFS.mount(FSAFS, { root: '.' }, '/pthreadfs');
-      console.log('Initialized PThreadFS with OPFS Access Handles');
-      wasmTable.get(resume)();
-      return;
-    }
-    if (has_storage_foundation) {
-      await PThreadFS.mount(SFAFS, { root: '.' }, '/pthreadfs');
-  
-      // Storage Foundation requires explicit capacity allocations.
-      if (storageFoundation.requestCapacity) {
-        await storageFoundation.requestCapacity(1024*1024*1024);
-      }
-      console.log('Initialized PThreadFS with Storage Foundation API');
-      wasmTable.get(resume)();
-      return;
-    }
-    console.log('Initialized PThreadFS with MEMFS');
     wasmTable.get(resume)();
   });
 }
@@ -3171,6 +3120,9 @@ mergeInto(LibraryManager.library, {
               attr.size = await SFAFS.openFileHandles[path].getLength();
             }
             else {
+              if (SFAFS.encodePath(path).length > 100) {
+                console.log("SFAFS warning (getattr): Path length might be to long.");
+              }
               let fileHandle = await storageFoundation.open(SFAFS.encodePath(path));
               attr.size = await fileHandle.getLength();
               await fileHandle.close();
@@ -3207,6 +3159,9 @@ mergeInto(LibraryManager.library, {
               // Setting a file's length requires an open file handle.
               // Since the file has no open handle, open a handle and close it later.
               useOpen = true;
+              if (SFAFS.encodedPath(node).length > 100) {
+                console.log("SFAFS warning (setattr): Path length might be to long.");
+              }
               fileHandle = await storageFoundation.open(SFAFS.encodedPath(node));
             }
             await fileHandle.setLength(attr.size);
@@ -3226,7 +3181,9 @@ mergeInto(LibraryManager.library, {
         SFAFS.debug('lookup', arguments);
         var parentPath = SFAFS.directoryPath(SFAFS.realPath(parent));
 
-        var children = await SFAFS.listByPrefix(parentPath);
+        var encoded_children = await SFAFS.listByPrefix(SFAFS.encodePath(parentPath));
+
+        let children = encoded_children.map((child) => SFAFS.decodePath(child));
 
         var exists = false;
         var mode = 511 /* 0777 */
@@ -3289,6 +3246,9 @@ mergeInto(LibraryManager.library, {
         old_node.parent = new_dir;
         let new_path = SFAFS.realPath(old_node);
         let encoded_new_path = SFAFS.encodePath(new_path);
+        if (encoded_new_path.length > 100) {
+          console.log("SFAFS warning (rename): Path length might be to long.");
+        }
 
         // Close and delete an existing file if necessary
         let all_files = await storageFoundation.getAll()
@@ -3343,11 +3303,11 @@ mergeInto(LibraryManager.library, {
 
       readdir: async function(node) {
         SFAFS.debug('readdir', arguments);
-        var parentPath = SFAFS.realPath(node);
-        var children = await SFAFS.listByPrefix(SFAFS.encodePath(parentPath));
-        children = children.map(child => SFAFS.extractFilename(parentPath, child));
-        // Remove duplicates.
-        return Array.from(new Set(children));
+        let entries = ['.', '..'];
+        let parentPath = SFAFS.directoryPath(SFAFS.realPath(node));
+        let children = await SFAFS.listByPrefix(SFAFS.encodePath(parentPath));
+        children = children.map(child => SFAFS.extractFilename(parentPath, SFAFS.decodePath(child)));
+        return entries.concat(children);;
       },
 
       symlink: function(parent, newName, oldPath) {
@@ -3366,6 +3326,10 @@ mergeInto(LibraryManager.library, {
     stream_ops: {
       open: async function (stream) {
         SFAFS.debug('open', arguments);
+        if (PThreadFS.isDir(stream.node.mode)) {
+          // Everything is correctly set up already
+          return;
+        }
         if (!PThreadFS.isFile(stream.node.mode)) {
           console.log('SFAFS error: open is only implemented for files')
           throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
@@ -3378,6 +3342,10 @@ mergeInto(LibraryManager.library, {
           ++stream.node.refcount;
         } else {
           var path = SFAFS.realPath(stream.node);
+
+          if (SFAFS.encodePath(path).length > 100) {
+            console.log("SFAFS warning (open): Path length might be to long.");
+          }
 
           // Open existing file.
           if(!(path in SFAFS.openFileHandles)) {
@@ -3392,6 +3360,10 @@ mergeInto(LibraryManager.library, {
 
       close: async function (stream) {
         SFAFS.debug('close', arguments);
+        if (PThreadFS.isDir(stream.node.mode)) {
+          // Everything is correctly set up already
+          return;
+        }
         if (!PThreadFS.isFile(stream.node.mode)) {
           console.log('SFAFS error: close is only implemented for files');
           throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
@@ -3633,10 +3605,10 @@ mergeInto(LibraryManager.library, {
         return node;
       },
 
-      rename: function (oldNode, newParentNode, newName) {
+      rename: async function (oldNode, newParentNode, newName) {
         FSAFS.debug('rename', arguments);
         try {
-          oldNode.localReference.move(newParentNode.localReference, newName);
+          await oldNode.localReference.move(newParentNode.localReference, newName);
         }
         catch (e) {
           console.log('FSAFS error: Rename failed');
@@ -3645,6 +3617,9 @@ mergeInto(LibraryManager.library, {
           }
           else if (!('move' in oldNode.localReference)) {
             console.log('File System Access move() not available. Try enabling Experimental Web Platform features in chrome://flags');
+          }
+          else if (e.name == "InvalidStateError") {
+            console.log('Rename error: Did you try to rename an open file?');
           }
           else {
             console.log('Unknown rename error ' + e);
@@ -3718,11 +3693,11 @@ mergeInto(LibraryManager.library, {
       open: async function (stream) {
         FSAFS.debug('open', arguments);
         if (PThreadFS.isDir(stream.node.mode)) {
-          console.log('FSAFS error: open for directories is not fully implemented')
-          throw new PThreadFS.ErrnoError({{{ cDefine('EISDIR') }}});
+          // Everything is correctly set up already
+          return;
         }
         if (!PThreadFS.isFile(stream.node.mode)) {
-          console.log('FSAFS error: open is only implemented for files')
+          console.log('FSAFS error: open is only implemented for files and directories')
           throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
         }
 
@@ -3738,8 +3713,12 @@ mergeInto(LibraryManager.library, {
 
       close: async function (stream) {
         FSAFS.debug('close', arguments);
+        if (PThreadFS.isDir(stream.node.mode)) {
+          // Everything is correctly set up already
+          return;
+        }
         if (!PThreadFS.isFile(stream.node.mode)) {
-          console.log('FSAFS error: close is only implemented for files');
+          console.log('FSAFS error: close is only implemented for files and directories');
           throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
         }
 

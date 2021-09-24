@@ -78,7 +78,8 @@ int main()
   open_pthreadfs_file.close();
 
   if(std::remove("pthreadfs/new_open_pthreadfs_file")) {
-    std::cout << "Removing open_pthreadfs_file failed\n";
+    std::cout << "Removing open_pthreadfs_file failed.\n";
+    std::cout << "This is expected when using the OPFS backend.\n";
     return 1;
   }
   std::cout << "Removed open_pthreadfs_file\n";

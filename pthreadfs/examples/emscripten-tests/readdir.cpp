@@ -17,7 +17,7 @@
 #include <sys/stat.h>
 
 static void create_file(const char *path, const char *buffer, int mode) {
-  int fd = open(path, O_WRONLY | O_CREAT | O_EXCL, mode);
+  int fd = open(path, O_WRONLY | O_CREAT, mode);
   assert(fd >= 0);
 
   int err = write(fd, buffer, sizeof(char) * strlen(buffer));
@@ -32,15 +32,17 @@ void setup() {
   assert(!err);
   err = mkdir("foobar", 0777);
   assert(!err);
+  err = mkdir("pthreadfs/readdir_test", 0777);
   create_file("foobar/file.txt", "ride into the danger zone", 0666);
-  create_file("pthreadfs/file.txt", "ride into the super dangerous pthreadFS zone", 0666);
+  create_file("pthreadfs/readdir_test/file.txt", "ride into the super dangerous pthreadFS zone", 0666);
 }
 
 void cleanup() {
   rmdir("nocanread");
   unlink("foobar/file.txt");
   rmdir("foobar");
-  unlink("pthreadfs/file.txt");
+  unlink("pthreadfs/readdir_test/file.txt");
+  rmdir("pthreadfs/readdir_test");
 }
 
 void test(const char* foldername) {
@@ -188,12 +190,10 @@ void test_scandir() {
 }
 
 int main() {
-  puts("WARNING: This test will fail when using the StorageFoundation or OPFS backend. Update this message if the test succeeds.");
   setup();
   test("foobar");
   test_scandir();
-  test("pthreadfs");
-  test_scandir();
+  test("pthreadfs/readdir_test");
   cleanup();
   return EXIT_SUCCESS;
 }
