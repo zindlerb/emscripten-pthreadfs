@@ -224,8 +224,18 @@ mergeInto(LibraryManager.library, {
               }
               fileHandle = await storageFoundation.open(SFAFS.encodedPath(node));
             }
-            await fileHandle.setLength(attr.size);
-            
+            try {
+              await fileHandle.setLength(attr.size);
+            }
+            catch (e) {
+              if (e.name == 'QuotaExceededError') {
+                await storageFoundation.requestCapacity(2*1024*1024*1024);
+                await fileHandle.setLength(attr.size);
+              }
+              else {
+                throw e;
+              }
+            }
           } catch (e) {
             if (!('code' in e)) throw e;
             throw new PThreadFS.ErrnoError(-e.errno);
@@ -462,9 +472,17 @@ mergeInto(LibraryManager.library, {
         SFAFS.debug('write', arguments);
         stream.node.timestamp = Date.now();
         let data = new Uint8Array(buffer.slice(offset, offset+length));
-        let result = await stream.handle.write(data, position);
-        SFAFS.debug('end write');
-        return result.writtenBytes;
+        let writeResult;
+        try {
+          let writeResult = await stream.handle.write(data, position);
+        }
+        catch (e) {
+          if (e.name == 'QuotaExceededError') {
+            await storageFoundation.requestCapacity(2*1024*1024*1024);
+            let writeResult = await stream.handle.write(data, position);
+          }
+        }
+        return writeResult.writtenBytes;
       },
 
       llseek: async function (stream, offset, whence) {
