@@ -17,6 +17,8 @@ Alternatively, you may enable the API with Chrome's " --enable-runtime-features=
 ```
 open -a /Applications/Google\ Chrome\ Canary.app --args --enable-runtime-features=FileSystemAccessAccessHandle
 ```
+
+Both Storage Foundation API and OPFS are available as [origin trials](https://developer.chrome.com/origintrials/) in Chrome 95.
 ## Getting the code
 
 PthreadFS is available on Github in the [emscripten-pthreadfs](https://github.com/rstz/emscripten-pthreadfs) repository. All code resides in the `pthreadfs` folder. It should be usable with any up-to-date Emscripten version. 
@@ -29,7 +31,9 @@ In order to use the code in a new project, you only need the three files in the 
 
 ### Code changes
 
-- PThreadFS maintains a virtual file system. The OPFS backend is mounted at `/pthreadfs/`. Only files in this folder are persisted between sessions. All other files will be stored in-memory through MEMFS.
+- PThreadFS maintains a virtual file system. The OPFS backend is mounted at `/persistent/`. Only files in this folder are persisted between sessions. All other files will be stored in-memory through MEMFS.
+
+You may specify the folder used by PThreadFS by modifying the `PTHREADFS_FOLDER` preprocessor definition, e.g. by compiling with `-DPTHREADFS_FOLDER=mypthreadfsfolder`.
 
 ### Build process changes
 
@@ -37,7 +41,7 @@ There are two changes required to build a project with PThreadFS:
 - Compile `pthreadfs.h` and `pthreadfs.cpp` and link the resulting object to your application. Add `-pthread` to the compiler flag to include support for pthreads.
 - Add the following options to the linking step:
 ```
--pthread -O2 -s PROXY_TO_PTHREAD --js-library=library_pthreadsfs.js
+-pthread -O2 -s PROXY_TO_PTHREAD --js-library=library_pthreadfs.js
 ```
 **Example**
 If your build process was 
@@ -46,7 +50,7 @@ emcc myproject.cpp -o myproject.html
 ```
 Your new build step should be
 ```shell
-emcc -pthread -s PROXY_TO_PTHREAD -O3 --js-library=library_pthreadfs.js myproject.cpp pthreadfs.cpp -o myproject.html
+emcc -pthread -s PROXY_TO_PTHREAD -O2 --js-library=library_pthreadfs.js myproject.cpp pthreadfs.cpp -o myproject.html
 ```
 
 ### Advanced Usage
@@ -62,11 +66,11 @@ See `pthreadfs/examples/emscripten-tests/fsafs.cpp` for exemplary usage.
 
 ## Known Limitations
 
-- All files to be stored using the file system access Access Handles must be stored in the `/pthreadfs` folder.
-- Files in the `/pthreadfs` folder cannot interact through syscalls with other files (e.g. moving, copying, etc.).
+- All files to be stored using the file system access Access Handles must be stored in the `/persistent` folder.
+- Files in the `/persistent` folder cannot interact through syscalls with other files (e.g. moving, copying, etc.).
 - The code is still prototype quality and **should not be used in a production environment** yet. It is possible that the use of PThreadFS might lead to subtle bugs in other libraries.
 - PThreadFS requires PROXY_TO_PTHREAD to be active. In particular, no system calls interacting with the file system should be called from the main thread.
-- Some functionality of the Emscripten File System API is missing, such as sockets, file packager, IndexedDB integration and support for XHRequests.
+- Some functionality of the Emscripten File System API is missing, such as sockets, IndexedDB integration and support for XHRequests.
 - PThreadFS depends on C++ libraries. `EM_PTHREADFS_ASM()` cannot be used within C files.
 - Performance is good if and only if optimizations (compiler option `-O2`) are enabled and DevTools are closed.
 - Accessing the file system before `main()` is called may not work. 

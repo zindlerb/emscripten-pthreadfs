@@ -2,7 +2,7 @@
 #include <fstream>
 #include <cstdio>
 #include <emscripten.h>
-#include "pthreadfs.h"
+
 
 int main()
 {
@@ -48,18 +48,18 @@ int main()
 
   // PThreadFS file that is closed when renaming.
   std::ofstream closed_pthreadfs_file;
-  closed_pthreadfs_file.open ("pthreadfs/old_closed_pthreadfs_file");
+  closed_pthreadfs_file.open ("persistent/old_closed_pthreadfs_file");
   closed_pthreadfs_file << "Contents of closed_pthreadfs_file.";
   closed_pthreadfs_file.close();
  
-  if (std::rename("pthreadfs/old_closed_pthreadfs_file", "pthreadfs/new_closed_pthreadfs_file")) {
+  if (std::rename("persistent/old_closed_pthreadfs_file", "persistent/new_closed_pthreadfs_file")) {
     std::cout << "Error renaming closed_pthreadfs_file\n";
     return 1;
   }
   std::cout << "Rename closed_pthreadfs_file successfully\n";
   closed_pthreadfs_file.close();
 
-  if(std::remove("pthreadfs/new_closed_pthreadfs_file")) {
+  if(std::remove("persistent/new_closed_pthreadfs_file")) {
     std::cout << "Removing closed_pthreadfs_file failed\n";
     return 1;
   }
@@ -67,17 +67,17 @@ int main()
 
   // PThreadFS file that is open when renaming.
   std::ofstream open_pthreadfs_file;
-  open_pthreadfs_file.open ("pthreadfs/old_open_pthreadfs_file");
+  open_pthreadfs_file.open ("persistent/old_open_pthreadfs_file");
   open_pthreadfs_file << "Contents of open_pthreadfs_file.";
  
-  if (std::rename("pthreadfs/old_open_pthreadfs_file", "pthreadfs/new_open_pthreadfs_file")) {
+  if (std::rename("persistent/old_open_pthreadfs_file", "persistent/new_open_pthreadfs_file")) {
     std::cout << "Error renaming open_pthreadfs_file\n";
     return 1;
   }
   std::cout << "Rename open_pthreadfs_file successfully\n";
   open_pthreadfs_file.close();
 
-  if(std::remove("pthreadfs/new_open_pthreadfs_file")) {
+  if(std::remove("persistent/new_open_pthreadfs_file")) {
     std::cout << "Removing open_pthreadfs_file failed.\n";
     std::cout << "This is expected when using the OPFS backend.\n";
     return 1;

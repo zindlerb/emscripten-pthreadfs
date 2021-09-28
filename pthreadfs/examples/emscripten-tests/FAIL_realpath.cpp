@@ -22,16 +22,16 @@ void setup() {
   int err;
   err = mkdir("emptyfolder", 0777);
   assert(!err);
-  err = mkdir("pthreadfs/emptypthreadfsfolder", 0777);
+  err = mkdir("persistent/emptypthreadfsfolder", 0777);
   assert(!err);
   create_file("file.txt", "Some non-pthreadfs file content", 0666);
-  create_file("pthreadfs/pthreadfile.txt", "ride into the super dangerous pthreadFS zone", 0666);
+  create_file("persistent/pthreadfile.txt", "ride into the super dangerous pthreadFS zone", 0666);
 }
 
 void cleanup() {
   rmdir("emptyfolder");
   unlink("file.txt");
-  unlink("pthreadfs/file.txt");
+  unlink("persistent/file.txt");
 }
 
 void test() {
@@ -47,18 +47,18 @@ void test() {
   assert(res);
   printf("emptyfolder/../file.txt is at %s.\n", buf);
 
-  res = realpath("pthreadfs/pthreadfile.txt", buf);
+  res = realpath("persistent/pthreadfile.txt", buf);
   assert(res);
-  printf("pthreadfs/pthreadfile.txt is at %s.\n", buf);
-  res = realpath("pthreadfs/doesnotexist.txt", buf);
+  printf("persistent/pthreadfile.txt is at %s.\n", buf);
+  res = realpath("persistent/doesnotexist.txt", buf);
   assert(!res);
-  printf("pthreadfs/doesnotexist.txt does not exist.\n");
-  res = realpath("emptyfolder/../pthreadfs/pthreadfsfile.txt", buf);
+  printf("persistent/doesnotexist.txt does not exist.\n");
+  res = realpath("emptyfolder/../persistent/pthreadfsfile.txt", buf);
   assert(res);
-  printf("emptyfolder/../pthreadfs/pthreadfsfile.txt is at %s.\n", buf);
-  res = realpath("pthreadfs/emptypthreadfsfolder/../file.txt", buf);
+  printf("emptyfolder/../persistent/pthreadfsfile.txt is at %s.\n", buf);
+  res = realpath("persistent/emptypthreadfsfolder/../file.txt", buf);
   assert(res);
-  printf("pthreadfs/emptypthreadfsfolder/../file.txt is at %s.\n", buf);
+  printf("persistent/emptypthreadfsfolder/../file.txt is at %s.\n", buf);
 
   puts("success");
 }

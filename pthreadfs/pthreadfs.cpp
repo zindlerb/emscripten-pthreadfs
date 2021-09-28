@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <emscripten.h>
 #include <pthread.h>
+#include <sys/stat.h>
 #include <wasi/api.h>
 
 #include <functional>
@@ -49,7 +50,7 @@ void sync_to_async::invoke(std::function<void(sync_to_async::Callback)> newWork)
       std::lock_guard<std::mutex> lock(mutex);
       work = [](sync_to_async::Callback done) {
         g_resumeFct = [done]() { (*done)(); };
-        init_pthreadfs(&resumeWrapper_v);
+        init_pthreadfs(PTHREADFS_FOLDER_NAME, &resumeWrapper_v);
       };
       finishedWork = false;
       readyToWork = true;
@@ -107,6 +108,10 @@ void sync_to_async::threadIter(void* arg) {
   // Run the work function the user gave us. Give it a pointer to the resume
   // function.
   work(parent->resume.get());
+}
+
+bool is_pthreadfs_file(std::string path) {
+  return path.rfind("/" PTHREADFS_FOLDER_NAME, 0) == 0 || path.rfind(PTHREADFS_FOLDER_NAME, 0) == 0;
 }
 
 } // namespace emscripten
@@ -167,21 +172,21 @@ WASI_CAPI_NOARGS_DEF(close) {
 WASI_CAPI_NOARGS_DEF(sync) { WASI_SYNC_TO_ASYNC_NOARGS(sync); }
 
 // Syscall definitions
-SYS_CAPI_DEF(open, 5, long path, long flags, ...) {
+SYS_CAPI_DEF(open, 5, long path_ref, long flags, ...) {
 
-  std::string pathname((char*)path);
-  if (pathname.rfind("/pthreadfs", 0) == 0 || pathname.rfind("pthreadfs", 0) == 0) {
+  std::string path((char*)path_ref);
+  if (emscripten::is_pthreadfs_file(path)) {
     va_list vl;
     va_start(vl, flags);
     mode_t mode = va_arg(vl, mode_t);
     va_end(vl);
-    SYS_SYNC_TO_ASYNC_NORETURN(open, path, flags, mode);
+    SYS_SYNC_TO_ASYNC_NORETURN(open, path_ref, flags, mode);
     fsa_file_descriptors.insert(resume_result_long);
     return resume_result_long;
   }
   va_list vl;
   va_start(vl, flags);
-  long res = __sys_open(path, flags, (int)vl);
+  long res = __sys_open(path_ref, flags, (int)vl);
   va_end(vl);
   return res;
 }
@@ -198,21 +203,21 @@ SYS_CAPI_DEF(chmod, 15, long path, long mode) { SYS_SYNC_TO_ASYNC_PATH(chmod, pa
 
 SYS_CAPI_DEF(access, 33, long path, long amode) { SYS_SYNC_TO_ASYNC_PATH(access, path, amode); }
 
-SYS_CAPI_DEF(rename, 38, long old_path, long new_path) {
-  std::string old_pathname((char*)old_path);
-  std::string new_pathname((char*)new_path);
+SYS_CAPI_DEF(rename, 38, long old_path_ref, long new_path_ref) {
+  std::string old_path((char*)old_path_ref);
+  std::string new_path((char*)new_path_ref);
 
-  if (old_pathname.rfind("/pthreadfs", 0) == 0 || old_pathname.rfind("pthreadfs", 0) == 0) {
-    if (new_pathname.rfind("/pthreadfs", 0) == 0 || new_pathname.rfind("pthreadfs", 0) == 0) {
-      SYS_SYNC_TO_ASYNC_NORETURN(rename, old_path, new_path);
+  if (emscripten::is_pthreadfs_file(old_path)) {
+    if (emscripten::is_pthreadfs_file(new_path)) {
+      SYS_SYNC_TO_ASYNC_NORETURN(rename, old_path_ref, new_path_ref);
       return resume_result_long;
     }
     return EXDEV;
   }
-  if (new_pathname.rfind("/pthreadfs", 0) == 0 || new_pathname.rfind("pthreadfs", 0) == 0) {
+  if (emscripten::is_pthreadfs_file(new_path)) {
     return EXDEV;
   }
-  long res = __sys_rename(old_path, new_path);
+  long res = __sys_rename(old_path_ref, new_path_ref);
   return res;
 }
 

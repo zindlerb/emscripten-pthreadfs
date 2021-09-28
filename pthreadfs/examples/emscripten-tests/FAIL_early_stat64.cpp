@@ -23,7 +23,7 @@ class EarlyObject {
     puts("Start constructing EarlyObject.");
     int err;
     struct stat s;
-    err = stat("pthreadfs/", &s);
+    err = stat("persistent/", &s);
     assert(!err);
   }
 };

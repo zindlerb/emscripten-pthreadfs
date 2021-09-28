@@ -615,7 +615,7 @@ let pthreadfs_preload =
     ''' % (shared.JS.escape_for_js_string(data_target),
            shared.JS.escape_for_js_string(remote_package_name))
     if use_pthreadfs:
-      ret += "let METADATA_FOLDER = '/pthreadfs/EM_PRELOAD_CACHE_METADATA/';\n"
+      ret += "let METADATA_FOLDER = '/persistent/EM_PRELOAD_CACHE_METADATA/';\n"
     metadata['remote_package_size'] = remote_package_size
     metadata['package_uuid'] = str(package_uuid)
     ret += '''

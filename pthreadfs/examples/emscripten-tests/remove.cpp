@@ -31,18 +31,18 @@ void create_file(const char *path, const char *buffer, int mode) {
 }
 
 void setup() {
-  mkdir("pthreadfs/folder", 0777);
-  create_file("pthreadfs/folder/file", "abcdef", 0777);
+  mkdir("persistent/folder", 0777);
+  create_file("persistent/folder/file", "abcdef", 0777);
 }
 
 void cleanup() {
-  unlink("pthreadfs/folder/file");
-  rmdir("pthreadfs/folder");
+  unlink("persistent/folder/file");
+  rmdir("persistent/folder");
 }
 
 void test() {
-  remove("pthreadfs/folder/file");
-  remove("pthreadfs/folder");
+  remove("persistent/folder/file");
+  remove("persistent/folder");
   puts("success");
 }
 

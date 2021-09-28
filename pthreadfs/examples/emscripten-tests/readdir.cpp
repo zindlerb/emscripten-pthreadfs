@@ -32,17 +32,17 @@ void setup() {
   assert(!err);
   err = mkdir("foobar", 0777);
   assert(!err);
-  err = mkdir("pthreadfs/readdir_test", 0777);
+  err = mkdir("persistent/readdir_test", 0777);
   create_file("foobar/file.txt", "ride into the danger zone", 0666);
-  create_file("pthreadfs/readdir_test/file.txt", "ride into the super dangerous pthreadFS zone", 0666);
+  create_file("persistent/readdir_test/file.txt", "ride into the super dangerous pthreadFS zone", 0666);
 }
 
 void cleanup() {
   rmdir("nocanread");
   unlink("foobar/file.txt");
   rmdir("foobar");
-  unlink("pthreadfs/readdir_test/file.txt");
-  rmdir("pthreadfs/readdir_test");
+  unlink("persistent/readdir_test/file.txt");
+  rmdir("persistent/readdir_test");
 }
 
 void test(const char* foldername) {
@@ -193,7 +193,7 @@ int main() {
   setup();
   test("foobar");
   test_scandir();
-  test("pthreadfs/readdir_test");
+  test("persistent/readdir_test");
   cleanup();
   return EXIT_SUCCESS;
 }
