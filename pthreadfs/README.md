@@ -18,7 +18,7 @@ Alternatively, you may enable the API with Chrome's " --enable-runtime-features=
 open -a /Applications/Google\ Chrome\ Canary.app --args --enable-runtime-features=FileSystemAccessAccessHandle
 ```
 
-Both Storage Foundation API and OPFS are available as [origin trials](https://developer.chrome.com/origintrials/) in Chrome 95
+Both Storage Foundation API and OPFS are available as [origin trials](https://developer.chrome.com/origintrials/) in Chrome 95.
 ## Getting the code
 
 PthreadFS is available on Github in the [emscripten-pthreadfs](https://github.com/rstz/emscripten-pthreadfs) repository. All code resides in the `pthreadfs` folder. It should be usable with any up-to-date Emscripten version. 

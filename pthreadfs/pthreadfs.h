@@ -26,7 +26,7 @@
 #define EM_PTHREADFS_ASM(code)                                                                     \
   g_sync_to_async_helper.invoke([](emscripten::sync_to_async::Callback resume) {                   \
     g_resumeFct = [resume]() { (*resume)(); };                                                     \
-    EM_ASM({ (async() = > { code wasmTable.get($0)(); })(); }, &resumeWrapper_v);                  \
+    EM_ASM({ (async() => { code wasmTable.get($0)(); })(); }, &resumeWrapper_v);                  \
   });
 // clang-format on
 
