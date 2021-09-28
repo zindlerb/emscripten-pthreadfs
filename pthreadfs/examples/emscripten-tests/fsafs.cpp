@@ -8,12 +8,12 @@
 int main () {
   std::cout << "Proof that stdout works fine.\n";
   std::ofstream myfile;
-  myfile.open ("pthreadfs/example");
+  myfile.open ("persistent/example");
   myfile << "Writing a few characters.\n";
   myfile.close();
 
   std::string line;
-  std::ifstream myfile_read ("pthreadfs/example");
+  std::ifstream myfile_read ("persistent/example");
  
   if (myfile_read.is_open()) {
     std::getline(myfile_read, line);
@@ -22,15 +22,15 @@ int main () {
     myfile_read.close();
   }
 
-  std::ofstream stream1 ("pthreadfs/multistreamexample");
-  std::ofstream stream2 ("pthreadfs/multistreamexample");
+  std::ofstream stream1 ("persistent/multistreamexample");
+  std::ofstream stream2 ("persistent/multistreamexample");
   stream1 << "Write a line through stream1.\n";
   stream2 << "Write a line through stream2.\n";
   stream1.close();
   stream2.close();
 
-  std::remove("pthreadfs/multistreamexample"); 
-  bool can_open_deleted_file = (bool) std::ifstream("pthreadfs/multistreamexample");
+  std::remove("persistent/multistreamexample"); 
+  bool can_open_deleted_file = (bool) std::ifstream("persistent/multistreamexample");
   if(!can_open_deleted_file) { 
     std::cout << "Opening deleted file failed, as expected.\n"; 
   }

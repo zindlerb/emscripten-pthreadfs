@@ -33,8 +33,8 @@ void create_file(const char *path, const char *buffer, int mode) {
 void setup() {
   // struct utimbuf t = {1200000000, 1200000000};
 
-  mkdir("pthreadfs/folder", 0777);
-  create_file("pthreadfs/folder/file", "abcdef", 0777);
+  mkdir("persistent/folder", 0777);
+  create_file("persistent/folder/file", "abcdef", 0777);
   //symlink("file", "folder/file-link");
 
   //utime("folder/file", &t);
@@ -44,13 +44,13 @@ void setup() {
 }
 
 void cleanup() {
-  unlink("pthreadfs/folder/file");
+  unlink("persistent/folder/file");
   // unlink("folder/file-link");
-  rmdir("pthreadfs/folder");
+  rmdir("persistent/folder");
 }
 
 void test() {
-  create_file("pthreadfs/folder/file", "blubbbbb", 0777);
+  create_file("persistent/folder/file", "blubbbbb", 0777);
 }
 
 int main() {

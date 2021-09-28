@@ -9,11 +9,11 @@
 int main () {
   std::cout << "Proof that stdout works fine.\n";
   std::ofstream myfile;
-  myfile.open ("pthreadfs/example");
+  myfile.open ("persistent/example");
   myfile << "Writing a few characters.\n";
   myfile.close();
   struct statfs sb;
-  if((statfs("pthreadfs/example",&sb))==0){
+  if((statfs("persistent/example",&sb))==0){
     std::cout << "total file nodes in fs are " << sb.f_files << "\n";
   }
   puts("Success");

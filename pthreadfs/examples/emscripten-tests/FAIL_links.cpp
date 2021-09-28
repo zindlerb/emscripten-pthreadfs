@@ -14,9 +14,9 @@ int main() {
   puts("WARNING: This test will fail. Update this message if the test succeeds.");
 
   EM_PTHREADFS_ASM(
-    await PThreadFS.mkdir('pthreadfs/working');
-    await PThreadFS.mkdir('pthreadfs/test');
-    await PThreadFS.chdir('pthreadfs/working');
+    await PThreadFS.mkdir('persistent/working');
+    await PThreadFS.mkdir('persistent/test');
+    await PThreadFS.chdir('persistent/working');
     await PThreadFS.symlink('../test/../there!', 'link');
     await PThreadFS.writeFile('file', 'test');
     await PThreadFS.mkdir('folder');

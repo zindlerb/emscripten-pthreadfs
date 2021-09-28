@@ -5,7 +5,7 @@
  * found in the LICENSE file.
  */
 
-#include "pthreadfs.h"
+
 #include <assert.h>
 #include <emscripten.h>
 #include <fstream>
@@ -34,10 +34,10 @@ int test(std::string file_path, std::string first_line, int size) {
 int main() {
   std::cout << "Start preload test.\n";
 
-  test("pthreadfs/smallfile.txt", "These are the contents of a very small file.", 188);
-  test("pthreadfs/subfolder/mediumfile.txt",
+  test("persistent/smallfile.txt", "These are the contents of a very small file.", 188);
+  test("persistent/subfolder/mediumfile.txt",
     "Begin mediumfile.txt -------------------------------------------", 138670);
-  test("pthreadfs/bigfile.txt", "Begin bigfile.txt ----------------------------------------------",
+  test("persistent/bigfile.txt", "Begin bigfile.txt ----------------------------------------------",
     212992000);
 
   std::cout << "Success.\n";

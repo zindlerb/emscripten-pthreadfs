@@ -33,8 +33,8 @@ void create_file(const char *path, const char *buffer, int mode) {
 void setup() {
   // struct utimbuf t = {1200000000, 1200000000};
 
-  mkdir("pthreadfs/folder", 0777);
-  create_file("pthreadfs/folder/file", "abcdef", 0777);
+  mkdir("persistent/folder", 0777);
+  create_file("persistent/folder/file", "abcdef", 0777);
   //symlink("file", "folder/file-link");
 
   //utime("folder/file", &t);
@@ -42,10 +42,10 @@ void setup() {
 }
 
 void cleanup() {
-  rmdir("pthreadfs/folder/subdir");
-  unlink("pthreadfs/folder/file");
+  rmdir("persistent/folder/subdir");
+  unlink("persistent/folder/file");
   // unlink("folder/file-link");
-  rmdir("pthreadfs/folder");
+  rmdir("persistent/folder");
 }
 
 void test() {
@@ -54,13 +54,13 @@ void test() {
   // struct utimbuf t = {1200000000, 1200000000};
 
   // non-existent
-  err = stat("pthreadfs/does_not_exist", &s);
+  err = stat("persistent/does_not_exist", &s);
   assert(err == -1);
   assert(errno == ENOENT);
 
   // stat a folder
   memset(&s, 0, sizeof(s));
-  err = stat("pthreadfs/folder", &s);
+  err = stat("persistent/folder", &s);
   assert(!err);
   assert(s.st_dev);
   assert(s.st_ino);
@@ -74,9 +74,9 @@ void test() {
   assert(s.st_blksize == 4096);
   assert(s.st_blocks == 1);
 
-  // stat the pthreadfs folder
+  // stat the persistent folder
   memset(&s, 0, sizeof(s));
-  err = stat("pthreadfs", &s);
+  err = stat("persistent", &s);
   assert(!err);
   assert(s.st_dev);
   assert(s.st_ino);
@@ -92,7 +92,7 @@ void test() {
 
   // stat a file
   memset(&s, 0, sizeof(s));
-  err = stat("pthreadfs/folder/file", &s);
+  err = stat("persistent/folder/file", &s);
   assert(!err);
   assert(s.st_dev);
   assert(s.st_ino);
@@ -110,7 +110,7 @@ void test() {
 
   // fstat a file (should match file stat from above)
   memset(&s, 0, sizeof(s));
-  err = fstat(open("pthreadfs/folder/file", O_RDONLY), &s);
+  err = fstat(open("persistent/folder/file", O_RDONLY), &s);
   assert(!err);
   assert(s.st_dev);
   assert(s.st_ino);
@@ -184,14 +184,14 @@ void test() {
 // #endif
 
   // create and unlink files inside a directory and check that mtime updates
-  mkdir("pthreadfs/folder/subdir", 0777);
-  // utime("pthreadfs/folder/subdir", &t);
-  create_file("pthreadfs/folder/subdir/file", "abcdef", 0777);
-  err = stat("pthreadfs/folder/subdir", &s);
+  mkdir("persistent/folder/subdir", 0777);
+  // utime("persistent/folder/subdir", &t);
+  create_file("persistent/folder/subdir/file", "abcdef", 0777);
+  err = stat("persistent/folder/subdir", &s);
   // assert(s.st_mtime != 1200000000);
-  // utime("pthreadfs/folder/subdir", &t);
-  unlink("pthreadfs/folder/subdir/file");
-  err = stat("pthreadfs/folder/subdir", &s);
+  // utime("persistent/folder/subdir", &t);
+  unlink("persistent/folder/subdir/file");
+  err = stat("persistent/folder/subdir", &s);
   // assert(s.st_mtime != 1200000000);
 
   puts("success");

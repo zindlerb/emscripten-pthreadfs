@@ -69,7 +69,7 @@ CFLAGS = \
 	-$(OPTIMIZATION_LEVEL) \
 	-Wall \
 	-pthread \
-	-I..
+	-I.. 
 
 CFLAGS_SQLITE = \
 	$(CFLAGS) \
@@ -144,7 +144,7 @@ preload-tests: dist/$(PRELOADTESTS)/no_pthreadfs.html dist/$(PRELOADTESTS)/prelo
 
 dist/$(PRELOADTESTS)/preload_filepackage.js: $(PRELOADFILES) $(FILE_PACKAGER)
 	mkdir -p dist/preload-tests/
-	python3 $(FILE_PACKAGER) $(addsuffix .data, $(basename $@)) --preload ./$(PRELOADTESTS)/input@/pthreadfs --use_pthreadfs --js-output=$@
+	python3 $(FILE_PACKAGER) $(addsuffix .data, $(basename $@)) --preload ./$(PRELOADTESTS)/input@/persistent --use_pthreadfs --js-output=$@
 
 dist/$(PRELOADTESTS)/preload_pthreadfs.html: $(OBJ)/preload.o $(OBJ)/pthreadfs.o dist/$(PRELOADTESTS)/preload_filepackage.js $(PTHREADFS_JS)
 	mkdir -p dist/preload-tests
@@ -152,4 +152,4 @@ dist/$(PRELOADTESTS)/preload_pthreadfs.html: $(OBJ)/preload.o $(OBJ)/pthreadfs.o
 	
 dist/$(PRELOADTESTS)/no_pthreadfs.html: $(OBJ)/preload.o $(PRELOADFILES)
 	mkdir -p dist/preload-tests
-	$(EMCC) $(LINK_FLAGS) -o $@ --preload-file $(PRELOADTESTS)/input@/pthreadfs $<
+	$(EMCC) $(LINK_FLAGS) -o $@ --preload-file $(PRELOADTESTS)/input@/persistent $<

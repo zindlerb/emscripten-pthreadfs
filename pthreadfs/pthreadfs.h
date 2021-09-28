@@ -12,12 +12,21 @@
 #include <utility>
 #include <wasi/api.h>
 
+// The following macros convert the PTHREADFS_FOLDER to a string that can be used by C++
+#define QUOTE(name) #name
+#define STR(macro) QUOTE(macro)
+
+#ifndef PTHREADFS_FOLDER
+#define PTHREADFS_FOLDER persistent
+#endif // PTHREADFS_FOLDER
+#define PTHREADFS_FOLDER_NAME STR(PTHREADFS_FOLDER)
+
 // clang-format will incorrectly transform the Javascript code.
-// clang-format off 
+// clang-format off
 #define EM_PTHREADFS_ASM(code)                                                                     \
   g_sync_to_async_helper.invoke([](emscripten::sync_to_async::Callback resume) {                   \
     g_resumeFct = [resume]() { (*resume)(); };                                                     \
-    EM_ASM({ (async() => { code wasmTable.get($0)(); })(); }, &resumeWrapper_v);                  \
+    EM_ASM({ (async() = > { code wasmTable.get($0)(); })(); }, &resumeWrapper_v);                  \
   });
 // clang-format on
 
@@ -83,7 +92,7 @@
   return __sys_##name(__VA_ARGS__);
 #define SYS_SYNC_TO_ASYNC_PATH(name, ...)                                                          \
   std::string pathname((char*)path);                                                               \
-  if (pathname.rfind("/pthreadfs", 0) == 0 || pathname.rfind("pthreadfs", 0) == 0) {               \
+  if (emscripten::is_pthreadfs_file(pathname)) {                                                   \
     g_sync_to_async_helper.invoke([__VA_ARGS__](emscripten::sync_to_async::Callback resume) {      \
       g_resumeFct = [resume]() { (*resume)(); };                                                   \
       __sys_##name##_async(__VA_ARGS__, &resumeWrapper_l);                                         \
@@ -94,7 +103,7 @@
 
 extern "C" {
 // Helpers
-extern void init_pthreadfs(void (*fun)(void));
+extern void init_pthreadfs(const char* folder, void (*fun)(void));
 void emscripten_init_pthreadfs();
 
 // WASI
@@ -195,7 +204,8 @@ SYS_CAPI_DEF(
   fallocate, 324, long fd, long mode, long off_low, long off_high, long len_low, long len_high);
 SYS_JSAPI_DEF(
   fallocate, long fd, long mode, long off_low, long off_high, long len_low, long len_high)
-}
+
+} // extern "C"
 
 namespace emscripten {
 
@@ -266,6 +276,9 @@ private:
 
   static void threadIter(void* arg);
 };
+
+// Determines if `path` is a file in the special folder PTHREADFS_FOLDER.
+bool is_pthreadfs_file(std::string path);
 
 } // namespace emscripten
 

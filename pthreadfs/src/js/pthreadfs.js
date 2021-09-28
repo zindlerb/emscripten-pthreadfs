@@ -81,7 +81,14 @@ for (x of SyscallsFunctions) {
   createSyscallWrapper(x.name, x.args, SyscallWrappers);
 }
 
-SyscallWrappers['init_pthreadfs'] = function (resume) {
+SyscallWrappers['init_pthreadfs'] = function (folder_ref, resume) {
+
+  let folder = UTF8ToString(folder_ref)
+
+  if (typeof folder !== 'string' || folder.includes('/')) {
+    console.log("PThreadFS warning: Bad folder name: " + folder);
+    console.log("                   The folder name should be a string that does not include /");
+  }
   
   let access_handle_detection = async function() {
   const root = await navigator.storage.getDirectory();
@@ -146,16 +153,17 @@ let storage_foundation_detection = function() {
 
   PThreadFS.staticInit().then(async ()=> {
     PThreadFS.ignorePermissions = false;
-    await PThreadFS.mkdir('/pthreadfs');
+    let folderpath = '/' + folder;
+    await PThreadFS.mkdir(folderpath);
     let has_access_handles = await access_handle_detection();
     let has_storage_foundation = storage_foundation_detection();
 
     if (has_access_handles) {
-      await PThreadFS.mount(FSAFS, { root: '.' }, '/pthreadfs');
+      await PThreadFS.mount(FSAFS, { root: '.' }, folderpath);
       console.log('Initialized PThreadFS with OPFS Access Handles');
     }
     else if (has_storage_foundation) {
-      await PThreadFS.mount(SFAFS, { root: '.' }, '/pthreadfs');
+      await PThreadFS.mount(SFAFS, { root: '.' }, folderpath);
   
       // Storage Foundation requires explicit capacity allocations.
       if (storageFoundation.requestCapacity) {
