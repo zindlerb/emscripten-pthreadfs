@@ -474,12 +474,12 @@ mergeInto(LibraryManager.library, {
         let data = new Uint8Array(buffer.slice(offset, offset+length));
         let writeResult;
         try {
-          let writeResult = await stream.handle.write(data, position);
+          writeResult = await stream.handle.write(data, position);
         }
         catch (e) {
           if (e.name == 'QuotaExceededError') {
             await storageFoundation.requestCapacity(2*1024*1024*1024);
-            let writeResult = await stream.handle.write(data, position);
+            writeResult = await stream.handle.write(data, position);
           }
         }
         return writeResult.writtenBytes;
