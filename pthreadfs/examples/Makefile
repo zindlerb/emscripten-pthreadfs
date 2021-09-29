@@ -4,6 +4,7 @@ FILE_PACKAGER = ../../tools/file_packager.py
 
 # Define some folders
 EMTESTS = emscripten-tests
+NODEJSTESTS = nodejs-tests
 SQLITETESTS = sqlite-speedtest
 PRELOADTESTS = preload-tests
 OBJ = out/bc
@@ -128,10 +129,18 @@ dist/sqlite-speedtest/index.html: $(OBJ)/speedtest1.o $(OBJ)/sqlite3.o $(OBJ)/pt
 
 .PHONY: emscripten-tests
 emscripten-tests: $(addprefix dist/, $(addsuffix .html, $(basename $(wildcard $(EMTESTS)/*.cpp))))
-	@echo 'building emscripten-tests' $?
+	@echo 'Building tests for Chrome' $?
 
 dist/$(EMTESTS)/%.html : $(OBJ)/%.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
 	mkdir -p dist/$(EMTESTS)
+	$(EMCC) $(LINK_FLAGS) --js-library=$(PTHREADFS_JS) $< $(word 2,$^) -o $@
+
+.PHONY: emscripten-tests-nodejs
+emscripten-tests-nodejs: $(addprefix dist/$(NODEJSTESTS)/, $(notdir $(addsuffix .js, $(basename $(wildcard $(EMTESTS)/*.cpp)))))
+	@echo 'Building tests for Node.js' $?
+
+dist/$(NODEJSTESTS)/%.js : $(OBJ)/%.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
+	mkdir -p dist/$(NODEJSTESTS)
 	$(EMCC) $(LINK_FLAGS) --js-library=$(PTHREADFS_JS) $< $(word 2,$^) -o $@
 	
 
@@ -140,7 +149,7 @@ dist/$(EMTESTS)/%.html : $(OBJ)/%.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
 # - $(PRELOADTESTS)/input/subfolder/mediumfile.txt: Size 138670 bytes, first line "Begin mediumfile.txt -------------------------------------------"
 # - $(PRELOADTESTS)/input/bigfile.txt: Size 212992000 bytes, first line "Begin bigfile.txt ----------------------------------------------"
 .PHONY: preload-tests
-preload-tests: dist/$(PRELOADTESTS)/no_pthreadfs.html dist/$(PRELOADTESTS)/preload_pthreadfs.html
+preload-tests: dist/$(PRELOADTESTS)/no_pthreadfs.html dist/$(PRELOADTESTS)/preload_pthreadfs.html dist/$(PRELOADTESTS)/node_preload_pthreadfs.js
 
 dist/$(PRELOADTESTS)/preload_filepackage.js: $(PRELOADFILES) $(FILE_PACKAGER)
 	mkdir -p dist/preload-tests/
@@ -153,3 +162,7 @@ dist/$(PRELOADTESTS)/preload_pthreadfs.html: $(OBJ)/preload.o $(OBJ)/pthreadfs.o
 dist/$(PRELOADTESTS)/no_pthreadfs.html: $(OBJ)/preload.o $(PRELOADFILES)
 	mkdir -p dist/preload-tests
 	$(EMCC) $(LINK_FLAGS) -o $@ --preload-file $(PRELOADTESTS)/input@/persistent $<
+
+dist/$(PRELOADTESTS)/node_preload_pthreadfs.js: $(OBJ)/preload.o $(OBJ)/pthreadfs.o dist/$(PRELOADTESTS)/preload_filepackage.js $(PTHREADFS_JS)
+	mkdir -p dist/preload-tests
+	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS)  --pre-js $(word 3,$^)  $< $(word 2,$^) 

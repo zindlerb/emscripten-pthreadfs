@@ -575,7 +575,14 @@ let pthreadfs_preload =
         use_data += ("          Module['removeRunDependency']('datafile_%s');\n"
                     % shared.JS.escape_for_js_string(data_target))
       else:
-        use_data += "await PThreadFS.writeFile(METADATA_FOLDER + PACKAGE_PATH, PACKAGE_UUID, /*opts=*/{});\n"
+        use_data += '''
+            try {
+              await PThreadFS.writeFile(METADATA_FOLDER + PACKAGE_PATH, PACKAGE_UUID, /*opts=*/{});
+            }      
+            catch (e) {
+              console.log("Writing package UUID failed, no caching");
+            }
+              '''
 
     else:
       # LZ4FS usage
@@ -803,23 +810,22 @@ let pthreadfs_preload =
       }
       '''
 
-    # add Node.js support code, if necessary
-    node_support_code = ''
-    if support_node:
-      node_support_code = r'''
-        if (typeof process === 'object') {
-          require('fs').readFile(packageName, function(err, contents) {
-            if (err) {
-              errback(err);
-            } else {
-              callback(contents.buffer);
-            }
-          });
-          return;
-        }
-      '''
-
     if not use_pthreadfs:
+      # add Node.js support code, if necessary
+      node_support_code = ''
+      if support_node:
+        node_support_code = r'''
+          if (typeof process === 'object') {
+            require('fs').readFile(packageName, function(err, contents) {
+              if (err) {
+                errback(err);
+              } else {
+                callback(contents.buffer);
+              }
+            });
+            return;
+          }
+        '''
       ret += r'''
       function fetchRemotePackage(packageName, packageSize, callback, errback) {
         %(node_support_code)s
@@ -892,9 +898,25 @@ let pthreadfs_preload =
         if (!Module.preloadResults) Module.preloadResults = {};
       '''
     else:
-      ret += '''
+      # add Node.js support code, if necessary
+      node_support_code = ''
+      if support_node:
+        node_support_code = r'''
+          if (typeof process === 'object') {
+            require('fs').readFile(packageName, function(err, contents) {
+              if (err) {
+                reject(err);
+              } else {
+                resolve(contents.buffer);
+              }
+            });
+            return;
+          }
+        '''
+      ret += r'''
           function fetchRemotePackage(packageName, packageSize, callback, errback) {
       return new Promise(function (resolve, reject) {
+        %(node_support_code)s
         var xhr = new XMLHttpRequest();
         xhr.open('GET', packageName, true);
         xhr.responseType = 'arraybuffer';
@@ -937,7 +959,7 @@ let pthreadfs_preload =
         xhr.send(null);
       });
     };
-      '''
+      ''' % {'node_support_code': node_support_code}
       code += r'''
       async function processPackageData(arrayBuffer) {
         assert(arrayBuffer, 'Loading data file failed.');
