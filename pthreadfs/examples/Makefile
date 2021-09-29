@@ -4,6 +4,7 @@ FILE_PACKAGER = ../../tools/file_packager.py
 
 # Define some folders
 EMTESTS = emscripten-tests
+NODEJSTESTS = nodejs-tests
 SQLITETESTS = sqlite-speedtest
 PRELOADTESTS = preload-tests
 OBJ = out/bc
@@ -128,10 +129,18 @@ dist/sqlite-speedtest/index.html: $(OBJ)/speedtest1.o $(OBJ)/sqlite3.o $(OBJ)/pt
 
 .PHONY: emscripten-tests
 emscripten-tests: $(addprefix dist/, $(addsuffix .html, $(basename $(wildcard $(EMTESTS)/*.cpp))))
-	@echo 'building emscripten-tests' $?
+	@echo 'Building tests for Chrome' $?
 
 dist/$(EMTESTS)/%.html : $(OBJ)/%.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
 	mkdir -p dist/$(EMTESTS)
+	$(EMCC) $(LINK_FLAGS) --js-library=$(PTHREADFS_JS) $< $(word 2,$^) -o $@
+
+.PHONY: emscripten-tests-nodejs
+emscripten-tests-nodejs: $(addprefix dist/$(NODEJSTESTS)/, $(notdir $(addsuffix .js, $(basename $(wildcard $(EMTESTS)/*.cpp)))))
+	@echo 'Building tests for node.js' $?
+
+dist/$(NODEJSTESTS)/%.js : $(OBJ)/%.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
+	mkdir -p dist/$(NODEJSTESTS)
 	$(EMCC) $(LINK_FLAGS) --js-library=$(PTHREADFS_JS) $< $(word 2,$^) -o $@
 	
 
