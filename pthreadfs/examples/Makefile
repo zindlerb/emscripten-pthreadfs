@@ -137,7 +137,7 @@ dist/$(EMTESTS)/%.html : $(OBJ)/%.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
 
 .PHONY: emscripten-tests-nodejs
 emscripten-tests-nodejs: $(addprefix dist/$(NODEJSTESTS)/, $(notdir $(addsuffix .js, $(basename $(wildcard $(EMTESTS)/*.cpp)))))
-	@echo 'Building tests for node.js' $?
+	@echo 'Building tests for Node.js' $?
 
 dist/$(NODEJSTESTS)/%.js : $(OBJ)/%.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
 	mkdir -p dist/$(NODEJSTESTS)
