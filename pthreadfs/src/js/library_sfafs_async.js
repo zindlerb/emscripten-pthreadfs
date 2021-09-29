@@ -286,17 +286,19 @@ mergeInto(LibraryManager.library, {
 
         let children = encoded_children.map((child) => SFAFS.decodePath(child));
 
+        let lowercase_name = name.toLowerCase()
+
         var exists = false;
         var mode = 511 /* 0777 */
         for (var i = 0; i < children.length; ++i) {
           var path = children[i].substr(parentPath.length);
-          if (path == name) {
+          if (path == lowercase_name) {
             exists = true;
             mode |= {{{ cDefine('S_IFREG') }}};
             break;
           }
 
-         let subdirName = SFAFS.directoryPath(name);
+         let subdirName = SFAFS.directoryPath(lowercase_name);
           if (path.startsWith(subdirName)) {
             exists = true;
             mode |= {{{ cDefine('S_IFDIR') }}};
@@ -308,7 +310,7 @@ mergeInto(LibraryManager.library, {
           throw PThreadFS.genericErrors[{{{ cDefine('ENOENT') }}}];
         }
 
-        var node = PThreadFS.createNode(parent, name, mode);
+        var node = PThreadFS.createNode(parent, lowercase_name, mode);
         node.node_ops = SFAFS.node_ops;
         node.stream_ops = SFAFS.stream_ops;
         return node;
