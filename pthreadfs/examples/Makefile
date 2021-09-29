@@ -149,7 +149,7 @@ dist/$(NODEJSTESTS)/%.js : $(OBJ)/%.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
 # - $(PRELOADTESTS)/input/subfolder/mediumfile.txt: Size 138670 bytes, first line "Begin mediumfile.txt -------------------------------------------"
 # - $(PRELOADTESTS)/input/bigfile.txt: Size 212992000 bytes, first line "Begin bigfile.txt ----------------------------------------------"
 .PHONY: preload-tests
-preload-tests: dist/$(PRELOADTESTS)/no_pthreadfs.html dist/$(PRELOADTESTS)/preload_pthreadfs.html
+preload-tests: dist/$(PRELOADTESTS)/no_pthreadfs.html dist/$(PRELOADTESTS)/preload_pthreadfs.html dist/$(PRELOADTESTS)/node_preload_pthreadfs.js
 
 dist/$(PRELOADTESTS)/preload_filepackage.js: $(PRELOADFILES) $(FILE_PACKAGER)
 	mkdir -p dist/preload-tests/
@@ -162,3 +162,7 @@ dist/$(PRELOADTESTS)/preload_pthreadfs.html: $(OBJ)/preload.o $(OBJ)/pthreadfs.o
 dist/$(PRELOADTESTS)/no_pthreadfs.html: $(OBJ)/preload.o $(PRELOADFILES)
 	mkdir -p dist/preload-tests
 	$(EMCC) $(LINK_FLAGS) -o $@ --preload-file $(PRELOADTESTS)/input@/persistent $<
+
+dist/$(PRELOADTESTS)/node_preload_pthreadfs.js: $(OBJ)/preload.o $(OBJ)/pthreadfs.o dist/$(PRELOADTESTS)/preload_filepackage.js $(PTHREADFS_JS)
+	mkdir -p dist/preload-tests
+	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS)  --pre-js $(word 3,$^)  $< $(word 2,$^) 

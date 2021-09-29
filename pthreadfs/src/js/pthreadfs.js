@@ -91,10 +91,8 @@ SyscallWrappers['init_pthreadfs'] = function (folder_ref, resume) {
   }
   
   let access_handle_detection = async function() {
-    
     if (ENVIRONMENT_IS_NODE)
       return false;
-    console.log("environment is not node");
 
     const root = await navigator.storage.getDirectory();
     const present = FileSystemFileHandle.prototype.createSyncAccessHandle !== undefined;
