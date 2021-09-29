@@ -2989,11 +2989,11 @@ mergeInto(LibraryManager.library, {
         node = node.parent;
       }
       if (!parts.length) {
-        return '_';
+        return '/';
       }
       parts.push('');
       parts.reverse();
-      return parts.join('_');
+      return parts.join('/').toLowerCase();
     },
 
     encodedPath: function(node) {
@@ -3001,40 +3001,40 @@ mergeInto(LibraryManager.library, {
     },
 
     joinPaths: function(path1, path2) {
-      if (path1.endsWith('_')) {
-        if (path2.startsWith('_')) {
+      if (path1.endsWith('/')) {
+        if (path2.startsWith('/')) {
           return path1.slice(0, -1) + path2;
         }
         return path1 + path2;
       } else {
-        if (path2.startsWith('_')) {
+        if (path2.startsWith('/')) {
           return path1 + path2;
         }
-        return path1 + '_' + path2;
+        return path1 + '/' + path2;
       }
     },
 
-    // directoryPath ensures path ends with a path delimiter ('_').
+    // directoryPath ensures path ends with a path delimiter ('/').
     //
     // Example:
     // * directoryPath('_dir') = '_dir_'
     // * directoryPath('_dir_') = '_dir_'
     directoryPath: function(path) {
-      if (path.length && path.slice(-1) == '_') {
+      if (path.length && path.slice(-1) == '/') {
         return path;
       }
-      return path + '_';
+      return path + '/';
     },
 
     // extractFilename strips the parent path and drops suffixes after '_'.
     //
     // Example:
-    // * extractFilename('_dir', '_dir_myfile') = 'myfile'
-    // * extractFilename('_dir', '_dir_mydir_myfile') = 'mydir'
+    // * extractFilename('/dir', '/dir/myfile') = 'myfile'
+    // * extractFilename('/dir', '/dir/mydir/myfile') = 'mydir'
     extractFilename: function(parent, path) {
       parent = SFAFS.directoryPath(parent);
       path = path.substr(parent.length);
-      var index = path.indexOf('_');
+      var index = path.indexOf('/');
       if (index == -1) {
         return path;
       }
@@ -3044,20 +3044,51 @@ mergeInto(LibraryManager.library, {
     encodePath: function(path) {
       //TODO: this is a random hex encoding decide and document on reasonable
       //scheme
-      var s = unescape(encodeURIComponent(path))
-      var h = ''
-      for (var i = 0; i < s.length; i++) {
-          h += s.charCodeAt(i).toString(16)
-      }
-      return h
+      // var s = unescape(encodeURIComponent(path))
+      // var h = ''
+      // for (var i = 0; i < s.length; i++) {
+      //     h += s.charCodeAt(i).toString(16)
+      // }
+      // return h
+      let uri_encoded_string = encodeURIComponent(path);
+      // encodeURIComponent leaves the following non-alphanumeric chars: - _ . ! ~ * ' ( )
+      // Those are encoded similar to percent encoding:
+      let encoded_path_with_percent = uri_encoded_string.replaceAll('-', '%2d');
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll('_', '%5f');
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll('.', '%2e');
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll('!', '%21');
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll('~', '%7e');
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll('*', '%2a');
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll("'", '%27');
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll("(", '%28');
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll(")", '%29');
+
+      let encoded_path = encoded_path_with_percent.replaceAll('%', '_');
+      encoded_path = encoded_path.toLowerCase();
+      return encoded_path;
     },
 
     decodePath: function(hex) {
-      var s = ''
-      for (var i = 0; i < hex.length; i+=2) {
-          s += String.fromCharCode(parseInt(hex.substr(i, 2), 16))
-      }
-      return decodeURIComponent(escape(s))
+      // let decoded_path = hex.replaceAll('_____').
+      // var s = ''
+      // for (var i = 0; i < hex.length; i+=2) {
+      //     s += String.fromCharCode(parseInt(hex.substr(i, 2), 16))
+      // }
+      // return decodeURIComponent(escape(s))
+      let encoded_path_with_percent = hex.replaceAll('_', '%');
+
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%2d', '-');
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%5f', '_');
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%2e', '.');
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%21', '!');
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%7e', '~');
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%2a', '*');
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%27', "'");
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%28', "(");
+      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%29', ")");
+
+      let decoded_path = decodeURIComponent(encoded_path_with_percent);
+      return decoded_path;
     },
 
 
