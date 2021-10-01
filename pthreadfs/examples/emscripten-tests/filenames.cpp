@@ -6,6 +6,7 @@
  */
 
 #include <assert.h>
+#include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -13,60 +14,88 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
-static void create_file(const char *path, const char *buffer, int mode) {
+static void create_file(const char* path, const char* buffer, int mode) {
   int fd = open(path, O_WRONLY | O_CREAT, mode);
   assert(fd >= 0);
 
   int err = write(fd, buffer, sizeof(char) * strlen(buffer));
-  assert(err ==  (sizeof(char) * strlen(buffer)));
+  assert(err == (sizeof(char) * strlen(buffer)));
 
   close(fd);
 }
 
 void setup() {
   int err;
-  err = mkdir("persistent/lowercase", 0777);
+  err = mkdir("persistent/filenametest", 0777);
+  puts("filenametest");
   assert(!err);
-  err = mkdir("persistent/UPPERCASE", 0777);
+  err = mkdir("persistent/folder space", 0777);
+  puts("folder space");
   assert(!err);
-  err = mkdir("persistent/mixed_case-folder", 0777);
+  err = mkdir("persistent/folder_underscore", 0777);
+  puts("folder_underscore");
   assert(!err);
-  create_file("persistent/lowercase/UPPER.txt", "content UPPER.txt", 0666);
-  create_file("persistent/UPPERCASE/bla.BLA_bla", "content bla.BLA_bla\n", 0666);
-  create_file("persistent/mixed_case-folder/some file .txt", "content some file .txt", 0666);
 }
 
 void cleanup() {
-  unlink("persistent/lowercase/UPPER.txt");
-  unlink("persistent/UPPERCASE/bla.BLA_bla");
-  unlink("persistent/mixed_case-folder/some file .txt");
-  rmdir("persistent/lowercase");
-  rmdir("persistent/UPPERCASE");
-  rmdir("persistent/mixed_case-folder");
+  rmdir("persistent/folder space");
+  rmdir("persistent/folder_underscore");
+  rmdir("persistent/filenametest");
 }
 
-void test() {
+void test_file_contents(const char* path) {
+  printf("Test contents for file %s\n", path);
+  create_file(path, /*buffer=*/path, 0666);
+
+  int fd = open(path, O_RDONLY, 0777);
+  assert(fd >= 0);
+
+  char readbuf[1000];
+  int err = read(fd, readbuf, sizeof(char) * (strlen(path) + 1));
+  assert(err > 0);
+  printf("Content: %s\n", readbuf);
+  close(fd);
+
+  unlink(path);
+}
+
+void test_readdir(const char* path) {
   int err;
-  DIR *dir;
-  struct dirent *ent;
+  DIR* dir;
+  struct dirent* ent;
   int i;
 
-  //
-  // do a normal read with readdir
-  //
-  dir = opendir("persistent/lowercase/");
+  const char* filename = strrchr(path, '/')+1;
+  char * filename_lowercase = (char *)malloc(strlen(filename) + 1);
+  strcpy(filename_lowercase, filename);
+  for(int i = 0; filename_lowercase[i]; i++){
+    filename_lowercase[i] = tolower(filename_lowercase[i]);
+  }
+
+  int length_of_path = filename - path;
+  char *folder = (char *) malloc(length_of_path + 1);
+  memcpy(folder, path, length_of_path);
+  folder[length_of_path] = '\0';
+
+  printf("Test readdir for path %s\n", path);
+  create_file(path, /*buffer=*/path, 0666);
+
+
+  dir = opendir(folder);
   assert(dir);
-  int seen[3] = { 0, 0, 0 };
+  int seen[3] = {0, 0, 0};
   for (i = 0; i < 3; i++) {
     errno = 0;
     ent = readdir(dir);
-    //printf("ent, errno: %p, %d\n", ent, errno);
     assert(ent);
-    printf("%d file: %s (%d : %lu)\n", i, ent->d_name, ent->d_reclen, sizeof(*ent));
     assert(ent->d_reclen == sizeof(*ent));
+    // Convert filenames to lowercase, since the system is supposed to be case-insensitive
+    for(int i = 0; ent->d_name[i]; i++){
+      ent->d_name[i] = tolower(ent->d_name[i]);
+    }
     if (!seen[0] && !strcmp(ent->d_name, ".")) {
       assert(ent->d_type & DT_DIR);
       seen[0] = 1;
@@ -77,7 +106,7 @@ void test() {
       seen[1] = 1;
       continue;
     }
-    if (!seen[2] && !strcmp(ent->d_name, "upper.txt")) {
+    if (!seen[2] && !strcmp(ent->d_name, filename_lowercase)) {
       assert(ent->d_type & DT_REG);
       seen[2] = 1;
       continue;
@@ -85,97 +114,34 @@ void test() {
     assert(0 && "odd filename");
   }
   ent = readdir(dir);
-  if (ent) printf("surprising ent: %p : %s\n", ent, ent->d_name);
+  if (ent)
+    printf("surprising ent: %p : %s\n", ent, ent->d_name);
   assert(!ent);
 
   err = closedir(dir);
   assert(!err);
 
-  dir = opendir("persistent/UPPERCASE/");
-  assert(dir);
-  int seen_2[3] = { 0, 0, 0 };
-  for (i = 0; i < 3; i++) {
-    errno = 0;
-    ent = readdir(dir);
-    //printf("ent, errno: %p, %d\n", ent, errno);
-    assert(ent);
-    printf("%d file: %s (%d : %lu)\n", i, ent->d_name, ent->d_reclen, sizeof(*ent));
-    assert(ent->d_reclen == sizeof(*ent));
-    if (!seen_2[0] && !strcmp(ent->d_name, ".")) {
-      assert(ent->d_type & DT_DIR);
-      seen_2[0] = 1;
-      continue;
-    }
-    if (!seen_2[1] && !strcmp(ent->d_name, "..")) {
-      assert(ent->d_type & DT_DIR);
-      seen_2[1] = 1;
-      continue;
-    }
-    if (!seen_2[2] && !strcmp(ent->d_name, "bla.bla_bla")) {
-      assert(ent->d_type & DT_REG);
-      seen_2[2] = 1;
-      continue;
-    }
-    assert(0 && "odd filename");
-  }
-  ent = readdir(dir);
-  if (ent) printf("surprising ent: %p : %s\n", ent, ent->d_name);
-  assert(!ent);
-
-  err = closedir(dir);
-  assert(!err);
-
-  dir = opendir("persistent/mixed_case-folder/");
-  assert(dir);
-  int seen_3[3] = { 0, 0, 0 };
-  for (i = 0; i < 3; i++) {
-    errno = 0;
-    ent = readdir(dir);
-    //printf("ent, errno: %p, %d\n", ent, errno);
-    assert(ent);
-    printf("%d file: %s (%d : %lu)\n", i, ent->d_name, ent->d_reclen, sizeof(*ent));
-    assert(ent->d_reclen == sizeof(*ent));
-    if (!seen_3[0] && !strcmp(ent->d_name, ".")) {
-      assert(ent->d_type & DT_DIR);
-      seen_3[0] = 1;
-      continue;
-    }
-    if (!seen_3[1] && !strcmp(ent->d_name, "..")) {
-      assert(ent->d_type & DT_DIR);
-      seen_3[1] = 1;
-      continue;
-    }
-    if (!seen_3[2] && !strcmp(ent->d_name, "some file .txt")) {
-      assert(ent->d_type & DT_REG);
-      seen_3[2] = 1;
-      continue;
-    }
-    assert(0 && "odd filename");
-  }
-  ent = readdir(dir);
-  if (ent) printf("surprising ent: %p : %s\n", ent, ent->d_name);
-  assert(!ent);
-
-  err = closedir(dir);
-  assert(!err);
-
-  int fd = open("persistent/UPPERCASE/bla.BLA_bla", O_RDONLY, 0777);
-  assert(fd >= 0);
-
-  char readbuf[100];
-
-  err = read(fd, readbuf, sizeof(char) * 100);
-  assert(err > 0);
-  printf("%s",readbuf);
-
-  close(fd);
-
-  puts("success");
+  unlink(path);
+  free(folder);
+  free(filename_lowercase);
 }
 
 int main() {
   setup();
-  test();
+
+  const char* paths[] = {"persistent/filenametest/file.txt", "persistent/filenametest/file with space",
+    "persistent/filenametest/hyphen-file", "persistent/filenametest/underscore_file", "persistent/filenametest/UPPERCASE",
+    "persistent/filenametest/mixedCASE", "persistent/filenametest/file!", "persistent/filenametest/file(parenthesis)",
+    "persistent/filenametest/fileumlautäöüëé", "persistent/folder space/file",
+    "persistent/folder_underscore/file"};
+
+  for (size_t i = 0; i < sizeof(paths)/sizeof(paths[0]); i++) {
+    test_file_contents(paths[i]);
+    test_readdir(paths[i]);
+  }
+  // test_preexisting_files();
   cleanup();
+
+  puts("success");
   return EXIT_SUCCESS;
 }

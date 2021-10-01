@@ -66,8 +66,8 @@ mergeInto(LibraryManager.library, {
     // directoryPath ensures path ends with a path delimiter ('/').
     //
     // Example:
-    // * directoryPath('_dir') = '_dir_'
-    // * directoryPath('_dir_') = '_dir_'
+    // * directoryPath('/dir') = '/dir/'
+    // * directoryPath('/dir/') = '/dir/'
     directoryPath: function(path) {
       if (path.length && path.slice(-1) == '/') {
         return path;
@@ -75,7 +75,7 @@ mergeInto(LibraryManager.library, {
       return path + '/';
     },
 
-    // extractFilename strips the parent path and drops suffixes after '_'.
+    // extractFilename strips the parent path and drops suffixes after '/'.
     //
     // Example:
     // * extractFilename('/dir', '/dir/myfile') = 'myfile'
@@ -90,18 +90,27 @@ mergeInto(LibraryManager.library, {
       return path.substr(0, index);
     },
 
+    /* Path encoding for Storage Foundation API
+     * 
+     * Storage Foundation does not support directories, hence SFAFS encodes a
+     * file's full path in the file name. Storage Foundation imposes the
+     * following restrictions on file names:
+     * - A name can be at most 100 characters long, and
+     * - Only characters a-z, 0-9 and _ may be used.
+     * 
+     * SFAFS therefore uses an adapted, case-insensitive, case-preserving
+     * Percent-encoding for encoding file names. Since % itself is an
+     * unsupported character for Storage Foundation, it is replaced with _
+     * (underscore). Using a case-insensitive encoding significantly saves
+     * encoding length and therefore allows SFAFS to support paths up to ~90
+     * characters.
+    */
     encodePath: function(path) {
-      //TODO: this is a random hex encoding decide and document on reasonable
-      //scheme
-      // var s = unescape(encodeURIComponent(path))
-      // var h = ''
-      // for (var i = 0; i < s.length; i++) {
-      //     h += s.charCodeAt(i).toString(16)
-      // }
-      // return h
       let uri_encoded_string = encodeURIComponent(path);
-      // encodeURIComponent leaves the following non-alphanumeric chars: - _ . ! ~ * ' ( )
-      // Those are encoded similar to percent encoding:
+      // encodeURIComponent leaves the following non-alphanumeric chars: 
+      // - _ . ! ~ * ' ( )
+      // Those are replaced (similar to percent encoding) with their byte value
+      // in ASCII as a hex, preceded by %.
       let encoded_path_with_percent = uri_encoded_string.replaceAll('-', '%2d');
       encoded_path_with_percent = encoded_path_with_percent.replaceAll('_', '%5f');
       encoded_path_with_percent = encoded_path_with_percent.replaceAll('.', '%2e');
@@ -117,14 +126,8 @@ mergeInto(LibraryManager.library, {
       return encoded_path;
     },
 
-    decodePath: function(hex) {
-      // let decoded_path = hex.replaceAll('_____').
-      // var s = ''
-      // for (var i = 0; i < hex.length; i+=2) {
-      //     s += String.fromCharCode(parseInt(hex.substr(i, 2), 16))
-      // }
-      // return decodeURIComponent(escape(s))
-      let encoded_path_with_percent = hex.replaceAll('_', '%');
+    decodePath: function(encoded_path) {
+      let encoded_path_with_percent = encoded_path.replaceAll('_', '%');
 
       encoded_path_with_percent = encoded_path_with_percent.replaceAll('%2d', '-');
       encoded_path_with_percent = encoded_path_with_percent.replaceAll('%5f', '_');
