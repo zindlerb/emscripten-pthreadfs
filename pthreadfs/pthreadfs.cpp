@@ -311,7 +311,7 @@ SYS_CAPI_DEF(
 
 // Define global variables to be populated by resume;
 std::function<void()> g_resumeFct;
-emscripten::sync_to_async g_sync_to_async_helper;
+emscripten::sync_to_async g_sync_to_async_helper __attribute__((init_priority(102)));
 
 // Other helper code
 
