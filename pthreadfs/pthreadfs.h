@@ -103,7 +103,8 @@
 
 extern "C" {
 // Helpers
-extern void init_pthreadfs(const char* folder, void (*fun)(void));
+extern void pthreadfs_init(const char* folder, void (*fun)(void));
+void pthreadfs_load_package(const char* path_to_package);
 void emscripten_init_pthreadfs();
 
 // WASI

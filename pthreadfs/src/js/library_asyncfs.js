@@ -1391,6 +1391,15 @@
         'MEMFS_ASYNC': MEMFS_ASYNC,
       };
     },
+    // Load all available data packages into the PThreadFS file system.
+    loadAvailablePackages: async function () {
+      if ("pthreadfs_available_packages" in Module) {
+        while (Module["pthreadfs_available_packages"].length > 0) {
+          let package = Module["pthreadfs_available_packages"].pop();
+          await package();
+        }
+      }
+    },
 
     //
     // old v1 compatibility functions

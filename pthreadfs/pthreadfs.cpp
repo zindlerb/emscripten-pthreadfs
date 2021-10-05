@@ -50,7 +50,7 @@ void sync_to_async::invoke(std::function<void(sync_to_async::Callback)> newWork)
       std::lock_guard<std::mutex> lock(mutex);
       work = [](sync_to_async::Callback done) {
         g_resumeFct = [done]() { (*done)(); };
-        init_pthreadfs(PTHREADFS_FOLDER_NAME, &resumeWrapper_v);
+        pthreadfs_init(PTHREADFS_FOLDER_NAME, &resumeWrapper_v);
       };
       finishedWork = false;
       readyToWork = true;
@@ -318,4 +318,20 @@ emscripten::sync_to_async g_sync_to_async_helper;
 void emscripten_init_pthreadfs() {
   EM_ASM(console.log('Calling emscripten_init_pthreadfs() is no longer necessary'););
   return;
+}
+
+void pthreadfs_load_package(const char* package_path) {
+  g_sync_to_async_helper.invoke([package_path](emscripten::sync_to_async::Callback resume) {
+    g_resumeFct = [resume]() { (*resume)(); };
+    // clang-format off
+    EM_ASM({
+      (async() => {
+          console.log(`Loading package ${UTF8ToString($1)}`);
+          importScripts(UTF8ToString($1));
+          await PThreadFS.loadAvailablePackages();
+          wasmTable.get($0)(); 
+      })(); 
+    }, &resumeWrapper_v, package_path);
+    // clang-format on
+  });
 }

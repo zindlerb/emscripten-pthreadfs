@@ -271,7 +271,7 @@ def main():
        'cannot separate-metadata without both --preloaded files '
        'and a specified --js-output')
 
-  if not from_emcc:
+  if not from_emcc and not use_pthreadfs:
     print('Remember to build the main file with  -s FORCE_FILESYSTEM=1  '
           'so that it includes support for loading this file package',
           file=sys.stderr)
@@ -311,7 +311,8 @@ def main():
   '''
   else:
     ret += '''
-let pthreadfs_preload =
+    (function() {
+let loading_script =
   async function() {
   var loadPackage = async function(metadata) {
   '''
@@ -1109,9 +1110,11 @@ let pthreadfs_preload =
     ret += '''%s
     }
 
-      if (!("pthreadfs_preload" in Module)) {
-        Module["pthreadfs_preload"] = pthreadfs_preload;
+      if (!("pthreadfs_available_packages" in Module)) {
+        Module["pthreadfs_available_packages"] = [];
       }
+      Module["pthreadfs_available_packages"].push(loading_script);
+    })();
     ''' % _metadata_template
 
   if force or len(data_files):
