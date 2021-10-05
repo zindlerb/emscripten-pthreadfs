@@ -577,8 +577,9 @@ let loading_script =
                     % shared.JS.escape_for_js_string(data_target))
       else:
         use_data += '''
+          let metadata_file = METADATA_FOLDER + encodeURIComponent(REMOTE_PACKAGE_NAME);
             try {
-              await PThreadFS.writeFile(METADATA_FOLDER + PACKAGE_PATH, PACKAGE_UUID, /*opts=*/{});
+              await PThreadFS.writeFile(metadata_file, PACKAGE_UUID, /*opts=*/{});
             }      
             catch (e) {
               console.log("Writing package UUID failed, no caching");
@@ -623,7 +624,7 @@ let loading_script =
     ''' % (shared.JS.escape_for_js_string(data_target),
            shared.JS.escape_for_js_string(remote_package_name))
     if use_pthreadfs:
-      ret += "let METADATA_FOLDER = '/persistent/EM_PRELOAD_CACHE_METADATA/';\n"
+      ret += "let METADATA_FOLDER = '/persistent/EM_CA/';\n"
     metadata['remote_package_size'] = remote_package_size
     metadata['package_uuid'] = str(package_uuid)
     ret += '''
@@ -797,9 +798,10 @@ let loading_script =
     elif use_pthreadfs:
       code += r'''
 
-      async function checkCachedPackage(packageName) {
+      async function checkCachedPackage(remotePackageName) {
         try {
-          let uuid = await PThreadFS.readFile(METADATA_FOLDER + packageName);
+          let metadata_file = METADATA_FOLDER + encodeURIComponent(remotePackageName);
+          let uuid = await PThreadFS.readFile(metadata_file);
           if (new TextDecoder().decode(uuid) == PACKAGE_UUID) {
             return true;
           }
@@ -1006,7 +1008,7 @@ let loading_script =
       '''
     elif use_pthreadfs:
       code += '''
-      let is_cached = await checkCachedPackage(PACKAGE_PATH);
+      let is_cached = await checkCachedPackage(REMOTE_PACKAGE_NAME);
       if (!is_cached) {
         console.log("not cached, downloading package.");
         let package = await fetchRemotePackage(REMOTE_PACKAGE_NAME, REMOTE_PACKAGE_SIZE);
