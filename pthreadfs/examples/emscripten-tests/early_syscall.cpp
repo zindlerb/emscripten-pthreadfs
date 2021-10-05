@@ -19,7 +19,7 @@ int main() {
 class EarlyObject {
  public:
   EarlyObject() {
-    puts("This test is a warning: Do not use syscalls in objects before main is called!");
+    puts("This test will fail unless compiled with PTHREAD_POOL_SIZE=2 (or higher).");
     puts("Start constructing EarlyObject.");
     int err;
     struct stat s;
