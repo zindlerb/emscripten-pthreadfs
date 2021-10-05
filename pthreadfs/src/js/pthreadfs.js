@@ -177,7 +177,7 @@ SyscallWrappers['pthreadfs_init'] =
       console.log('Initialized PThreadFS with MEMFS');
     }
     // Load any data added during --pre-js.
-    await PThreadFS.loadAvailablePackages()
+    await PThreadFS.loadAvailablePackages();
     wasmTable.get(resume)();
   });
 }
