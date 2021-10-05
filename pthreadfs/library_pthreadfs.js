@@ -3049,11 +3049,12 @@ mergeInto(LibraryManager.library, {
      * - A name can be at most 100 characters long, and
      * - Only characters a-z, 0-9 and _ may be used.
      * 
-     * SFAFS therefore uses an adapted, case-insensitive Percent-encoding for
-     * encoding file names. Since % itself is an unsupported character for
-     * Storage Foundation, it is replaced with _ (underscore).
-     * Using a case-insensitive encoding significantly saves encoding length
-     * and therefore allows SFAFS to support paths up to ~90 characters.
+     * SFAFS therefore uses an adapted, case-insensitive, case-preserving
+     * Percent-encoding for encoding file names. Since % itself is an
+     * unsupported character for Storage Foundation, it is replaced with _
+     * (underscore). Using a case-insensitive encoding significantly saves
+     * encoding length and therefore allows SFAFS to support paths up to ~90
+     * characters.
     */
     encodePath: function(path) {
       let uri_encoded_string = encodeURIComponent(path);
@@ -3694,13 +3695,31 @@ mergeInto(LibraryManager.library, {
 
       unlink: async function(parent, name) {
         FSAFS.debug('unlink', arguments);
-        let res = await parent.localReference.removeEntry(name);
-
+        // This is a workaround necessary for Chrome M95, where locked files can be removed.
+        let writable;
+        let file_handle;
+        try {
+          file_handle = await parent.localReference.getFileHandle(name, {create: false});
+        } catch {
+          // File does not exist, unlink is successful.
+          return;
+        }
+        try {
+          // Creating a writable locks the file.
+          writable = await file_handle.createWritable();
+        } catch (e) {
+          // If writable creation failed, the file is locked.
+          throw new PThreadFS.ErrnoError({{{ cDefine('EBUSY') }}});
+        }
+        // Perform the actual deletion.
+        await parent.localReference.removeEntry(name);
         if ('contents' in parent) {
           delete parent.contents[name];
         }
         parent.timestamp = Date.now();
-        return res;
+        // Make sure that no traces are left in OPFS.
+        await writable.abort();
+        return;
       },
 
       rmdir: async function(parent, name) {
