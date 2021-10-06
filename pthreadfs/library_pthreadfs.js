@@ -3082,9 +3082,7 @@ mergeInto(LibraryManager.library, {
       let encoded_path = encoded_path_with_percent.replaceAll('%', '_');
       encoded_path = encoded_path.toLowerCase();
       if (encoded_path.length > 100) {
-        console.log(`Storage Foundation API warning: Path might be to long.`);
-        console.log(`  Path: ${path}`);
-        console.log(`  Encoded path: ${encoded_path}`);
+        console.log(`SFAFS warning: Path might be to long.  Path: ${path}  Encoded path: ${encoded_path}`);
       }
       return encoded_path;
     },
