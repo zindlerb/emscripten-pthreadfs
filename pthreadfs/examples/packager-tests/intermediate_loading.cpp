@@ -7,11 +7,11 @@
 
 
 #include <assert.h>
-#include <emscripten.h>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <sys/stat.h>
+#include "pthreadfs.h"
 
 int test(std::string file_path, std::string first_line, int size) {
   std::cout << "Start reading first line of file " << file_path << std::endl;
@@ -32,12 +32,15 @@ int test(std::string file_path, std::string first_line, int size) {
 }
 
 int main() {
-  std::cout << "Start preload test.\n";
+  std::cout << "Do some work before loading files.\n";
 
-  test("persistent/smallfile.txt", "These are the contents of a very small file.", 188);
-  test("persistent/subfolder/mediumfile.txt",
+  pthreadfs_load_package("pkg_intermediate_small.js");
+  test("persistent/intermediate_loading/smallfile.txt", "These are the contents of a very small file.", 188);
+
+  pthreadfs_load_package("pkg_intermediate_mediumlarge.js");
+  test("persistent/intermediate_loading/subfolder/mediumfile.txt",
     "Begin mediumfile.txt -------------------------------------------", 138670);
-  test("persistent/bigfile.txt", "Begin bigfile.txt ----------------------------------------------",
+  test("persistent/intermediate_loading/bigfile.txt", "Begin bigfile.txt ----------------------------------------------",
     212992000);
 
   std::cout << "Success.\n";

@@ -1,19 +1,21 @@
 # Emscripten
 EMCC = emcc
-FILE_PACKAGER = ../../tools/file_packager.py
+FILE_PACKAGER = ../file_packager.py
 
 # Define some folders
 EMTESTS = emscripten-tests
 NODEJSTESTS = nodejs-tests
 SQLITETESTS = sqlite-speedtest
-PRELOADTESTS = preload-tests
+PACKAGERTESTS = packager-tests
 OBJ = out/bc
 
 PTHREADFS_JS = ../library_pthreadfs.js
 PTHREADFS_H = ../pthreadfs.h
 PTHREADFS_CPP = ../pthreadfs.cpp
 
-PRELOADFILES = $(PRELOADTESTS)/input/smallfile.txt $(PRELOADTESTS)/input/subfolder/mediumfile.txt $(PRELOADTESTS)/input/bigfile.txt
+PACKAGER_INPUT_SMALL = $(PACKAGERTESTS)/input/small/smallfile.txt
+PACKAGER_INPUT_MEDIUMLARGE = $(PACKAGERTESTS)/input/mediumlarge/subfolder/mediumfile.txt $(PACKAGERTESTS)/input/mediumlarge/bigfile.txt
+PACKAGER_INPUT = $(PACKAGER_INPUT_SMALL) $(PACKAGER_INPUT_MEDIUMLARGE)
 
 # I got this handy makefile syntax from : https://github.com/mandel59/sqlite-wasm (MIT License) Credited in LICENSE
 # To use another version of Sqlite, visit https://www.sqlite.org/download.html and copy the appropriate values here:
@@ -26,7 +28,7 @@ SQLITE_SPEEDTEST_URL = https://sqlite.org/src/raw/5e5b805f24cc939656058f6a498f5a
 SQLITE_SPEEDTEST_SHA1 = f0edde2ad68f090e4676ac30042e0f6b765a8528
 
 .PHONY: all 
-all: sqlite-speedtest emscripten-tests preload-tests
+all: sqlite-speedtest emscripten-tests packager-tests
 
 ## cache
 cache/$(SQLITE_AMALGAMATION).zip:
@@ -114,7 +116,7 @@ $(OBJ)/%.o : $(EMTESTS)/%.cpp
 	mkdir -p $(OBJ)
 	$(EMCC) -c $(CFLAGS) $< -o $@
 
-$(OBJ)/%.o : $(PRELOADTESTS)/%.cpp
+$(OBJ)/%.o : $(PACKAGERTESTS)/%.cpp
 	mkdir -p $(OBJ)
 	$(EMCC) -c $(CFLAGS) $< -o $@
 
@@ -144,25 +146,37 @@ dist/$(NODEJSTESTS)/%.js : $(OBJ)/%.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
 	$(EMCC) $(LINK_FLAGS) --js-library=$(PTHREADFS_JS) $< $(word 2,$^) -o $@
 	
 
-# Compiling the preload-tests requires manual creation of the following files
-# - $(PRELOADTESTS)/input/smallfile.txt: Size 188 bytes, first line "These are the contents of a very small file."
-# - $(PRELOADTESTS)/input/subfolder/mediumfile.txt: Size 138670 bytes, first line "Begin mediumfile.txt -------------------------------------------"
-# - $(PRELOADTESTS)/input/bigfile.txt: Size 212992000 bytes, first line "Begin bigfile.txt ----------------------------------------------"
-.PHONY: preload-tests
-preload-tests: dist/$(PRELOADTESTS)/no_pthreadfs.html dist/$(PRELOADTESTS)/preload_pthreadfs.html dist/$(PRELOADTESTS)/node_preload_pthreadfs.js
+# Compiling the packager tests requires manual creation of the following files
+# - $(PACKAGERTESTS)/input/small/smallfile.txt: Size 188 bytes, first line "These are the contents of a very small file."
+# - $(PACKAGERTESTS)/input/mediumlarge/subfolder/mediumfile.txt: Size 138670 bytes, first line "Begin mediumfile.txt -------------------------------------------"
+# - $(PACKAGERTESTS)/input/mediumlarge/bigfile.txt: Size 212992000 bytes, first line "Begin bigfile.txt ----------------------------------------------"
+.PHONY: packager-tests
+packager-tests: dist/$(PACKAGERTESTS)/preloading_without_pthreadfs.html dist/$(PACKAGERTESTS)/preloading.html dist/$(PACKAGERTESTS)/intermediate_loading.html
 
-dist/$(PRELOADTESTS)/preload_filepackage.js: $(PRELOADFILES) $(FILE_PACKAGER)
-	mkdir -p dist/preload-tests/
-	python3 $(FILE_PACKAGER) $(addsuffix .data, $(basename $@)) --preload ./$(PRELOADTESTS)/input@/persistent --use_pthreadfs --js-output=$@
+# Create the file packages
+dist/$(PACKAGERTESTS)/pkg_preload_small.js: $(PACKAGER_INPUT_SMALL) $(FILE_PACKAGER)
+	mkdir -p dist/$(PACKAGERTESTS)/
+	python3 $(FILE_PACKAGER) $(addsuffix .data, $(basename $@)) --preload ./$(PACKAGERTESTS)/input/small@/persistent --use_pthreadfs --js-output=$@
+dist/$(PACKAGERTESTS)/pkg_preload_mediumlarge.js: $(PACKAGER_INPUT_MEDIUMLARGE) $(FILE_PACKAGER)
+	mkdir -p dist/$(PACKAGERTESTS)/
+	python3 $(FILE_PACKAGER) $(addsuffix .data, $(basename $@)) --preload ./$(PACKAGERTESTS)/input/mediumlarge@/persistent --use_pthreadfs --js-output=$@
 
-dist/$(PRELOADTESTS)/preload_pthreadfs.html: $(OBJ)/preload.o $(OBJ)/pthreadfs.o dist/$(PRELOADTESTS)/preload_filepackage.js $(PTHREADFS_JS)
-	mkdir -p dist/preload-tests
-	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS)  --pre-js $(word 3,$^)  $< $(word 2,$^) 
+dist/$(PACKAGERTESTS)/pkg_intermediate_small.js: $(PACKAGER_INPUT_SMALL) $(FILE_PACKAGER)
+	mkdir -p dist/$(PACKAGERTESTS)/
+	python3 $(FILE_PACKAGER) $(addsuffix .data, $(basename $@)) --preload ./$(PACKAGERTESTS)/input/small@/persistent/intermediate_loading --use_pthreadfs --js-output=$@
+dist/$(PACKAGERTESTS)/pkg_intermediate_mediumlarge.js: $(PACKAGER_INPUT_MEDIUMLARGE) $(FILE_PACKAGER)
+	mkdir -p dist/$(PACKAGERTESTS)/
+	python3 $(FILE_PACKAGER) $(addsuffix .data, $(basename $@)) --preload ./$(PACKAGERTESTS)/input/mediumlarge@/persistent/intermediate_loading --use_pthreadfs --js-output=$@
+
 	
-dist/$(PRELOADTESTS)/no_pthreadfs.html: $(OBJ)/preload.o $(PRELOADFILES)
-	mkdir -p dist/preload-tests
-	$(EMCC) $(LINK_FLAGS) -o $@ --preload-file $(PRELOADTESTS)/input@/persistent $<
+dist/$(PACKAGERTESTS)/preloading_without_pthreadfs.html: $(OBJ)/preloading.o $(PACKAGER_INPUT)
+	mkdir -p dist/$(PACKAGERTESTS)
+	$(EMCC) $(LINK_FLAGS) -o $@ --preload-file $(PACKAGERTESTS)/input/small@/persistent --preload-file $(PACKAGERTESTS)/input/mediumlarge@/persistent $<
 
-dist/$(PRELOADTESTS)/node_preload_pthreadfs.js: $(OBJ)/preload.o $(OBJ)/pthreadfs.o dist/$(PRELOADTESTS)/preload_filepackage.js $(PTHREADFS_JS)
-	mkdir -p dist/preload-tests
-	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS)  --pre-js $(word 3,$^)  $< $(word 2,$^) 
+dist/$(PACKAGERTESTS)/preloading.html: $(OBJ)/preloading.o $(OBJ)/pthreadfs.o dist/$(PACKAGERTESTS)/pkg_preload_small.js dist/$(PACKAGERTESTS)/pkg_preload_mediumlarge.js $(PTHREADFS_JS)
+	mkdir -p dist/$(PACKAGERTESTS)
+	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS)  --pre-js $(word 3,$^) --pre-js $(word 4,$^)  $< $(word 2,$^) 
+
+dist/$(PACKAGERTESTS)/intermediate_loading.html: $(OBJ)/intermediate_loading.o $(OBJ)/pthreadfs.o dist/$(PACKAGERTESTS)/pkg_intermediate_small.js dist/$(PACKAGERTESTS)/pkg_intermediate_mediumlarge.js $(PTHREADFS_JS)
+	mkdir -p dist/$(PACKAGERTESTS)
+	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS) $< $(word 2,$^)

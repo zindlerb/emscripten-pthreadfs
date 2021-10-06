@@ -271,7 +271,7 @@ def main():
        'cannot separate-metadata without both --preloaded files '
        'and a specified --js-output')
 
-  if not from_emcc:
+  if not from_emcc and not use_pthreadfs:
     print('Remember to build the main file with  -s FORCE_FILESYSTEM=1  '
           'so that it includes support for loading this file package',
           file=sys.stderr)
@@ -311,7 +311,8 @@ def main():
   '''
   else:
     ret += '''
-let pthreadfs_preload =
+    (function() {
+let loading_script =
   async function() {
   var loadPackage = async function(metadata) {
   '''
@@ -576,8 +577,9 @@ let pthreadfs_preload =
                     % shared.JS.escape_for_js_string(data_target))
       else:
         use_data += '''
+          let metadata_file = METADATA_FOLDER + encodeURIComponent(REMOTE_PACKAGE_NAME);
             try {
-              await PThreadFS.writeFile(METADATA_FOLDER + PACKAGE_PATH, PACKAGE_UUID, /*opts=*/{});
+              await PThreadFS.writeFile(metadata_file, PACKAGE_UUID, /*opts=*/{});
             }      
             catch (e) {
               console.log("Writing package UUID failed, no caching");
@@ -622,7 +624,7 @@ let pthreadfs_preload =
     ''' % (shared.JS.escape_for_js_string(data_target),
            shared.JS.escape_for_js_string(remote_package_name))
     if use_pthreadfs:
-      ret += "let METADATA_FOLDER = '/persistent/EM_PRELOAD_CACHE_METADATA/';\n"
+      ret += "let METADATA_FOLDER = '/persistent/EM_CA/';\n"
     metadata['remote_package_size'] = remote_package_size
     metadata['package_uuid'] = str(package_uuid)
     ret += '''
@@ -796,9 +798,10 @@ let pthreadfs_preload =
     elif use_pthreadfs:
       code += r'''
 
-      async function checkCachedPackage(packageName) {
+      async function checkCachedPackage(remotePackageName) {
         try {
-          let uuid = await PThreadFS.readFile(METADATA_FOLDER + packageName);
+          let metadata_file = METADATA_FOLDER + encodeURIComponent(remotePackageName);
+          let uuid = await PThreadFS.readFile(metadata_file);
           if (new TextDecoder().decode(uuid) == PACKAGE_UUID) {
             return true;
           }
@@ -1005,7 +1008,7 @@ let pthreadfs_preload =
       '''
     elif use_pthreadfs:
       code += '''
-      let is_cached = await checkCachedPackage(PACKAGE_PATH);
+      let is_cached = await checkCachedPackage(REMOTE_PACKAGE_NAME);
       if (!is_cached) {
         console.log("not cached, downloading package.");
         let package = await fetchRemotePackage(REMOTE_PACKAGE_NAME, REMOTE_PACKAGE_SIZE);
@@ -1109,9 +1112,11 @@ let pthreadfs_preload =
     ret += '''%s
     }
 
-      if (!("pthreadfs_preload" in Module)) {
-        Module["pthreadfs_preload"] = pthreadfs_preload;
+      if (!("pthreadfs_available_packages" in Module)) {
+        Module["pthreadfs_available_packages"] = [];
       }
+      Module["pthreadfs_available_packages"].push(loading_script);
+    })();
     ''' % _metadata_template
 
   if force or len(data_files):

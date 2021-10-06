@@ -81,8 +81,8 @@ for (x of SyscallsFunctions) {
   createSyscallWrapper(x.name, x.args, SyscallWrappers);
 }
 
-SyscallWrappers['init_pthreadfs'] = function (folder_ref, resume) {
-
+SyscallWrappers['pthreadfs_init'] =
+  function(folder_ref, resume) {
   let folder = UTF8ToString(folder_ref)
 
   if (typeof folder !== 'string' || folder.includes('/')) {
@@ -97,17 +97,18 @@ SyscallWrappers['init_pthreadfs'] = function (folder_ref, resume) {
     const root = await navigator.storage.getDirectory();
     const present = FileSystemFileHandle.prototype.createSyncAccessHandle !== undefined;
     return present;
-  }
+  };
 
-let storage_foundation_detection = function() {
-  if (typeof storageFoundation == typeof undefined) {
-    return false;
-  }
-  if (storageFoundation.requestCapacitySync(1) === 0) {
-    return false;
-  }
-  return true;
-}
+  let storage_foundation_detection = function() {
+    if (typeof storageFoundation == typeof undefined) {
+      return false;
+    }
+    if (storageFoundation.requestCapacitySync(1) === 0) {
+      return false;
+    }
+    return true;
+  };
+  
   var FSNode = /** @constructor */ function(parent, name, mode, rdev) {
     if (!parent) {
       parent = this;  // root node sets parent to itself
@@ -154,7 +155,7 @@ let storage_foundation_detection = function() {
   });
   PThreadFS.FSNode = FSNode;
 
-  PThreadFS.staticInit().then(async ()=> {
+  PThreadFS.staticInit().then(async () => {
     PThreadFS.ignorePermissions = false;
     let folderpath = '/' + folder;
     await PThreadFS.mkdir(folderpath);
@@ -162,24 +163,21 @@ let storage_foundation_detection = function() {
     let has_storage_foundation = storage_foundation_detection();
 
     if (has_access_handles) {
-      await PThreadFS.mount(FSAFS, { root: '.' }, folderpath);
+      await PThreadFS.mount(FSAFS, {root : '.'}, folderpath);
       console.log('Initialized PThreadFS with OPFS Access Handles');
-    }
-    else if (has_storage_foundation) {
-      await PThreadFS.mount(SFAFS, { root: '.' }, folderpath);
+    } else if (has_storage_foundation) {
+      await PThreadFS.mount(SFAFS, {root : '.'}, folderpath);
   
       // Storage Foundation requires explicit capacity allocations.
       if (storageFoundation.requestCapacity) {
-        await storageFoundation.requestCapacity(1024*1024*1024);
+        await storageFoundation.requestCapacity(1024 * 1024 * 1024);
       }
       console.log('Initialized PThreadFS with Storage Foundation API');
-    }
-    else {
+    } else {
       console.log('Initialized PThreadFS with MEMFS');
     }
-    if ("pthreadfs_preload" in Module) {
-      await Module["pthreadfs_preload"]();
-    }
+    // Load any data added during --pre-js.
+    await PThreadFS.loadAvailablePackages();
     wasmTable.get(resume)();
   });
 }
