@@ -26,7 +26,7 @@ mergeInto(LibraryManager.library, {
     debug: function(...args) {
       // Uncomment to print debug information.
       //
-      // console.log('SFAFS', arguments);
+      console.log('SFAFS', arguments);
     },
 
     /* Helper functions */
@@ -123,6 +123,11 @@ mergeInto(LibraryManager.library, {
 
       let encoded_path = encoded_path_with_percent.replaceAll('%', '_');
       encoded_path = encoded_path.toLowerCase();
+      if (encoded_path.length > 100) {
+        console.log(`Storage Foundation API warning: Path might be to long.`);
+        console.log(`  Path: ${path}`);
+        console.log(`  Encoded path: ${encoded_path}`);
+      }
       return encoded_path;
     },
 
@@ -214,9 +219,6 @@ mergeInto(LibraryManager.library, {
               attr.size = await SFAFS.openFileHandles[path].getLength();
             }
             else {
-              if (SFAFS.encodePath(path).length > 100) {
-                console.log("SFAFS warning (getattr): Path length might be to long.");
-              }
               let fileHandle = await storageFoundation.open(SFAFS.encodePath(path));
               attr.size = await fileHandle.getLength();
               await fileHandle.close();
@@ -253,9 +255,6 @@ mergeInto(LibraryManager.library, {
               // Setting a file's length requires an open file handle.
               // Since the file has no open handle, open a handle and close it later.
               useOpen = true;
-              if (SFAFS.encodedPath(node).length > 100) {
-                console.log("SFAFS warning (setattr): Path length might be to long.");
-              }
               fileHandle = await storageFoundation.open(SFAFS.encodedPath(node));
             }
             try {
@@ -283,6 +282,7 @@ mergeInto(LibraryManager.library, {
 
       lookup: async function (parent, name) {
         SFAFS.debug('lookup', arguments);
+        console.log(`SFAFS lookup: ${name} in folder ${parent.name}`);
         var parentPath = SFAFS.directoryPath(SFAFS.realPath(parent));
 
         var encoded_children = await SFAFS.listByPrefix(SFAFS.encodePath(parentPath));
@@ -352,9 +352,6 @@ mergeInto(LibraryManager.library, {
         old_node.parent = new_dir;
         let new_path = SFAFS.realPath(old_node);
         let encoded_new_path = SFAFS.encodePath(new_path);
-        if (encoded_new_path.length > 100) {
-          console.log("SFAFS warning (rename): Path length might be to long.");
-        }
 
         // Close and delete an existing file if necessary
         let all_files = await storageFoundation.getAll()
@@ -448,10 +445,6 @@ mergeInto(LibraryManager.library, {
           ++stream.node.refcount;
         } else {
           var path = SFAFS.realPath(stream.node);
-
-          if (SFAFS.encodePath(path).length > 100) {
-            console.log("SFAFS warning (open): Path length might be to long.");
-          }
 
           // Open existing file.
           if(!(path in SFAFS.openFileHandles)) {
