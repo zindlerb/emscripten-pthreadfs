@@ -5,7 +5,7 @@
  */
 
  mergeInto(LibraryManager.library, {
-  $PThreadFS__deps: ['$getRandomDevice', '$PATH', '$PATH_FS', '$TTY_ASYNC', '$MEMFS_ASYNC', 
+  $PThreadFS__deps: ['$getRandomDevice', '$PATH', '$PATH_FS', '$MEMFS_ASYNC', 
 #if ASSERTIONS
     '$ERRNO_MESSAGES', '$ERRNO_CODES',
 #endif
@@ -124,7 +124,9 @@
     hashName: function(parentid, name) {
       var hash = 0;
 
+#if CASE_INSENSITIVE_FS
       name = name.toLowerCase();
+#endif
 
       for (var i = 0; i < name.length; i++) {
         hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
@@ -157,10 +159,14 @@
         throw new PThreadFS.ErrnoError(errCode, parent);
       }
       var hash = PThreadFS.hashName(parent.id, name);
+#if CASE_INSENSITIVE_FS
       name = name.toLowerCase();
+#endif
       for (var node = PThreadFS.nameTable[hash]; node; node = node.name_next) {
         var nodeName = node.name;
+#if CASE_INSENSITIVE_FS
         nodeName = nodeName.toLowerCase();
+#endif
         if (node.parent.id === parent.id && nodeName === name) {
           return node;
         }
@@ -1252,13 +1258,6 @@
         write: function(stream, buffer, offset, length, pos) { return length; }
       });
       await PThreadFS.mkdev('/dev/null', PThreadFS.makedev(1, 3));
-      // setup /dev/tty and /dev/tty1
-      // stderr needs to print output using err() rather than out()
-      // so we register a second tty just for it.
-      TTY_ASYNC.register(PThreadFS.makedev(5, 0), TTY_ASYNC.default_tty_ops);
-      TTY_ASYNC.register(PThreadFS.makedev(6, 0), TTY_ASYNC.default_tty1_ops);
-      await PThreadFS.mkdev('/dev/tty', PThreadFS.makedev(5, 0));
-      await PThreadFS.mkdev('/dev/tty1', PThreadFS.makedev(6, 0));
       // setup /dev/[u]random
       var random_device = getRandomDevice();
       await PThreadFS.createDevice('/dev', 'random', random_device);
@@ -1296,39 +1295,6 @@
       }, {}, '/proc/self/fd');
     },
     createStandardStreams: async function() {
-      // TODO deprecate the old functionality of a single
-      // input / output callback and that utilizes PThreadFS.createDevice
-      // and instead require a unique set of stream ops
-
-      // by default, we symlink the standard streams to the
-      // default tty devices. however, if the standard streams
-      // have been overwritten we create a unique device for
-      // them instead.
-      if (Module['stdin']) {
-        await PThreadFS.createDevice('/dev', 'stdin', Module['stdin']);
-      } else {
-        await PThreadFS.symlink('/dev/tty', '/dev/stdin');
-      }
-      if (Module['stdout']) {
-        await PThreadFS.createDevice('/dev', 'stdout', null, Module['stdout']);
-      } else {
-        await PThreadFS.symlink('/dev/tty', '/dev/stdout');
-      }
-      if (Module['stderr']) {
-        await PThreadFS.createDevice('/dev', 'stderr', null, Module['stderr']);
-      } else {
-        await PThreadFS.symlink('/dev/tty1', '/dev/stderr');
-      }
-
-      // open default streams for the stdin, stdout and stderr devices
-      var stdin = await PThreadFS.open('/dev/stdin', {{{ cDefine('O_RDONLY') }}});
-      var stdout = await PThreadFS.open('/dev/stdout', {{{ cDefine('O_WRONLY') }}});
-      var stderr = await PThreadFS.open('/dev/stderr', {{{ cDefine('O_WRONLY') }}});
-#if ASSERTIONS
-      assert(stdin.fd === 0, 'invalid handle for stdin (' + stdin.fd + ')');
-      assert(stdout.fd === 1, 'invalid handle for stdout (' + stdout.fd + ')');
-      assert(stderr.fd === 2, 'invalid handle for stderr (' + stderr.fd + ')');
-#endif
     },
     ensureErrnoError: function() {
       if (PThreadFS.ErrnoError) return;
@@ -1552,6 +1518,122 @@
         }
       } else {
         throw new Error('Cannot load without read() or XMLHttpRequest.');
+      }
+    },
+    init: async function(folder) {
+      if (typeof folder !== 'string' || folder.includes('/')) {
+        console.log("PThreadFS warning: Bad folder name: " + folder);
+        console.log("                   The folder name should be a string that does not include /");
+      }
+
+      let access_handle_detection = async function() {
+        if (ENVIRONMENT_IS_NODE)
+          return false;
+        if (ENVIRONMENT_IS_WEB) {
+          const workerCode = `
+let present = FileSystemFileHandle.prototype.createSyncAccessHandle !== undefined;
+postMessage(present);
+`
+          const workerBlob = new Blob ([workerCode], {type: 'text/javascript'});
+          let waitForWorker = async function() {
+            const worker = new Worker(window.URL.createObjectURL(workerBlob));
+            return new Promise((resolve, reject) => {
+              worker.onmessage = result => {
+                resolve(result.data);
+                worker.terminate();
+              }
+              worker.onerror = error => {
+                reject(error);
+                worker.terminate();
+              }
+            });
+          }
+          return await waitForWorker();
+        }
+
+        const root = await navigator.storage.getDirectory();
+        const present = FileSystemFileHandle.prototype.createSyncAccessHandle !== undefined;
+        return present;
+      };
+
+      // Uncomment for Storage Foundation detection.
+      // let storage_foundation_detection = async function() {
+      //   if (typeof storageFoundation == typeof undefined) {
+      //     return false;
+      //   }
+      //   let granted_capacity = await storageFoundation.requestCapacity(1);
+      //   if (granted_capacity === 0) {
+      //     return false;
+      //   }
+      //   return true;
+      // };
+
+      var FSNode = /** @constructor */ function(parent, name, mode, rdev) {
+        if (!parent) {
+          parent = this;  // root node sets parent to itself
+        }
+        this.parent = parent;
+        this.mount = parent.mount;
+        this.mounted = null;
+        this.id = PThreadFS.nextInode++;
+        this.name = name;
+        this.mode = mode;
+        this.node_ops = {};
+        this.stream_ops = {};
+        this.rdev = rdev;
+      };
+      var readMode = 292/*{{{ cDefine("S_IRUGO") }}}*/ | 73/*{{{ cDefine("S_IXUGO") }}}*/;
+      var writeMode = 146/*{{{ cDefine("S_IWUGO") }}}*/;
+      Object.defineProperties(FSNode.prototype, {
+       read: {
+        get: /** @this{FSNode} */function() {
+         return (this.mode & readMode) === readMode;
+        },
+        set: /** @this{FSNode} */function(val) {
+         val ? this.mode |= readMode : this.mode &= ~readMode;
+        }
+       },
+       write: {
+        get: /** @this{FSNode} */function() {
+         return (this.mode & writeMode) === writeMode;
+        },
+        set: /** @this{FSNode} */function(val) {
+         val ? this.mode |= writeMode : this.mode &= ~writeMode;
+        }
+       },
+       isFolder: {
+        get: /** @this{FSNode} */function() {
+         return PThreadFS.isDir(this.mode);
+        }
+       },
+       isDevice: {
+        get: /** @this{FSNode} */function() {
+         return PThreadFS.isChrdev(this.mode);
+        }
+       }
+      });
+      PThreadFS.FSNode = FSNode;
+
+      await PThreadFS.staticInit();
+      PThreadFS.ignorePermissions = false;
+      let folderpath = '/' + folder;
+      await PThreadFS.mkdir(folderpath);
+      let has_access_handles = await access_handle_detection();
+      // let has_storage_foundation = await storage_foundation_detection();
+
+      if (has_access_handles) {
+        await PThreadFS.mount(FSAFS, {root : '.'}, folderpath);
+        console.log('Initialized PThreadFS with OPFS Access Handles');
+      // } else if (has_storage_foundation) {
+      //   await PThreadFS.mount(SFAFS, {root : '.'}, folderpath);
+
+      //   // Storage Foundation requires explicit capacity allocations.
+      //   if (storageFoundation.requestCapacity) {
+      //     await storageFoundation.requestCapacity(1024 * 1024 * 1024);
+      //   }
+      //   console.log('Initialized PThreadFS with Storage Foundation API');
+      } else {
+        console.log('Initialized PThreadFS with MEMFS');
       }
     },
   },
