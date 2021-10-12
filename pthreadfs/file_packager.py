@@ -520,7 +520,10 @@ let loading_script =
           try {
             await PThreadFS.unlink(this.name);
           }
-          catch {}
+          catch (e) {
+            // This error message might spam the console. consider removing it when the file packager matures.
+            console.log("Removing " + this.name + " failed with message " + e);
+          }
           await PThreadFS.createDataFile(this.name, null, byteArray, true, true,
             true); // canOwn this data in the filesystem, it is a slide into the heap that will
                    // never change
