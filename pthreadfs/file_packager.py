@@ -241,7 +241,8 @@ def main():
       mode = leading
       # position of @ if we're doing 'src@dst'. '__' is used to keep the index
       # same with the original if they escaped with '@@'.
-      at_position = arg.replace('@@', '__').find('@')
+      # at_position = arg.replace('@@', '__').find('@')
+      at_position = arg.replace('@@', '__').rfind('@')
       # '@@' in input string means there is an actual @ character, a single '@'
       # means the 'src@dst' notation.
       uses_at_notation = (at_position != -1)
@@ -520,7 +521,10 @@ let loading_script =
           try {
             await PThreadFS.unlink(this.name);
           }
-          catch {}
+          catch (e) {
+            // TODO: This error message might spam the console, consider removing it when the file packager matures.
+            console.log("Removing " + this.name + " failed with message " + e);
+          }
           await PThreadFS.createDataFile(this.name, null, byteArray, true, true,
             true); // canOwn this data in the filesystem, it is a slide into the heap that will
                    // never change
@@ -563,28 +567,30 @@ let loading_script =
     if not lz4:
       # Get the big archive and split it up
       use_data = '''
-          // Reuse the bytearray from the XHR as the source for file reads.
-          DataRequest.prototype.byteArray = byteArray;
+        // Reuse the bytearray from the XHR as the source for file reads.
+        DataRequest.prototype.byteArray = byteArray;
     '''
       use_data += '''
-            var files = metadata['files'];
-            for (var i = 0; i < files.length; ++i) {
-              await DataRequest.prototype.requests[files[i].filename].onload();
-            }
+        var files = metadata['files'];
+        let promises = [];
+        for (var i = 0; i < files.length; ++i) {
+          promises.push(DataRequest.prototype.requests[files[i].filename].onload());
+        }
+        await Promise.all(promises);
       '''
       if not use_pthreadfs:
         use_data += ("          Module['removeRunDependency']('datafile_%s');\n"
                     % shared.JS.escape_for_js_string(data_target))
       else:
         use_data += '''
-          let metadata_file = METADATA_FOLDER + encodeURIComponent(REMOTE_PACKAGE_NAME);
-            try {
-              await PThreadFS.writeFile(metadata_file, PACKAGE_UUID, /*opts=*/{});
-            }      
-            catch (e) {
-              console.log("Writing package UUID failed, no caching");
-            }
-              '''
+        let metadata_file = METADATA_FOLDER + PACKAGE_UUID;
+        try {
+          await PThreadFS.create(metadata_file);
+        }      
+        catch (e) {
+          console.log("Writing package UUID failed, no caching");
+        }
+        '''
 
     else:
       # LZ4FS usage
@@ -800,14 +806,11 @@ let loading_script =
 
       async function checkCachedPackage(remotePackageName) {
         try {
-          let metadata_file = METADATA_FOLDER + encodeURIComponent(remotePackageName);
-          let uuid = await PThreadFS.readFile(metadata_file);
-          if (new TextDecoder().decode(uuid) == PACKAGE_UUID) {
-            return true;
-          }
-          return false;
+          let metadata_file = METADATA_FOLDER + PACKAGE_UUID;
+          let uuid = await PThreadFS.lookupPath(metadata_file);
+          return true;
         }
-        catch {
+        catch (e) {
           return false;
         }
       }
@@ -917,38 +920,12 @@ let loading_script =
           }
         '''
       ret += r'''
-          function fetchRemotePackage(packageName, packageSize, callback, errback) {
+          function fetchRemotePackage(packageName) {
       return new Promise(function (resolve, reject) {
         %(node_support_code)s
         var xhr = new XMLHttpRequest();
         xhr.open('GET', packageName, true);
         xhr.responseType = 'arraybuffer';
-        xhr.onprogress = function(event) {
-          var url = packageName;
-          var size = packageSize;
-          if (event.total)
-            size = event.total;
-          if (event.loaded) {
-            if (!xhr.addedTotal) {
-              xhr.addedTotal = true;
-              if (!Module.dataFileDownloads)
-                Module.dataFileDownloads = {};
-              Module.dataFileDownloads[url] = {loaded : event.loaded, total : size};
-            } else {
-              Module.dataFileDownloads[url].loaded = event.loaded;
-            }
-            var total = 0;
-            var loaded = 0;
-            var num = 0;
-            for (var download in Module.dataFileDownloads) {
-              var data = Module.dataFileDownloads[download];
-              total += data.total;
-              loaded += data.loaded;
-              num++;
-            }
-            total = Math.ceil(total * Module.expectedDataFileDownloads / num);
-          }
-        };
         xhr.onerror = function(event) { throw new Error("NetworkError for: " + packageName); };
         xhr.onload = function(event) {
           if (xhr.status == 200 || xhr.status == 304 || xhr.status == 206 ||
@@ -1010,12 +987,12 @@ let loading_script =
       code += '''
       let is_cached = await checkCachedPackage(REMOTE_PACKAGE_NAME);
       if (!is_cached) {
-        console.log("not cached, downloading package.");
-        let package = await fetchRemotePackage(REMOTE_PACKAGE_NAME, REMOTE_PACKAGE_SIZE);
+        console.log("not cached, downloading package " + REMOTE_PACKAGE_NAME);
+        let package = await fetchRemotePackage(REMOTE_PACKAGE_NAME);
         await processPackageData(package);
       }
       else {
-        console.log("using cached package.");
+        console.log("using cached package " + REMOTE_PACKAGE_NAME);
       }
       '''
     else:

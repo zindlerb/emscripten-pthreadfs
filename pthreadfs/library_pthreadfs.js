@@ -57,7 +57,8 @@ function createWasiWrapper(name, args, wrappers) {
   wrapper += `_fd_${name}_async(${full_args}).then((res) => {`;
   wrapper += 'wasmTable.get(resume)(res);});}'
   wrappers[`__fd_${name}_async`] = eval('(' + wrapper + ')');
-  wrappers[`__fd_${name}_async__deps`] = [`fd_${name}_async`, '$ASYNCSYSCALLS', '$FSAFS', '$SFAFS'];
+  // Additional backends must register a dependency here.
+  wrappers[`__fd_${name}_async__deps`] = [`fd_${name}_async`, '$ASYNCSYSCALLS', '$FSAFS'];
 }
 
 function createSyscallWrapper(name, args, wrappers) {
@@ -71,7 +72,8 @@ function createSyscallWrapper(name, args, wrappers) {
   wrapper += `_${name}_async(${full_args}).then((res) => {`;
   wrapper += 'wasmTable.get(resume)(res);});}'
   wrappers[`__sys_${name}_async`] = eval('(' + wrapper + ')');
-  wrappers[`__sys_${name}_async__deps`] = [`${name}_async`, '$ASYNCSYSCALLS', '$FSAFS', '$SFAFS'];
+  // Additional backends must register a dependency here.
+  wrappers[`__sys_${name}_async__deps`] = [`${name}_async`, '$ASYNCSYSCALLS', '$FSAFS'];
 }
 
 for (x of WasiFunctions) {
@@ -83,100 +85,10 @@ for (x of SyscallsFunctions) {
 
 SyscallWrappers['pthreadfs_init'] =
   function(folder_ref, resume) {
-  let folder = UTF8ToString(folder_ref)
+  let folder = UTF8ToString(folder_ref);
 
-  if (typeof folder !== 'string' || folder.includes('/')) {
-    console.log("PThreadFS warning: Bad folder name: " + folder);
-    console.log("                   The folder name should be a string that does not include /");
-  }
-  
-  let access_handle_detection = async function() {
-    if (ENVIRONMENT_IS_NODE)
-      return false;
-
-    const root = await navigator.storage.getDirectory();
-    const present = FileSystemFileHandle.prototype.createSyncAccessHandle !== undefined;
-    return present;
-  };
-
-  let storage_foundation_detection = function() {
-    if (typeof storageFoundation == typeof undefined) {
-      return false;
-    }
-    if (storageFoundation.requestCapacitySync(1) === 0) {
-      return false;
-    }
-    return true;
-  };
-  
-  var FSNode = /** @constructor */ function(parent, name, mode, rdev) {
-    if (!parent) {
-      parent = this;  // root node sets parent to itself
-    }
-    this.parent = parent;
-    this.mount = parent.mount;
-    this.mounted = null;
-    this.id = PThreadFS.nextInode++;
-    this.name = name;
-    this.mode = mode;
-    this.node_ops = {};
-    this.stream_ops = {};
-    this.rdev = rdev;
-  };
-  var readMode = 292/*{{{ cDefine("S_IRUGO") }}}*/ | 73/*{{{ cDefine("S_IXUGO") }}}*/;
-  var writeMode = 146/*{{{ cDefine("S_IWUGO") }}}*/;
-  Object.defineProperties(FSNode.prototype, {
-   read: {
-    get: /** @this{FSNode} */function() {
-     return (this.mode & readMode) === readMode;
-    },
-    set: /** @this{FSNode} */function(val) {
-     val ? this.mode |= readMode : this.mode &= ~readMode;
-    }
-   },
-   write: {
-    get: /** @this{FSNode} */function() {
-     return (this.mode & writeMode) === writeMode;
-    },
-    set: /** @this{FSNode} */function(val) {
-     val ? this.mode |= writeMode : this.mode &= ~writeMode;
-    }
-   },
-   isFolder: {
-    get: /** @this{FSNode} */function() {
-     return PThreadFS.isDir(this.mode);
-    }
-   },
-   isDevice: {
-    get: /** @this{FSNode} */function() {
-     return PThreadFS.isChrdev(this.mode);
-    }
-   }
-  });
-  PThreadFS.FSNode = FSNode;
-
-  PThreadFS.staticInit().then(async () => {
-    PThreadFS.ignorePermissions = false;
-    let folderpath = '/' + folder;
-    await PThreadFS.mkdir(folderpath);
-    let has_access_handles = await access_handle_detection();
-    let has_storage_foundation = storage_foundation_detection();
-
-    if (has_access_handles) {
-      await PThreadFS.mount(FSAFS, {root : '.'}, folderpath);
-      console.log('Initialized PThreadFS with OPFS Access Handles');
-    } else if (has_storage_foundation) {
-      await PThreadFS.mount(SFAFS, {root : '.'}, folderpath);
-  
-      // Storage Foundation requires explicit capacity allocations.
-      if (storageFoundation.requestCapacity) {
-        await storageFoundation.requestCapacity(1024 * 1024 * 1024);
-      }
-      console.log('Initialized PThreadFS with Storage Foundation API');
-    } else {
-      console.log('Initialized PThreadFS with MEMFS');
-    }
-    // Load any data added during --pre-js.
+  PThreadFS.init(folder).then(async () => {
+    // Load packaged data added during --pre-js.
     await PThreadFS.loadAvailablePackages();
     wasmTable.get(resume)();
   });
@@ -1010,7 +922,7 @@ mergeInto(LibraryManager.library, SyscallsLibrary);
  */
 
  mergeInto(LibraryManager.library, {
-  $PThreadFS__deps: ['$getRandomDevice', '$PATH', '$PATH_FS', '$TTY_ASYNC', '$MEMFS_ASYNC', 
+  $PThreadFS__deps: ['$getRandomDevice', '$PATH', '$PATH_FS', '$MEMFS_ASYNC', 
 #if ASSERTIONS
     '$ERRNO_MESSAGES', '$ERRNO_CODES',
 #endif
@@ -1129,7 +1041,9 @@ mergeInto(LibraryManager.library, SyscallsLibrary);
     hashName: function(parentid, name) {
       var hash = 0;
 
+#if CASE_INSENSITIVE_FS
       name = name.toLowerCase();
+#endif
 
       for (var i = 0; i < name.length; i++) {
         hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
@@ -1162,10 +1076,14 @@ mergeInto(LibraryManager.library, SyscallsLibrary);
         throw new PThreadFS.ErrnoError(errCode, parent);
       }
       var hash = PThreadFS.hashName(parent.id, name);
+#if CASE_INSENSITIVE_FS
       name = name.toLowerCase();
+#endif
       for (var node = PThreadFS.nameTable[hash]; node; node = node.name_next) {
         var nodeName = node.name;
+#if CASE_INSENSITIVE_FS
         nodeName = nodeName.toLowerCase();
+#endif
         if (node.parent.id === parent.id && nodeName === name) {
           return node;
         }
@@ -2257,13 +2175,6 @@ mergeInto(LibraryManager.library, SyscallsLibrary);
         write: function(stream, buffer, offset, length, pos) { return length; }
       });
       await PThreadFS.mkdev('/dev/null', PThreadFS.makedev(1, 3));
-      // setup /dev/tty and /dev/tty1
-      // stderr needs to print output using err() rather than out()
-      // so we register a second tty just for it.
-      TTY_ASYNC.register(PThreadFS.makedev(5, 0), TTY_ASYNC.default_tty_ops);
-      TTY_ASYNC.register(PThreadFS.makedev(6, 0), TTY_ASYNC.default_tty1_ops);
-      await PThreadFS.mkdev('/dev/tty', PThreadFS.makedev(5, 0));
-      await PThreadFS.mkdev('/dev/tty1', PThreadFS.makedev(6, 0));
       // setup /dev/[u]random
       var random_device = getRandomDevice();
       await PThreadFS.createDevice('/dev', 'random', random_device);
@@ -2301,39 +2212,6 @@ mergeInto(LibraryManager.library, SyscallsLibrary);
       }, {}, '/proc/self/fd');
     },
     createStandardStreams: async function() {
-      // TODO deprecate the old functionality of a single
-      // input / output callback and that utilizes PThreadFS.createDevice
-      // and instead require a unique set of stream ops
-
-      // by default, we symlink the standard streams to the
-      // default tty devices. however, if the standard streams
-      // have been overwritten we create a unique device for
-      // them instead.
-      if (Module['stdin']) {
-        await PThreadFS.createDevice('/dev', 'stdin', Module['stdin']);
-      } else {
-        await PThreadFS.symlink('/dev/tty', '/dev/stdin');
-      }
-      if (Module['stdout']) {
-        await PThreadFS.createDevice('/dev', 'stdout', null, Module['stdout']);
-      } else {
-        await PThreadFS.symlink('/dev/tty', '/dev/stdout');
-      }
-      if (Module['stderr']) {
-        await PThreadFS.createDevice('/dev', 'stderr', null, Module['stderr']);
-      } else {
-        await PThreadFS.symlink('/dev/tty1', '/dev/stderr');
-      }
-
-      // open default streams for the stdin, stdout and stderr devices
-      var stdin = await PThreadFS.open('/dev/stdin', {{{ cDefine('O_RDONLY') }}});
-      var stdout = await PThreadFS.open('/dev/stdout', {{{ cDefine('O_WRONLY') }}});
-      var stderr = await PThreadFS.open('/dev/stderr', {{{ cDefine('O_WRONLY') }}});
-#if ASSERTIONS
-      assert(stdin.fd === 0, 'invalid handle for stdin (' + stdin.fd + ')');
-      assert(stdout.fd === 1, 'invalid handle for stdout (' + stdout.fd + ')');
-      assert(stderr.fd === 2, 'invalid handle for stderr (' + stderr.fd + ')');
-#endif
     },
     ensureErrnoError: function() {
       if (PThreadFS.ErrnoError) return;
@@ -2557,6 +2435,122 @@ mergeInto(LibraryManager.library, SyscallsLibrary);
         }
       } else {
         throw new Error('Cannot load without read() or XMLHttpRequest.');
+      }
+    },
+    init: async function(folder) {
+      if (typeof folder !== 'string' || folder.includes('/')) {
+        console.log("PThreadFS warning: Bad folder name: " + folder);
+        console.log("                   The folder name should be a string that does not include /");
+      }
+
+      let access_handle_detection = async function() {
+        if (ENVIRONMENT_IS_NODE)
+          return false;
+        if (ENVIRONMENT_IS_WEB) {
+          const workerCode = `
+let present = FileSystemFileHandle.prototype.createSyncAccessHandle !== undefined;
+postMessage(present);
+`
+          const workerBlob = new Blob ([workerCode], {type: 'text/javascript'});
+          let waitForWorker = async function() {
+            const worker = new Worker(window.URL.createObjectURL(workerBlob));
+            return new Promise((resolve, reject) => {
+              worker.onmessage = result => {
+                resolve(result.data);
+                worker.terminate();
+              }
+              worker.onerror = error => {
+                reject(error);
+                worker.terminate();
+              }
+            });
+          }
+          return await waitForWorker();
+        }
+
+        const root = await navigator.storage.getDirectory();
+        const present = FileSystemFileHandle.prototype.createSyncAccessHandle !== undefined;
+        return present;
+      };
+
+      // Uncomment for Storage Foundation detection.
+      // let storage_foundation_detection = async function() {
+      //   if (typeof storageFoundation == typeof undefined) {
+      //     return false;
+      //   }
+      //   let granted_capacity = await storageFoundation.requestCapacity(1);
+      //   if (granted_capacity === 0) {
+      //     return false;
+      //   }
+      //   return true;
+      // };
+
+      var FSNode = /** @constructor */ function(parent, name, mode, rdev) {
+        if (!parent) {
+          parent = this;  // root node sets parent to itself
+        }
+        this.parent = parent;
+        this.mount = parent.mount;
+        this.mounted = null;
+        this.id = PThreadFS.nextInode++;
+        this.name = name;
+        this.mode = mode;
+        this.node_ops = {};
+        this.stream_ops = {};
+        this.rdev = rdev;
+      };
+      var readMode = 292/*{{{ cDefine("S_IRUGO") }}}*/ | 73/*{{{ cDefine("S_IXUGO") }}}*/;
+      var writeMode = 146/*{{{ cDefine("S_IWUGO") }}}*/;
+      Object.defineProperties(FSNode.prototype, {
+       read: {
+        get: /** @this{FSNode} */function() {
+         return (this.mode & readMode) === readMode;
+        },
+        set: /** @this{FSNode} */function(val) {
+         val ? this.mode |= readMode : this.mode &= ~readMode;
+        }
+       },
+       write: {
+        get: /** @this{FSNode} */function() {
+         return (this.mode & writeMode) === writeMode;
+        },
+        set: /** @this{FSNode} */function(val) {
+         val ? this.mode |= writeMode : this.mode &= ~writeMode;
+        }
+       },
+       isFolder: {
+        get: /** @this{FSNode} */function() {
+         return PThreadFS.isDir(this.mode);
+        }
+       },
+       isDevice: {
+        get: /** @this{FSNode} */function() {
+         return PThreadFS.isChrdev(this.mode);
+        }
+       }
+      });
+      PThreadFS.FSNode = FSNode;
+
+      await PThreadFS.staticInit();
+      PThreadFS.ignorePermissions = false;
+      let folderpath = '/' + folder;
+      await PThreadFS.mkdir(folderpath);
+      let has_access_handles = await access_handle_detection();
+      // let has_storage_foundation = await storage_foundation_detection();
+
+      if (has_access_handles) {
+        await PThreadFS.mount(FSAFS, {root : '.'}, folderpath);
+        console.log('Initialized PThreadFS with OPFS Access Handles');
+      // } else if (has_storage_foundation) {
+      //   await PThreadFS.mount(SFAFS, {root : '.'}, folderpath);
+
+      //   // Storage Foundation requires explicit capacity allocations.
+      //   if (storageFoundation.requestCapacity) {
+      //     await storageFoundation.requestCapacity(1024 * 1024 * 1024);
+      //   }
+      //   console.log('Initialized PThreadFS with Storage Foundation API');
+      } else {
+        console.log('Initialized PThreadFS with MEMFS');
       }
     },
   },
@@ -2957,565 +2951,6 @@ mergeInto(LibraryManager.library, {
  */
 
 mergeInto(LibraryManager.library, {
-  $SFAFS__deps: ['$PThreadFS'],
-  $SFAFS: {
-
-    benchmark: function(name, fct) {
-      if('benchmark_results' in Module) {
-        let time_pre = performance.now();
-        let result = fct();
-        let time_needed = performance.now() - time_pre;
-
-        Module.benchmark_results[`${name}_time`] = (Module.benchmark_results[`${name}_time`] || 0) + time_needed;
-        Module.benchmark_results[`${name}_num`] = (Module.benchmark_results[`${name}_num`] || 0) + 1;
-        return result;
-      }
-      return fct();
-    },
-
-    /* Debugging */
-
-    debug: function(...args) {
-      // Uncomment to print debug information.
-      //
-      // console.log('SFAFS', arguments);
-    },
-
-    /* Helper functions */
-
-    realPath: function(node) {
-      var parts = [];
-      while (node.parent !== node) {
-        parts.push(node.name);
-        node = node.parent;
-      }
-      if (!parts.length) {
-        return '/';
-      }
-      parts.push('');
-      parts.reverse();
-      return parts.join('/').toLowerCase();
-    },
-
-    encodedPath: function(node) {
-      return SFAFS.encodePath(SFAFS.realPath(node));
-    },
-
-    joinPaths: function(path1, path2) {
-      if (path1.endsWith('/')) {
-        if (path2.startsWith('/')) {
-          return path1.slice(0, -1) + path2;
-        }
-        return path1 + path2;
-      } else {
-        if (path2.startsWith('/')) {
-          return path1 + path2;
-        }
-        return path1 + '/' + path2;
-      }
-    },
-
-    // directoryPath ensures path ends with a path delimiter ('/').
-    //
-    // Example:
-    // * directoryPath('/dir') = '/dir/'
-    // * directoryPath('/dir/') = '/dir/'
-    directoryPath: function(path) {
-      if (path.length && path.slice(-1) == '/') {
-        return path;
-      }
-      return path + '/';
-    },
-
-    // extractFilename strips the parent path and drops suffixes after '/'.
-    //
-    // Example:
-    // * extractFilename('/dir', '/dir/myfile') = 'myfile'
-    // * extractFilename('/dir', '/dir/mydir/myfile') = 'mydir'
-    extractFilename: function(parent, path) {
-      parent = SFAFS.directoryPath(parent);
-      path = path.substr(parent.length);
-      var index = path.indexOf('/');
-      if (index == -1) {
-        return path;
-      }
-      return path.substr(0, index);
-    },
-
-    /* Path encoding for Storage Foundation API
-     * 
-     * Storage Foundation does not support directories, hence SFAFS encodes a
-     * file's full path in the file name. Storage Foundation imposes the
-     * following restrictions on file names:
-     * - A name can be at most 100 characters long, and
-     * - Only characters a-z, 0-9 and _ may be used.
-     * 
-     * SFAFS therefore uses an adapted, case-insensitive, case-preserving
-     * Percent-encoding for encoding file names. Since % itself is an
-     * unsupported character for Storage Foundation, it is replaced with _
-     * (underscore). Using a case-insensitive encoding significantly saves
-     * encoding length and therefore allows SFAFS to support paths up to ~90
-     * characters.
-    */
-    encodePath: function(path) {
-      let uri_encoded_string = encodeURIComponent(path);
-      // encodeURIComponent leaves the following non-alphanumeric chars: 
-      // - _ . ! ~ * ' ( )
-      // Those are replaced (similar to percent encoding) with their byte value
-      // in ASCII as a hex, preceded by %.
-      let encoded_path_with_percent = uri_encoded_string.replaceAll('-', '%2d');
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll('_', '%5f');
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll('.', '%2e');
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll('!', '%21');
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll('~', '%7e');
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll('*', '%2a');
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll("'", '%27');
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll("(", '%28');
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll(")", '%29');
-
-      let encoded_path = encoded_path_with_percent.replaceAll('%', '_');
-      encoded_path = encoded_path.toLowerCase();
-      return encoded_path;
-    },
-
-    decodePath: function(encoded_path) {
-      let encoded_path_with_percent = encoded_path.replaceAll('_', '%');
-
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%2d', '-');
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%5f', '_');
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%2e', '.');
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%21', '!');
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%7e', '~');
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%2a', '*');
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%27', "'");
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%28', "(");
-      encoded_path_with_percent = encoded_path_with_percent.replaceAll('%29', ")");
-
-      let decoded_path = decodeURIComponent(encoded_path_with_percent);
-      return decoded_path;
-    },
-
-
-    listByPrefix: async function(prefix) {
-      let entries = await storageFoundation.getAll();
-      return entries.filter(name => name.startsWith(prefix))
-    },
-
-    // Caches open file handles to simulate opening a file multiple times.
-    openFileHandles: {},
-
-    /* Filesystem implementation (public interface) */
-
-    createNode: function (parent, name, mode, dev) {
-      SFAFS.debug('createNode', arguments);
-      if (!PThreadFS.isDir(mode) && !PThreadFS.isFile(mode)) {
-        throw new PThreadFS.ErrnoError({{{ cDefine('EINVAL') }}});
-      }
-      var node = PThreadFS.createNode(parent, name, mode);
-      node.node_ops = SFAFS.node_ops;
-      node.stream_ops = SFAFS.stream_ops;
-      if (PThreadFS.isDir(mode)) {
-        node.contents = {};
-      }
-      node.timestamp = Date.now();
-      return node;
-    },
-
-    mount: function (mount) {
-      SFAFS.debug('mount', arguments);
-      return SFAFS.createNode(null, '/', {{{ cDefine('S_IFDIR') }}} | 511 /* 0777 */, 0);
-    },
-
-    cwd: function() { return process.cwd(); },
-
-    chdir: function() { process.chdir.apply(void 0, arguments); },
-
-    allocate: function() {
-      SFAFS.debug('allocate', arguments);
-      throw new PThreadFS.ErrnoError({{{ cDefine('EOPNOTSUPP') }}});
-    },
-
-    ioctl: function() {
-      SFAFS.debug('ioctl', arguments);
-      throw new PThreadFS.ErrnoError({{{ cDefine('ENOTTY') }}});
-    },
-
-    /* Operations on the nodes of the filesystem tree */
-
-    node_ops: {
-      getattr: async function(node) {
-        SFAFS.debug('getattr', arguments);
-        let attr = {};
-        // device numbers reuse inode numbers.
-        attr.dev = PThreadFS.isChrdev(node.mode) ? node.id : 1;
-        attr.ino = node.id;
-        attr.mode = node.mode;
-        attr.nlink = 1;
-        attr.uid = 0;
-        attr.gid = 0;
-        attr.rdev = node.rdev;
-        if (PThreadFS.isDir(node.mode)) {
-          attr.size = 4096;
-        } else if (PThreadFS.isFile(node.mode)) {
-          if (node.handle) {
-            attr.size = await node.handle.getLength();
-          } 
-          else {
-            let path = SFAFS.realPath(node);
-            if (path in SFAFS.openFileHandles) {
-              attr.size = await SFAFS.openFileHandles[path].getLength();
-            }
-            else {
-              if (SFAFS.encodePath(path).length > 100) {
-                console.log("SFAFS warning (getattr): Path length might be to long.");
-              }
-              let fileHandle = await storageFoundation.open(SFAFS.encodePath(path));
-              attr.size = await fileHandle.getLength();
-              await fileHandle.close();
-            }
-          }
-        } else if (PThreadFS.isLink(node.mode)) {
-          attr.size = node.link.length;
-        } else {
-          attr.size = 0;
-        }
-        attr.atime = new Date(node.timestamp);
-        attr.mtime = new Date(node.timestamp);
-        attr.ctime = new Date(node.timestamp);
-        // NOTE: In our implementation, st_blocks = Math.ceil(st_size/st_blksize),
-        //       but this is not required by the standard.
-        attr.blksize = 4096;
-        attr.blocks = Math.ceil(attr.size / attr.blksize);
-        return attr;
-      },
-
-      setattr: async function(node, attr) {
-        SFAFS.debug('setattr', arguments);
-        if (attr.mode !== undefined) {
-          node.mode = attr.mode;
-        }
-        if (attr.timestamp !== undefined) {
-          node.timestamp = attr.timestamp;
-        }
-        if (attr.size !== undefined) {
-          let useOpen = false;
-          let fileHandle = node.handle;
-          try {
-            if (!fileHandle) {
-              // Setting a file's length requires an open file handle.
-              // Since the file has no open handle, open a handle and close it later.
-              useOpen = true;
-              if (SFAFS.encodedPath(node).length > 100) {
-                console.log("SFAFS warning (setattr): Path length might be to long.");
-              }
-              fileHandle = await storageFoundation.open(SFAFS.encodedPath(node));
-            }
-            try {
-              await fileHandle.setLength(attr.size);
-            }
-            catch (e) {
-              if (e.name == 'QuotaExceededError') {
-                await storageFoundation.requestCapacity(2*1024*1024*1024);
-                await fileHandle.setLength(attr.size);
-              }
-              else {
-                throw e;
-              }
-            }
-          } catch (e) {
-            if (!('code' in e)) throw e;
-            throw new PThreadFS.ErrnoError(-e.errno);
-          } finally {
-            if (useOpen) {
-              await fileHandle.close();
-            }
-          }
-        }
-      },
-
-      lookup: async function (parent, name) {
-        SFAFS.debug('lookup', arguments);
-        var parentPath = SFAFS.directoryPath(SFAFS.realPath(parent));
-
-        var encoded_children = await SFAFS.listByPrefix(SFAFS.encodePath(parentPath));
-
-        let children = encoded_children.map((child) => SFAFS.decodePath(child));
-
-        let lowercase_name = name.toLowerCase()
-
-        var exists = false;
-        var mode = 511 /* 0777 */
-        for (var i = 0; i < children.length; ++i) {
-          var path = children[i].substr(parentPath.length);
-          if (path == lowercase_name) {
-            exists = true;
-            mode |= {{{ cDefine('S_IFREG') }}};
-            break;
-          }
-
-         let subdirName = SFAFS.directoryPath(lowercase_name);
-          if (path.startsWith(subdirName)) {
-            exists = true;
-            mode |= {{{ cDefine('S_IFDIR') }}};
-            break;
-          }
-        }
-
-        if (!exists) {
-          throw PThreadFS.genericErrors[{{{ cDefine('ENOENT') }}}];
-        }
-
-        var node = PThreadFS.createNode(parent, lowercase_name, mode);
-        node.node_ops = SFAFS.node_ops;
-        node.stream_ops = SFAFS.stream_ops;
-        return node;
-      },
-
-      mknod: function (parent, name, mode, dev) {
-        SFAFS.debug('mknod', arguments);
-        var node = SFAFS.createNode(parent, name, mode, dev);
-        if (!PThreadFS.isFile) {
-          console.log('SFAFS error: mknod is only implemented for files')
-          throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
-        }
-
-        node.handle = null;
-        node.refcount = 0;
-        return node;
-      },
-
-      rename: async function (old_node, new_dir, new_name) {
-        SFAFS.debug('rename', arguments);
-        let source_is_open = false;
-
-        let old_path = SFAFS.realPath(old_node);
-        let encoded_old_path = SFAFS.encodePath(old_path);
-        if (old_path in SFAFS.openFileHandles) {
-          await SFAFS.openFileHandles[old_path].close();
-          delete SFAFS.openFileHandles[old_path];
-          source_is_open = true;
-        }
-
-        delete old_node.parent.contents[old_node.name];
-        old_node.parent.timestamp = Date.now()
-        old_node.name = new_name;
-        new_dir.contents[new_name] = old_node;
-        new_dir.timestamp = old_node.parent.timestamp;
-        old_node.parent = new_dir;
-        let new_path = SFAFS.realPath(old_node);
-        let encoded_new_path = SFAFS.encodePath(new_path);
-        if (encoded_new_path.length > 100) {
-          console.log("SFAFS warning (rename): Path length might be to long.");
-        }
-
-        // Close and delete an existing file if necessary
-        let all_files = await storageFoundation.getAll()
-        if (all_files.includes(encoded_new_path)) {
-          if (new_path in SFAFS.openFileHandles) {
-            await SFAFS.openFileHandles[new_path].close();
-            delete SFAFS.openFileHandles[new_path];
-            console.log("SFAFS Warning: Renamed a file with an open handle. This might lead to unexpected behaviour.")
-          }
-          await storageFoundation.delete(encoded_new_path);
-        }
-        await storageFoundation.rename(encoded_old_path, encoded_new_path);
-        if (source_is_open) {
-          SFAFS.openFileHandles[new_path] = await storageFoundation.open(encoded_new_path);
-          // TODO(rstz): Find a more efficient way of updating PThreadFS.streams          
-          for (stream of PThreadFS.streams){
-            if (typeof stream !== typeof undefined && stream.node == old_node) {
-              stream.handle = SFAFS.openFileHandles[new_path];
-              stream.node.handle = stream.handle;
-            }
-          }            
-        }
-      },
-
-      unlink: async function(parent, name) {
-        SFAFS.debug('unlink', arguments);
-        var path = SFAFS.joinPaths(SFAFS.realPath(parent), name);
-        try {
-          await storageFoundation.delete(SFAFS.encodePath(path));
-        }
-        catch (e) {
-          if (e.name == 'NoModificationAllowedError') {
-            console.log("SFAFS error: Cannot unlink an open file in StorageFoundation.");
-            throw new PThreadFS.ErrnoError({{{ cDefine('EBUSY') }}});
-          }
-          else {
-            throw e;
-          }
-        }
-      },
-
-      rmdir: async function(parent, name) {
-        SFAFS.debug('rmdir', arguments);
-        let path = SFAFS.directoryPath(SFAFS.joinPaths(SFAFS.realPath(parent), name));
-        let files_in_folder = await SFAFS.listByPrefix(SFAFS.encodePath(path));
-        if (files_in_folder.length > 0) {
-          throw new FS.ErrnoError({{{ cDefine('ENOTEMPTY') }}});
-        }
-        // SFAFS does not store folders through the API.
-        return true;
-      },
-
-      readdir: async function(node) {
-        SFAFS.debug('readdir', arguments);
-        let entries = ['.', '..'];
-        let parentPath = SFAFS.directoryPath(SFAFS.realPath(node));
-        let children = await SFAFS.listByPrefix(SFAFS.encodePath(parentPath));
-        children = children.map(child => SFAFS.extractFilename(parentPath, SFAFS.decodePath(child)));
-        return entries.concat(children);;
-      },
-
-      symlink: function(parent, newName, oldPath) {
-        console.log('SFAFS error: symlink is not implemented')
-        throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
-      },
-
-      readlink: function(node) {
-        console.log('SFAFS error: readlink is not implemented')
-        throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
-      },
-    },
-
-    /* Operations on file streams (i.e., file handles) */
-
-    stream_ops: {
-      open: async function (stream) {
-        SFAFS.debug('open', arguments);
-        if (PThreadFS.isDir(stream.node.mode)) {
-          // Everything is correctly set up already
-          return;
-        }
-        if (!PThreadFS.isFile(stream.node.mode)) {
-          console.log('SFAFS error: open is only implemented for files')
-          throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
-        }
-
-        if (stream.node.handle) {
-          //TODO: check when this code path is actually executed, it seems to
-          //duplicate some of the caching behavior below.
-          stream.handle = stream.node.handle;
-          ++stream.node.refcount;
-        } else {
-          var path = SFAFS.realPath(stream.node);
-
-          if (SFAFS.encodePath(path).length > 100) {
-            console.log("SFAFS warning (open): Path length might be to long.");
-          }
-
-          // Open existing file.
-          if(!(path in SFAFS.openFileHandles)) {
-            SFAFS.openFileHandles[path] = await storageFoundation.open(SFAFS.encodePath(path));
-          }
-          stream.handle = SFAFS.openFileHandles[path];
-          stream.node.handle = stream.handle;
-          stream.node.refcount = 1;
-        }
-        SFAFS.debug('end open');
-      },
-
-      close: async function (stream) {
-        SFAFS.debug('close', arguments);
-        if (PThreadFS.isDir(stream.node.mode)) {
-          // Everything is correctly set up already
-          return;
-        }
-        if (!PThreadFS.isFile(stream.node.mode)) {
-          console.log('SFAFS error: close is only implemented for files');
-          throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
-        }
-
-        stream.handle = null;
-        --stream.node.refcount;
-        if (stream.node.refcount <= 0) {
-          await stream.node.handle.close();
-          stream.node.handle = null;
-          delete SFAFS.openFileHandles[SFAFS.realPath(stream.node)];
-        }
-        SFAFS.debug('end close');
-      },
-
-      fsync: async function(stream) {
-        SFAFS.debug('fsync', arguments);
-        if (stream.handle == null) {
-          throw new PThreadFS.ErrnoError({{{ cDefine('EBADF') }}});
-        }
-        await stream.handle.flush();
-        SFAFS.debug('end fsync');
-        return 0;
-      },
-
-      read: async function (stream, buffer, offset, length, position) {
-        SFAFS.debug('read', arguments);
-        let data = new Uint8Array(length);
-        let result = await stream.handle.read(data, position);
-        buffer.set(result.buffer, offset);
-        SFAFS.debug('end read');
-        return result.readBytes;
-      },
-
-      write: async function (stream, buffer, offset, length, position) {
-        SFAFS.debug('write', arguments);
-        stream.node.timestamp = Date.now();
-        let data = new Uint8Array(buffer.slice(offset, offset+length));
-        let writeResult;
-        try {
-          writeResult = await stream.handle.write(data, position);
-        }
-        catch (e) {
-          if (e.name == 'QuotaExceededError') {
-            await storageFoundation.requestCapacity(2*1024*1024*1024);
-            writeResult = await stream.handle.write(data, position);
-          }
-        }
-        return writeResult.writtenBytes;
-      },
-
-      llseek: async function (stream, offset, whence) {
-        SFAFS.debug('llseek', arguments);
-        var position = offset;
-        if (whence === 1) {  // SEEK_CUR.
-          position += stream.position;
-        } else if (whence === 2) {  // SEEK_END.
-          position += await stream.handle.getLength();
-        } else if (whence !== 0) {  // SEEK_SET.
-          throw new PThreadFS.ErrnoError({{{ cDefine('EINVAL') }}});
-        }
-
-        if (position < 0) {
-          throw new PThreadFS.ErrnoError({{{ cDefine('EINVAL') }}});
-        }
-        stream.position = position;
-        SFAFS.debug('end llseek');
-        return position;
-      },
-
-      mmap: function(stream, buffer, offset, length, position, prot, flags) {
-        SFAFS.debug('mmap', arguments);
-        throw new PThreadFS.ErrnoError({{{ cDefine('EOPNOTSUPP') }}});
-      },
-
-      msync: function(stream, buffer, offset, length, mmapFlags) {
-        SFAFS.debug('msync', arguments);
-        throw new PThreadFS.ErrnoError({{{ cDefine('EOPNOTSUPP') }}});
-      },
-
-      munmap: function(stream) {
-        SFAFS.debug('munmap', arguments);
-        throw new PThreadFS.ErrnoError({{{ cDefine('EOPNOTSUPP') }}});
-      },
-    }
-  }
-});
-/**
- * @license
- * Copyright 2021 The Emscripten Authors
- * SPDX-License-Identifier: MIT
- */
-
-mergeInto(LibraryManager.library, {
   $FSAFS__deps: ['$PThreadFS'],
   $FSAFS: {
 
@@ -3574,13 +3009,21 @@ mergeInto(LibraryManager.library, {
         if (PThreadFS.isDir(node.mode)) {
           attr.size = 4096;
         } else if (PThreadFS.isFile(node.mode)) {
-          if (node.handle) {
-            attr.size = await node.handle.getSize();
-          } 
-          else {
-            let fileHandle = await node.localReference.createSyncAccessHandle();
-            attr.size = await fileHandle.getSize();
-            await fileHandle.close();
+          if (ENVIRONMENT_IS_WEB){
+            // Since Access Handles are unavailable in workers, we must use
+            // file blobs instead.
+            let file_blob = await node.localReference.getFile();
+            attr.size = file_blob.size;
+          }
+          else {  // !ENVIRONMENT_IS_WEB
+            if (node.handle) {
+              attr.size = await node.handle.getSize();
+            } 
+            else {
+              let fileHandle = await node.localReference.createSyncAccessHandle();
+              attr.size = await fileHandle.getSize();
+              await fileHandle.close();
+            }
           }
         } else if (PThreadFS.isLink(node.mode)) {
           attr.size = node.link.length;
@@ -3606,22 +3049,29 @@ mergeInto(LibraryManager.library, {
           node.timestamp = attr.timestamp;
         }
         if (attr.size !== undefined) {
-          let useOpen = false;
-          let fileHandle = node.handle;
-          try {
-            if (!fileHandle) {
-              // Open a handle that is closed later.
-              useOpen = true;
-              fileHandle = await node.localReference.createSyncAccessHandle();
-            }
-            await fileHandle.truncate(attr.size);
-            
-          } catch (e) {
-            if (!('code' in e)) throw e;
-            throw new PThreadFS.ErrnoError(-e.errno);
-          } finally {
-            if (useOpen) {
-              await fileHandle.close();
+          if (ENVIRONMENT_IS_WEB) {
+            // Since Access Handles are unavailable in workers, we must use 
+            // writables instead.
+            let wt = await node.localReference.createWritable({ keepExistingData: true});
+            await wt.truncate(attr.size);
+            await wt.close();
+          }
+          else {  // !ENVIRONMENT_IS_WEB
+            let useOpen = false;
+            let fileHandle = node.handle;
+            try {
+              if (!fileHandle) {
+                // Open a handle that is closed later.
+                useOpen = true;
+                fileHandle = await node.localReference.createSyncAccessHandle();
+              }
+              await fileHandle.truncate(attr.size);
+              if (useOpen) {
+                await fileHandle.close();
+              }
+            } catch (e) {
+              if (!('code' in e)) throw e;
+              throw new PThreadFS.ErrnoError(-e.errno);
             }
           }
         }
@@ -3771,7 +3221,12 @@ mergeInto(LibraryManager.library, {
           stream.handle = stream.node.handle;
           ++stream.node.refcount;
         } else {
-          stream.handle = await stream.node.localReference.createSyncAccessHandle();
+          if (ENVIRONMENT_IS_WEB) {
+            stream.handle = stream.node.localReference;
+          }
+          else {
+            stream.handle = await stream.node.localReference.createSyncAccessHandle();
+          }
           stream.node.handle = stream.handle;
           stream.node.refcount = 1;
         }
@@ -3791,7 +3246,10 @@ mergeInto(LibraryManager.library, {
         stream.handle = null;
         --stream.node.refcount;
         if (stream.node.refcount <= 0) {
-          await stream.node.handle.close();
+          // On the main thread, no access handle is open.
+          if (!ENVIRONMENT_IS_WEB) {
+            await stream.node.handle.close();
+          }
           stream.node.handle = null;
         }
       },
@@ -3801,14 +3259,30 @@ mergeInto(LibraryManager.library, {
         if (stream.handle == null) {
           throw new PThreadFS.ErrnoError({{{ cDefine('EBADF') }}});
         }
-        await stream.handle.flush();
+        if (!ENVIRONMENT_IS_WEB) {
+          // On worker threads, explicit flush is required. On the main thread,
+          // writables are used that flush implicitly.
+          await stream.handle.flush();
+        }
         return 0;
       },
 
       read: async function (stream, buffer, offset, length, position) {
         FSAFS.debug('read', arguments);
         let data = buffer.subarray(offset, offset+length);
-        let readBytes = await stream.handle.read(data, {at: position});
+        let readBytes;
+        if (ENVIRONMENT_IS_WEB) {
+          // On the main thread, we use file blobs instead of Access Handles.
+          let file_blob = await stream.handle.getFile();
+          let file_arraybuffer = await file_blob.arrayBuffer();
+          var file_uint8view = new Uint8Array(file_arraybuffer);
+          let read_maximum = Math.min(position + data.length, file_blob.size);
+          data.set(file_uint8view.slice(position, read_maximum));
+          readBytes = read_maximum - position;
+        }
+        else {
+          readBytes = await stream.handle.read(data, {at: position});
+        }
         return readBytes;
       },
 
@@ -3816,7 +3290,18 @@ mergeInto(LibraryManager.library, {
         FSAFS.debug('write', arguments);
         stream.node.timestamp = Date.now();
         let data = buffer.subarray(offset, offset+length);
-        let writtenBytes = await stream.handle.write(data, {at: position});
+        let writtenBytes;
+        if (ENVIRONMENT_IS_WEB) {
+          // On the main thread, we use writables instead of Access Handles.
+          // This may be really slow, since it always copies the entire file.
+          let writable = await stream.handle.createWritable({ keepExistingData: true});
+          await writable.write({type: "write", position: position, data: data});
+          await writable.close();
+          writtenBytes = data.length;
+        }
+        else {
+          writtenBytes = await stream.handle.write(data, {at: position});
+        }
         return writtenBytes;
       },
 
@@ -3827,7 +3312,15 @@ mergeInto(LibraryManager.library, {
           position += stream.position;
         } else if (whence === {{{ cDefine('SEEK_END') }}}) {
           if (PThreadFS.isFile(stream.node.mode)) {
-            position += await stream.handle.getSize();
+            if (ENVIRONMENT_IS_WEB) {
+              // On the main thread, file blobs are used to determine a file's
+              // size.
+              let file_blob = await stream.handle.getFile();
+              position += file_blob.size;
+            }
+            else {
+              position += await stream.handle.getSize();
+            }
           }
         } 
 
@@ -3851,166 +3344,6 @@ mergeInto(LibraryManager.library, {
         FSAFS.debug('munmap', arguments);
         throw new PThreadFS.ErrnoError({{{ cDefine('EOPNOTSUPP') }}});
       },
-    }
-  }
-});
-/**
- * @license
- * Copyright 2013 The Emscripten Authors
- * SPDX-License-Identifier: MIT
- */
-
- mergeInto(LibraryManager.library, {
-  $TTY_ASYNC__deps: ['$PThreadFS'],
-#if !MINIMAL_RUNTIME
-  $TTY_ASYNC__postset: function() {
-    addAtInit('TTY_ASYNC.init();');
-    addAtExit('TTY_ASYNC.shutdown();');
-  },
-#endif
-  $TTY_ASYNC: {
-    ttys: [],
-    init: function () {
-      // https://github.com/emscripten-core/emscripten/pull/1555
-      // if (ENVIRONMENT_IS_NODE) {
-      //   // currently, PThreadFS.init does not distinguish if process.stdin is a file or TTY_ASYNC
-      //   // device, it always assumes it's a TTY_ASYNC device. because of this, we're forcing
-      //   // process.stdin to UTF8 encoding to at least make stdin reading compatible
-      //   // with text files until PThreadFS.init can be refactored.
-      //   process['stdin']['setEncoding']('utf8');
-      // }
-    },
-    shutdown: function() {
-      // https://github.com/emscripten-core/emscripten/pull/1555
-      // if (ENVIRONMENT_IS_NODE) {
-      //   // inolen: any idea as to why node -e 'process.stdin.read()' wouldn't exit immediately (with process.stdin being a tty)?
-      //   // isaacs: because now it's reading from the stream, you've expressed interest in it, so that read() kicks off a _read() which creates a ReadReq operation
-      //   // inolen: I thought read() in that case was a synchronous operation that just grabbed some amount of buffered data if it exists?
-      //   // isaacs: it is. but it also triggers a _read() call, which calls readStart() on the handle
-      //   // isaacs: do process.stdin.pause() and i'd think it'd probably close the pending call
-      //   process['stdin']['pause']();
-      // }
-    },
-    register: function(dev, ops) {
-      TTY_ASYNC.ttys[dev] = { input: [], output: [], ops: ops };
-      PThreadFS.registerDevice(dev, TTY_ASYNC.stream_ops);
-    },
-    stream_ops: {
-      open: function(stream) {
-        var tty = TTY_ASYNC.ttys[stream.node.rdev];
-        if (!tty) {
-          throw new PThreadFS.ErrnoError({{{ cDefine('ENODEV') }}});
-        }
-        stream.tty = tty;
-        stream.seekable = false;
-      },
-      close: function(stream) {
-        // flush any pending line data
-        stream.tty.ops.flush(stream.tty);
-      },
-      flush: function(stream) {
-        stream.tty.ops.flush(stream.tty);
-      },
-      read: function(stream, buffer, offset, length, pos /* ignored */) {
-        if (!stream.tty || !stream.tty.ops.get_char) {
-          throw new PThreadFS.ErrnoError({{{ cDefine('ENXIO') }}});
-        }
-        var bytesRead = 0;
-        for (var i = 0; i < length; i++) {
-          var result;
-          try {
-            result = stream.tty.ops.get_char(stream.tty);
-          } catch (e) {
-            throw new PThreadFS.ErrnoError({{{ cDefine('EIO') }}});
-          }
-          if (result === undefined && bytesRead === 0) {
-            throw new PThreadFS.ErrnoError({{{ cDefine('EAGAIN') }}});
-          }
-          if (result === null || result === undefined) break;
-          bytesRead++;
-          buffer[offset+i] = result;
-        }
-        if (bytesRead) {
-          stream.node.timestamp = Date.now();
-        }
-        return bytesRead;
-      },
-      write: function(stream, buffer, offset, length, pos) {
-        if (!stream.tty || !stream.tty.ops.put_char) {
-          throw new PThreadFS.ErrnoError({{{ cDefine('ENXIO') }}});
-        }
-        try {
-          for (var i = 0; i < length; i++) {
-            stream.tty.ops.put_char(stream.tty, buffer[offset+i]);
-          }
-        } catch (e) {
-          throw new PThreadFS.ErrnoError({{{ cDefine('EIO') }}});
-        }
-        if (length) {
-          stream.node.timestamp = Date.now();
-        }
-        return i;
-      }
-    },
-    default_tty_ops: {
-      // get_char has 3 particular return values:
-      // a.) the next character represented as an integer
-      // b.) undefined to signal that no data is currently available
-      // c.) null to signal an EOF
-      get_char: function(tty) {
-        if (!tty.input.length) {
-          var result = null;
-          if (typeof window != 'undefined' &&
-            typeof window.prompt == 'function') {
-            // Browser.
-            result = window.prompt('Input: ');  // returns null on cancel
-            if (result !== null) {
-              result += '\n';
-            }
-          } else if (typeof readline == 'function') {
-            // Command line.
-            result = readline();
-            if (result !== null) {
-              result += '\n';
-            }
-          }
-          if (!result) {
-            return null;
-          }
-          tty.input = intArrayFromString(result, true);
-        }
-        return tty.input.shift();
-      },
-      put_char: function(tty, val) {
-        if (val === null || val === {{{ charCode('\n') }}}) {
-          out(UTF8ArrayToString(tty.output, 0));
-          tty.output = [];
-        } else {
-          if (val != 0) tty.output.push(val); // val == 0 would cut text output off in the middle.
-        }
-      },
-      flush: function(tty) {
-        if (tty.output && tty.output.length > 0) {
-          out(UTF8ArrayToString(tty.output, 0));
-          tty.output = [];
-        }
-      }
-    },
-    default_tty1_ops: {
-      put_char: function(tty, val) {
-        if (val === null || val === {{{ charCode('\n') }}}) {
-          err(UTF8ArrayToString(tty.output, 0));
-          tty.output = [];
-        } else {
-          if (val != 0) tty.output.push(val);
-        }
-      },
-      flush: function(tty) {
-        if (tty.output && tty.output.length > 0) {
-          err(UTF8ArrayToString(tty.output, 0));
-          tty.output = [];
-        }
-      }
     }
   }
 });

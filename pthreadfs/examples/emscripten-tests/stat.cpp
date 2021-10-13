@@ -13,45 +13,37 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 #include <utime.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/sysmacros.h>
 
-void create_file(const char *path, const char *buffer, int mode) {
+void create_file(const char* path, const char* buffer, int mode) {
   int fd = open(path, O_CREAT | O_TRUNC | O_RDWR, mode);
   assert(fd >= 0);
 
   int err = write(fd, buffer, sizeof(char) * strlen(buffer));
-  assert(err ==  (sizeof(char) * strlen(buffer)));
+  assert(err == (sizeof(char) * strlen(buffer)));
 
   close(fd);
 }
 
 void setup() {
-  // struct utimbuf t = {1200000000, 1200000000};
-
   mkdir("persistent/folder", 0777);
   create_file("persistent/folder/file", "abcdef", 0777);
-  //symlink("file", "folder/file-link");
-
-  //utime("folder/file", &t);
-  //utime("folder", &t);
 }
 
 void cleanup() {
   rmdir("persistent/folder/subdir");
   unlink("persistent/folder/file");
-  // unlink("folder/file-link");
   rmdir("persistent/folder");
 }
 
 void test() {
   int err;
   struct stat s;
-  // struct utimbuf t = {1200000000, 1200000000};
 
   // non-existent
   err = stat("persistent/does_not_exist", &s);
@@ -110,7 +102,8 @@ void test() {
 
   // fstat a file (should match file stat from above)
   memset(&s, 0, sizeof(s));
-  err = fstat(open("persistent/folder/file", O_RDONLY), &s);
+  int fd = open("persistent/folder/file", O_RDONLY);
+  err = fstat(fd, &s);
   assert(!err);
   assert(s.st_dev);
   assert(s.st_ino);
@@ -125,6 +118,8 @@ void test() {
   assert(s.st_blksize == 4096);
   assert(s.st_blocks == 1);
 #endif
+  err = close(fd);
+  assert(!err);
 
   // stat a device
   memset(&s, 0, sizeof(s));
@@ -146,54 +141,6 @@ void test() {
   assert(s.st_blksize == 4096);
   assert(s.st_blocks == 0);
 #endif
-
-  // stat a link (should match the file stat from above)
-//   memset(&s, 0, sizeof(s));
-//   err = stat("folder/file-link", &s);
-//   assert(!err);
-//   assert(s.st_dev);
-//   assert(s.st_ino);
-//   assert(S_ISREG(s.st_mode));
-//   assert(s.st_nlink);
-//   assert(s.st_rdev == 0);
-//   assert(s.st_size == 6);
-//   assert(s.st_atime == 1200000000);
-//   assert(s.st_mtime == 1200000000);
-//   assert(s.st_ctime);
-// #ifdef __EMSCRIPTEN__
-//   assert(s.st_blksize == 4096);
-//   assert(s.st_blocks == 1);
-// #endif
-
-  // lstat a link (should NOT match the file stat from above)
-//   memset(&s, 0, sizeof(s));
-//   err = lstat("folder/file-link", &s);
-//   assert(!err);
-//   assert(s.st_dev);
-//   assert(s.st_ino);
-//   assert(S_ISLNK(s.st_mode));
-//   assert(s.st_nlink);
-//   assert(s.st_rdev == 0);
-//   assert(s.st_size == 4);  // strlen("file")
-//   assert(s.st_atime != 1200000000);  // should NOT match the utime call we did for dir/file
-//   assert(s.st_mtime != 1200000000);
-//   assert(s.st_ctime);
-// #ifdef __EMSCRIPTEN__
-//   assert(s.st_blksize == 4096);
-//   assert(s.st_blocks == 1);
-// #endif
-
-  // create and unlink files inside a directory and check that mtime updates
-  mkdir("persistent/folder/subdir", 0777);
-  // utime("persistent/folder/subdir", &t);
-  create_file("persistent/folder/subdir/file", "abcdef", 0777);
-  err = stat("persistent/folder/subdir", &s);
-  // assert(s.st_mtime != 1200000000);
-  // utime("persistent/folder/subdir", &t);
-  unlink("persistent/folder/subdir/file");
-  err = stat("persistent/folder/subdir", &s);
-  // assert(s.st_mtime != 1200000000);
-
   puts("success");
 }
 
