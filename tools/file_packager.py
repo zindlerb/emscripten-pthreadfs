@@ -518,12 +518,13 @@ let loading_script =
           var that = this;
 
           // Remove potential old versions of this file.
+          // TODO: Consider only removing if the file exists, for performance.
           try {
             await PThreadFS.unlink(this.name);
           }
           catch (e) {
-            // TODO: This error message might spam the console, consider removing it when the file packager matures.
-            console.log("Removing " + this.name + " failed with message " + e);
+            // Emitting an error will spam the console with unnecessary messages.
+            // console.log("Removing " + this.name + " failed with message " + e);
           }
           await PThreadFS.createDataFile(this.name, null, byteArray, true, true,
             true); // canOwn this data in the filesystem, it is a slide into the heap that will
