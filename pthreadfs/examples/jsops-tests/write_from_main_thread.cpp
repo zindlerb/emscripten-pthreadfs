@@ -29,8 +29,8 @@ void test_file_contents(const char* path) {
   assert(fd >= 0);
 
   char readbuf[1000];
-  int err = read(fd, readbuf, sizeof(char) * (strlen(path) + 20));
-  assert(err > 0);
+  int bytes_read = read(fd, readbuf, sizeof(char) * (strlen(path) + 20));
+  assert(bytes_read > 0);
   printf("Content: %s\n", readbuf);
   close(fd);
 

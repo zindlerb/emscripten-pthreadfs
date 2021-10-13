@@ -521,7 +521,7 @@ let loading_script =
             await PThreadFS.unlink(this.name);
           }
           catch (e) {
-            // This error message might spam the console. consider removing it when the file packager matures.
+            // TODO: This error message might spam the console, consider removing it when the file packager matures.
             console.log("Removing " + this.name + " failed with message " + e);
           }
           await PThreadFS.createDataFile(this.name, null, byteArray, true, true,

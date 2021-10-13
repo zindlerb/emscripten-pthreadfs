@@ -18,36 +18,38 @@
 
 #include "emscripten.h"
 
-void create_file(const char* path, const char* buffer, int mode) {
+void create_file(const char* path, const char* contents, int mode) {
   int fd = open(path, O_CREAT | O_TRUNC | O_RDWR, mode);
   assert(fd >= 0);
 
-  int err = write(fd, buffer, sizeof(char) * strlen(buffer));
-  assert(err == (sizeof(char) * strlen(buffer)));
+  int err = write(fd, contents, sizeof(char) * strlen(contents));
+  assert(err == (sizeof(char) * strlen(contents)));
 
   close(fd);
 }
 
-void test_file_contents(const char* path) {
+void test_file_contents(const char* path, const char* contents) {
   MAIN_THREAD_ASYNC_EM_ASM({
     (async() => {
       let path = UTF8ToString($0);
       await PThreadFS.init("persistent");
       let content = await PThreadFS.readFile(path);
       content = new TextDecoder().decode(content);
-      if (content != "file_contents :)") {
+      if (content != UTF8ToString($1)) {
         throw new Error('Incorrect contents read: ' + content);
       }
+      await PThreadFS.unlink(path);
       console.log("Success");
     })();
-  }, path);
+  }, path, contents);
 }
 
 int main() {
   const char* path = "persistent/read_from_main_file.txt";
-  create_file(path, "file_contents :)", 0777);
+  const char* contents = "file_contents :)";
+  create_file(path, contents, 0777);
 
-  test_file_contents(path);
+  test_file_contents(path, contents);
 
   puts("Check the console for success");
   return EXIT_SUCCESS;

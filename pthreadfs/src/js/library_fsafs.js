@@ -313,8 +313,9 @@ mergeInto(LibraryManager.library, {
         if (stream.handle == null) {
           throw new PThreadFS.ErrnoError({{{ cDefine('EBADF') }}});
         }
-        // On the main thread, write operations are always flushed.
         if (!ENVIRONMENT_IS_WEB) {
+          // On worker threads, explicit flush is required. On the main thread,
+          // writables are used that flush implicitly.
           await stream.handle.flush();
         }
         return 0;
