@@ -11,14 +11,14 @@ The code is still prototype quality and **should not be used in a production env
 
 ## Enable OPFS Access Handles in Chrome
 
-OPFS Access Handles require recent Google Chrome 96. "Experimental Web Platform Features" must be enabled in [chrome://flags](chrome://flags).
+OPFS Access Handles require Google Chrome 96. "Experimental Web Platform Features" must be enabled in [chrome://flags](chrome://flags).
 
 Alternatively, you may enable the API with Chrome's " --enable-runtime-features=FileSystemAccessAccessHandle". On MacOS, this can be done through
 ```
 open -a /Applications/Google\ Chrome\ Canary.app --args --enable-runtime-features=FileSystemAccessAccessHandle
 ```
 
-Both OPFS Access Handles are available as [origin trials](https://developer.chrome.com/origintrials/) in Chrome 95.
+OPFS Access Handles are available as [origin trial](https://developer.chrome.com/origintrials/) in Chrome 95.
 ## Getting the code
 
 PthreadFS is available on Github in the [emscripten-pthreadfs](https://github.com/rstz/emscripten-pthreadfs) repository. All code resides in the `pthreadfs` folder. It should be usable with any up-to-date Emscripten version. 
