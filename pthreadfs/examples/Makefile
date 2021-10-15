@@ -151,7 +151,7 @@ dist/$(NODEJSTESTS)/%.js : $(OBJ)/%.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
 # - $(PACKAGERTESTS)/input/mediumlarge/subfolder/mediumfile.txt: Size 138670 bytes, first line "Begin mediumfile.txt -------------------------------------------"
 # - $(PACKAGERTESTS)/input/mediumlarge/bigfile.txt: Size 212992000 bytes, first line "Begin bigfile.txt ----------------------------------------------"
 .PHONY: packager-tests
-packager-tests: dist/$(PACKAGERTESTS)/preloading_without_pthreadfs.html dist/$(PACKAGERTESTS)/preloading.html dist/$(PACKAGERTESTS)/intermediate_loading.html
+packager-tests: dist/$(PACKAGERTESTS)/preloading_without_pthreadfs.html dist/$(PACKAGERTESTS)/preloading.html dist/$(PACKAGERTESTS)/load_package_sync.html dist/$(PACKAGERTESTS)/load_package_async.html
 
 # Create the file packages
 dist/$(PACKAGERTESTS)/pkg_preload_small.js: $(PACKAGER_INPUT_SMALL) $(FILE_PACKAGER)
@@ -177,7 +177,11 @@ dist/$(PACKAGERTESTS)/preloading.html: $(OBJ)/preloading.o $(OBJ)/pthreadfs.o di
 	mkdir -p dist/$(PACKAGERTESTS)
 	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS)  --pre-js $(word 3,$^) --pre-js $(word 4,$^)  $< $(word 2,$^) 
 
-dist/$(PACKAGERTESTS)/intermediate_loading.html: $(OBJ)/intermediate_loading.o $(OBJ)/pthreadfs.o dist/$(PACKAGERTESTS)/pkg_intermediate_small.js dist/$(PACKAGERTESTS)/pkg_intermediate_mediumlarge.js $(PTHREADFS_JS)
+dist/$(PACKAGERTESTS)/load_package_sync.html: $(OBJ)/load_package_sync.o $(OBJ)/pthreadfs.o dist/$(PACKAGERTESTS)/pkg_intermediate_small.js dist/$(PACKAGERTESTS)/pkg_intermediate_mediumlarge.js $(PTHREADFS_JS)
+	mkdir -p dist/$(PACKAGERTESTS)
+	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS) $< $(word 2,$^)
+
+dist/$(PACKAGERTESTS)/load_package_async.html: $(OBJ)/load_package_async.o $(OBJ)/pthreadfs.o dist/$(PACKAGERTESTS)/pkg_intermediate_small.js $(PTHREADFS_JS)
 	mkdir -p dist/$(PACKAGERTESTS)
 	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS) $< $(word 2,$^)
 

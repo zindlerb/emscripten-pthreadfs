@@ -2438,6 +2438,10 @@ mergeInto(LibraryManager.library, SyscallsLibrary);
       }
     },
     init: async function(folder) {
+      if (PThreadFS.initialized) {
+        return;
+      }
+      PThreadFS.initialized = true;
       if (typeof folder !== 'string' || folder.includes('/')) {
         console.log("PThreadFS warning: Bad folder name: " + folder);
         console.log("                   The folder name should be a string that does not include /");
