@@ -1304,7 +1304,7 @@ int main(int argc, char **argv){
   }
  
   /* Open the database and the input file */
-  if( sqlite3_open(":memory:", &g.db) ){
+  if( sqlite3_open(zDbName, &g.db) ){
     fatal_error("Cannot open database file: %s\n", zDbName);
   }
   if( nLook>0 && szLook>0 ){

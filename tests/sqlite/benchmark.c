@@ -39,7 +39,7 @@ int test(){
     NULL
   };
 
-  rc = sqlite3_open(":memory:", &db);
+  rc = sqlite3_open("/persistent/benchmark_db_test", &db);
   if( rc ){
     fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
     sqlite3_close(db);
@@ -67,7 +67,7 @@ int main(int argc, char **argv){
   n = argc > 1 ? atoi(argv[1]) : 5000;
   m = argc > 2 ? atoi(argv[2]) : 1;
 
-  rc = sqlite3_open(":memory:", &db);
+  rc = sqlite3_open("/persistent/benchmark_db_main", &db);
   if( rc ){
     fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
     sqlite3_close(db);

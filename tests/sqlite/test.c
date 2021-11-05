@@ -32,7 +32,7 @@ int main(){
     NULL
   };
 
-  rc = sqlite3_open(":memory:", &db);
+  rc = sqlite3_open("persistent/db_test", &db);
   if( rc ){
     fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
     sqlite3_close(db);
