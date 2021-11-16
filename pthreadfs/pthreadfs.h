@@ -280,6 +280,9 @@ private:
 
 // Determines if `path` is a file in the special folder PTHREADFS_FOLDER.
 bool is_pthreadfs_file(std::string path);
+// Determines is `path` is a symlink in self/proc/fd/ that corresponds to a file in
+// PTHREADFS_FOLDER.
+bool is_pthreadfs_fd_link(std::string path);
 
 } // namespace emscripten
 
