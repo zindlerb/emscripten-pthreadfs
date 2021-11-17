@@ -9,6 +9,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <regex>
 #include <set>
 #include <string>
 #include <thread>
@@ -111,7 +112,8 @@ void sync_to_async::threadIter(void* arg) {
 }
 
 bool is_pthreadfs_file(std::string path) {
-  return path.rfind("/" PTHREADFS_FOLDER_NAME, 0) == 0 || path.rfind(PTHREADFS_FOLDER_NAME, 0) == 0;
+  auto const regex = std::regex("/*" PTHREADFS_FOLDER_NAME "(/*$|/+.*)");
+  return std::regex_match(path, regex);
 }
 
 bool is_pthreadfs_fd_link(std::string path) {
