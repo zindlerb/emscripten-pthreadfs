@@ -9,6 +9,7 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <regex>
 #include <set>
 #include <string>
 #include <thread>
@@ -111,13 +112,16 @@ void sync_to_async::threadIter(void* arg) {
 }
 
 bool is_pthreadfs_file(std::string path) {
-  return path.rfind("/" PTHREADFS_FOLDER_NAME, 0) == 0 || path.rfind(PTHREADFS_FOLDER_NAME, 0) == 0;
+  auto const regex = std::regex("/*" PTHREADFS_FOLDER_NAME "(/*$|/+.*)");
+  return std::regex_match(path, regex);
 }
 
 bool is_pthreadfs_fd_link(std::string path) {
-  if (path.rfind("/proc/self/fd/", 0) == 0) {
+  auto const regex = std::regex("^/*proc/+self/+fd/+([0-9]+)$");
+  std::smatch match;
+  if (regex_match(path, match, regex)){
     char* p;
-    long fd = strtol(path.substr(14).c_str(), &p, 10);
+    long fd = strtol(match.str(1).c_str(), &p, 10);
     // As defined in library_asyncfs.js, the minimum fd for PThreadFS is 4097.
     if (*p == 0 && fd >= 4097) {
       return true;
