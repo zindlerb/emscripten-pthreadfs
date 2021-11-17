@@ -10,9 +10,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <utime.h>
-#include <sys/stat.h>
 
 void setup() {
   mkdir("writeable", 0777);
@@ -32,7 +32,7 @@ void test(const char* writeable, const char* unwriteable) {
   struct stat s;
   // currently, the most recent timestamp is shared for atime,
   // ctime and mtime. using unique values for each in the test
-  // will fail
+  // will fail.
   struct utimbuf t = {1000000000, 1000000000};
 
   utime("writeable", &t);
@@ -43,8 +43,8 @@ void test(const char* writeable, const char* unwriteable) {
   assert(s.st_mtime == t.modtime);
 
   // write permissions aren't checked when setting node
-  // attributes unless the user uid isn't the owner (so
-  // therefor, this should work fine)
+  // attributes unless the user uid isn't the owner
+  // (therefore, this should work fine).
   utime(unwriteable, &t);
   assert(!errno);
   memset(&s, 0, sizeof s);
