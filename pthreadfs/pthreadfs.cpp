@@ -114,6 +114,18 @@ bool is_pthreadfs_file(std::string path) {
   return path.rfind("/" PTHREADFS_FOLDER_NAME, 0) == 0 || path.rfind(PTHREADFS_FOLDER_NAME, 0) == 0;
 }
 
+bool is_pthreadfs_fd_link(std::string path) {
+  if (path.rfind("/proc/self/fd/", 0) == 0) {
+    char* p;
+    long fd = strtol(path.substr(14).c_str(), &p, 10);
+    // As defined in library_asyncfs.js, the minimum fd for PThreadFS is 4097.
+    if (*p == 0 && fd >= 4097) {
+      return true;
+    }
+  }
+  return false;
+}
+
 } // namespace emscripten
 
 // Static functions calling resumFct and setting the return value.
@@ -235,8 +247,15 @@ SYS_CAPI_DEF(ioctl, 54, long fd, long request, ...) {
   SYS_SYNC_TO_ASYNC_FD(ioctl, fd, request, arg);
 }
 
+// The implementation of readlink includes special handling for the file descriptor's symlinks in
+// /proc/self/fd/. This is necessary for handling realpath.
 SYS_CAPI_DEF(readlink, 85, long path, long buf, long bufsize) {
-  SYS_SYNC_TO_ASYNC_PATH(readlink, path, buf, bufsize);
+  std::string pathname((char*)path);
+  if (emscripten::is_pthreadfs_file(pathname) || emscripten::is_pthreadfs_fd_link(pathname)) {
+    SYS_SYNC_TO_ASYNC_NORETURN(readlink, path, buf, bufsize);
+    return resume_result_long;
+  }
+  return __sys_readlink(path, buf, bufsize);
 }
 
 SYS_CAPI_DEF(fchmod, 94, long fd, long mode) { SYS_SYNC_TO_ASYNC_FD(fchmod, fd, mode); }
