@@ -117,9 +117,11 @@ bool is_pthreadfs_file(std::string path) {
 }
 
 bool is_pthreadfs_fd_link(std::string path) {
-  if (path.rfind("/proc/self/fd/", 0) == 0) {
+  auto const regex = std::regex("^/*proc/+self/+fd/+([0-9]+)$");
+  std::smatch match;
+  if (regex_match(path, match, regex)){
     char* p;
-    long fd = strtol(path.substr(14).c_str(), &p, 10);
+    long fd = strtol(match.str(1).c_str(), &p, 10);
     // As defined in library_asyncfs.js, the minimum fd for PThreadFS is 4097.
     if (*p == 0 && fd >= 4097) {
       return true;
