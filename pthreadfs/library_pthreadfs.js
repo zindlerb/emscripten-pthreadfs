@@ -3014,6 +3014,18 @@ mergeInto(LibraryManager.library, {
       // console.log(args);
     },
 
+    /* Helper functions */
+
+    // This function mantains backwards compatibility with Chrome versions
+    // before M98. It should be removed once there is no risk of encountering
+    // an old versions that does not take a parameter on createSyncAccessHandle.
+    createSyncAccessHandle: async function(node) {
+      if(FileSystemFileHandle.prototype.createSyncAccessHandle.length == 0) {
+        return await node.localReference.createSyncAccessHandle();
+      }
+      return await node.localReference.createSyncAccessHandle({mode: "in-place"});
+    },
+
     /* Filesystem implementation (public interface) */
 
     createNode: function (parent, name, mode, dev) {
@@ -3070,9 +3082,9 @@ mergeInto(LibraryManager.library, {
           else {  // !ENVIRONMENT_IS_WEB
             if (node.handle) {
               attr.size = await node.handle.getSize();
-            } 
+            }
             else {
-              let fileHandle = await node.localReference.createSyncAccessHandle();
+              let fileHandle = await FSAFS.createSyncAccessHandle(node);
               attr.size = await fileHandle.getSize();
               await fileHandle.close();
             }
@@ -3115,7 +3127,7 @@ mergeInto(LibraryManager.library, {
               if (!fileHandle) {
                 // Open a handle that is closed later.
                 useOpen = true;
-                fileHandle = await node.localReference.createSyncAccessHandle();
+                fileHandle = await FSAFS.createSyncAccessHandle(node);
               }
               await fileHandle.truncate(attr.size);
               if (useOpen) {
@@ -3277,7 +3289,7 @@ mergeInto(LibraryManager.library, {
             stream.handle = stream.node.localReference;
           }
           else {
-            stream.handle = await stream.node.localReference.createSyncAccessHandle();
+            stream.handle = await FSAFS.createSyncAccessHandle(stream.node);
           }
           stream.node.handle = stream.handle;
           stream.node.refcount = 1;
