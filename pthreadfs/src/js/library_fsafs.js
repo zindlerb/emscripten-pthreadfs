@@ -18,6 +18,9 @@ mergeInto(LibraryManager.library, {
 
     /* Helper functions */
 
+    // This function mantains backwards compatibility with Chrome versions
+    // before M98. It should be removed once there is no risk of encountering
+    // an old versions that does not take a parameter on createSyncAccessHandle.
     createSyncAccessHandle: async function(node) {
       if(FileSystemFileHandle.prototype.createSyncAccessHandle.length == 0) {
         return await node.localReference.createSyncAccessHandle();
