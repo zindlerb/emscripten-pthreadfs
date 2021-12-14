@@ -76,6 +76,7 @@ See `pthreadfs/examples/emscripten-tests/fsafs.cpp` for exemplary usage.
 - Accessing the file system before `main()` requires linker option `PTHREAD_POOL_SIZE=<expression>` to be active. Doing so may lead to some blocking of the main thread, which is risky. Check out `examples/early_syscall.cpp` for an example.
 - Compiling with the Closure Compiler is not supported.
 - Compiling with optimization `-O3` is not yet supported and may lead to a faulty build.
+- Directories cannot be renamed when using OPFS Access Handles. This is currently a limitation of the underlying API.
 
 ## Examples
 
