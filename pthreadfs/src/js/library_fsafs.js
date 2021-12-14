@@ -189,6 +189,10 @@ mergeInto(LibraryManager.library, {
 
       rename: async function (oldNode, newParentNode, newName) {
         FSAFS.debug('rename', arguments);
+        if (PThreadFS.isDir(oldNode.mode)) {
+          console.log('Rename error: File System Access does not support renaming directories');
+          throw new PThreadFS.ErrnoError({{{ cDefine('EXDEV') }}});
+        }
         try {
           await oldNode.localReference.move(newParentNode.localReference, newName);
         }
@@ -208,6 +212,13 @@ mergeInto(LibraryManager.library, {
           }
           throw new PThreadFS.ErrnoError({{{ cDefine('EXDEV') }}});
         }
+        // Update the internal directory cache.
+        delete oldNode.parent.contents[oldNode.name];
+        oldNode.parent.timestamp = Date.now()
+        oldNode.name = newName;
+        newParentNode.contents[newName] = oldNode;
+        newParentNode.timestamp = oldNode.parent.timestamp;
+        oldNode.parent = newParentNode;
       },
 
       unlink: async function(parent, name) {
