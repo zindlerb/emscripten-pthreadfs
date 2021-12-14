@@ -80,6 +80,7 @@ void test() {
   assert(err == -1);
   assert(errno == ENOTDIR);
 
+#ifndef PTHREADFS_NO_DIR_RENAME
   // can't overwrite a non-empty folder
   err = rename("persistent/dir", "persistent/dir-nonempty");
   assert(err == -1);
@@ -99,6 +100,7 @@ void test() {
   err = rename("persistent/dir/subdir", "persistent/dir");
   assert(err == -1);
   assert(errno == ENOTEMPTY);
+#endif  // PTHREADFS_NO_DIR_RENAME
 
   // do some valid renaming
   err = rename("persistent/dir/file", "persistent/dir/file1");
