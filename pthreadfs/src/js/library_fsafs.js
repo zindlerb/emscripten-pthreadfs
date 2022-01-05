@@ -75,21 +75,15 @@ mergeInto(LibraryManager.library, {
         if (PThreadFS.isDir(node.mode)) {
           attr.size = 4096;
         } else if (PThreadFS.isFile(node.mode)) {
-          if (ENVIRONMENT_IS_WEB){
-            // Since Access Handles are unavailable in workers, we must use
-            // file blobs instead.
+          if (node.handle){
+            attr.size = await node.handle.getSize();
+          }
+          else {
+            // Unless we already have an active handle, get the file's length
+            // from the blob. This enables access from multiple tabs/threads
+            // and from the main thread.
             let file_blob = await node.localReference.getFile();
             attr.size = file_blob.size;
-          }
-          else {  // !ENVIRONMENT_IS_WEB
-            if (node.handle) {
-              attr.size = await node.handle.getSize();
-            }
-            else {
-              let fileHandle = await FSAFS.createSyncAccessHandle(node);
-              attr.size = await fileHandle.getSize();
-              await fileHandle.close();
-            }
           }
         } else if (PThreadFS.isLink(node.mode)) {
           attr.size = node.link.length;
