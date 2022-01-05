@@ -92,7 +92,9 @@ var SyscallsLibrary = {
           // an error occurred while trying to look up the path; we should just report ENOTDIR
           return -{{{ cDefine('ENOTDIR') }}};
         }
-        throw e;
+        // An unknown error occurred. Return bad FD error for lack of better alternatives.
+        console.log('PThreadFS Error: doStat failed with ' + e);
+        return -{{{ cDefine('EBADF')}}};
       }
       {{{ makeSetValue('buf', C_STRUCTS.stat.st_dev, 'stat.dev', 'i32') }}};
       {{{ makeSetValue('buf', C_STRUCTS.stat.__st_dev_padding, '0', 'i32') }}};
