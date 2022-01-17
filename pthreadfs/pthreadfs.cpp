@@ -202,7 +202,7 @@ SYS_CAPI_DEF(open, 5, long path_ref, long flags, ...) {
   }
   va_list vl;
   va_start(vl, flags);
-  long res = __sys_open(path_ref, flags, (int)vl);
+  long res = SYNC_JS_SYSCALL(open)(path_ref, flags, (int)vl);
   va_end(vl);
   return res;
 }
@@ -233,7 +233,7 @@ SYS_CAPI_DEF(rename, 38, long old_path_ref, long new_path_ref) {
   if (emscripten::is_pthreadfs_file(new_path)) {
     return EXDEV;
   }
-  long res = __sys_rename(old_path_ref, new_path_ref);
+  long res = SYNC_JS_SYSCALL(rename)(old_path_ref, new_path_ref);
   return res;
 }
 
@@ -259,7 +259,7 @@ SYS_CAPI_DEF(readlink, 85, long path, long buf, long bufsize) {
     SYS_SYNC_TO_ASYNC_NORETURN(readlink, path, buf, bufsize);
     return resume_result_long;
   }
-  return __sys_readlink(path, buf, bufsize);
+  return SYNC_JS_SYSCALL(readlink)(path, buf, bufsize);
 }
 
 SYS_CAPI_DEF(fchmod, 94, long fd, long mode) { SYS_SYNC_TO_ASYNC_FD(fchmod, fd, mode); }
@@ -268,19 +268,74 @@ SYS_CAPI_DEF(fchdir, 133, long fd) { SYS_SYNC_TO_ASYNC_FD(fchdir, fd); }
 
 SYS_CAPI_DEF(fdatasync, 148, long fd) { SYS_SYNC_TO_ASYNC_FD(fdatasync, fd); }
 
+#if __EMSCRIPTEN_major__ > 2 || (__EMSCRIPTEN_major__==2 && __EMSCRIPTEN_tiny__ > 31)
+SYS_CAPI_DEF(truncate64, 193, long path, long low, long high) {
+  SYS_SYNC_TO_ASYNC_PATH(truncate64, path, low, high);
+}
+
+SYS_CAPI_DEF(ftruncate64, 194, long fd, long low, long high) {
+  SYS_SYNC_TO_ASYNC_FD(ftruncate64, fd, low, high);
+}
+#else  // __EMSCRIPTEN_major__ > 2 || (__EMSCRIPTEN_major__==2 && __EMSCRIPTEN_tiny__ > 31)
 SYS_CAPI_DEF(truncate64, 193, long path, long zero, long low, long high) {
-  SYS_SYNC_TO_ASYNC_PATH(truncate64, path, zero, low, high);
+  std::string pathname((char*)path);
+  if (emscripten::is_pthreadfs_file(pathname)) {
+    g_sync_to_async_helper.invoke([path, low, high](emscripten::sync_to_async::Callback resume) {
+      g_resumeFct = [resume]() { (*resume)(); };
+      __sys_truncate64_async(path, low, high, &resumeWrapper_l);
+    });
+    return resume_result_long;
+  }
+  return SYNC_JS_SYSCALL(truncate64)(path, zero, low, high);
 }
 
 SYS_CAPI_DEF(ftruncate64, 194, long fd, long zero, long low, long high) {
-  SYS_SYNC_TO_ASYNC_FD(ftruncate64, fd, zero, low, high);
+  if (fsa_file_descriptors.count(fd) > 0) {
+    g_sync_to_async_helper.invoke(
+      [fd, low, high](emscripten::sync_to_async::Callback resume) {
+        g_resumeFct = [resume]() { (*resume)(); };
+        __sys_ftruncate64_async(fd, low, high, &resumeWrapper_l);
+      });
+    return resume_result_long;
+  }
+  return SYNC_JS_SYSCALL(ftruncate64)(fd, zero, low, high);
+}
+#endif  // __EMSCRIPTEN_major__ > 2 || (__EMSCRIPTEN_major__==2 && __EMSCRIPTEN_tiny__ > 31)
+
+SYS_CAPI_DEF(stat64, 195, long path, long buf) {
+  std::string pathname((char*)path);
+  if (emscripten::is_pthreadfs_file(pathname)) {
+    g_sync_to_async_helper.invoke([path, buf](emscripten::sync_to_async::Callback resume) {
+      g_resumeFct = [resume]() { (*resume)(); };
+      __sys_stat64_async(path, buf, &resumeWrapper_l);
+    });
+    return resume_result_long;
+  }
+  return SYNC_JS_SYSCALL(stat64)(path, buf);
 }
 
-SYS_CAPI_DEF(stat64, 195, long path, long buf) { SYS_SYNC_TO_ASYNC_PATH(stat64, path, buf); }
+SYS_CAPI_DEF(lstat64, 196, long path, long buf) {
+  std::string pathname((char*)path);
+  if (emscripten::is_pthreadfs_file(pathname)) {
+    g_sync_to_async_helper.invoke([path, buf](emscripten::sync_to_async::Callback resume) {
+      g_resumeFct = [resume]() { (*resume)(); };
+      __sys_lstat64_async(path, buf, &resumeWrapper_l);
+    });
+    return resume_result_long;
+  }
+  return SYNC_JS_SYSCALL(lstat64)(path, buf);
+}
 
-SYS_CAPI_DEF(lstat64, 196, long path, long buf) { SYS_SYNC_TO_ASYNC_PATH(lstat64, path, buf); }
-
-SYS_CAPI_DEF(fstat64, 197, long fd, long buf) { SYS_SYNC_TO_ASYNC_FD(fstat64, fd, buf); }
+SYS_CAPI_DEF(fstat64, 197, long fd, long buf) {
+  if (fsa_file_descriptors.count(fd) > 0) {
+    g_sync_to_async_helper.invoke([fd, buf](emscripten::sync_to_async::Callback resume) {
+      g_resumeFct = [resume]() { (*resume)(); };
+      __sys_fstat64_async(fd, buf, &resumeWrapper_l);
+    });
+    return resume_result_long;
+  }
+  return SYNC_JS_SYSCALL(fstat64)(fd, buf);
+}
 
 SYS_CAPI_DEF(lchown32, 198, long path, long owner, long group) {
   SYS_SYNC_TO_ASYNC_PATH(lchown32, path, owner, group);
@@ -314,7 +369,7 @@ SYS_CAPI_DEF(fcntl64, 221, long fd, long cmd, ...) {
   }
   va_list vl;
   va_start(vl, cmd);
-  long res = __sys_fcntl64(fd, cmd, (int)vl);
+  long res = SYNC_JS_SYSCALL(fcntl64)(fd, cmd, (int)vl);
   va_end(vl);
   return res;
 }
