@@ -127,7 +127,7 @@ mergeInto(LibraryManager.library, {
             await node.handle.truncate(attr.size);
             return;
           }
-          // On a worker without an open access handle, try two times to open an access handle.
+          // On a worker without an open access handle, try three times to open an access handle.
           function timeout(ms) { return new Promise(resolve => setTimeout(resolve, ms)) };
           const number_of_tries = 3;
           const waiting_time_ms = 100;
@@ -158,8 +158,7 @@ mergeInto(LibraryManager.library, {
             }
             await timeout(waiting_time_ms);
           }
-          console.log(`FSAFS warning: Truncating an access handle failed, aborting`);
-          // Opening an access handle was unsuccessful
+          console.log(`FSAFS warning: Truncating access handle failed after multiple attempts, aborting`);
           throw PThreadFS.genericErrors[{{{ cDefine('EBUSY') }}}];
         }
       },
