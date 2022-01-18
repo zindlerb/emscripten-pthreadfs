@@ -234,7 +234,9 @@ var SyscallsLibrary = {
           // an error occurred while trying to look up the path; we should just report ENOTDIR
           return -{{{ cDefine('ENOTDIR') }}};
         }
-        throw e;
+        // An unknown error occurred. Return bad FD error for lack of better alternatives.
+        console.log('PThreadFS Error: doStat failed with ' + e);
+        return -{{{ cDefine('EBADF')}}};
       }
       {{{ makeSetValue('buf', C_STRUCTS.stat.st_dev, 'stat.dev', 'i32') }}};
       {{{ makeSetValue('buf', C_STRUCTS.stat.__st_dev_padding, '0', 'i32') }}};
@@ -3109,25 +3111,45 @@ mergeInto(LibraryManager.library, {
             let wt = await node.localReference.createWritable({ keepExistingData: true});
             await wt.truncate(attr.size);
             await wt.close();
+            return;
           }
-          else {  // !ENVIRONMENT_IS_WEB
-            let useOpen = false;
-            let fileHandle = node.handle;
+          if (node.handle) {
+            await node.handle.truncate(attr.size);
+            return;
+          }
+          // On a worker without an open access handle, try three times to open an access handle.
+          function timeout(ms) { return new Promise(resolve => setTimeout(resolve, ms)) };
+          const number_of_tries = 3;
+          const waiting_time_ms = 100;
+          let handle;
+          for (let trial = 0; trial < number_of_tries; trial++) {
             try {
-              if (!fileHandle) {
-                // Open a handle that is closed later.
-                useOpen = true;
-                fileHandle = await FSAFS.createSyncAccessHandle(node);
-              }
-              await fileHandle.truncate(attr.size);
-              if (useOpen) {
-                await fileHandle.close();
-              }
-            } catch (e) {
-              if (!('code' in e)) throw e;
-              throw new PThreadFS.ErrnoError(-e.errno);
+              handle = await FSAFS.createSyncAccessHandle(node);
+              await handle.truncate(attr.size);
+              await handle.close();
+              return;
             }
+            catch (e) {
+              if (typeof handle !== "undefined") {
+                try {
+                  await handle.close();
+                }
+                catch (e) {
+                  console.log('FSAFS error (setattr): Closing handle failed.');
+                }
+              }
+              // Access Handles throw InvalidStateErrors if the file is locked.
+              if (e.name === "InvalidStateError") {
+                console.log(`FSAFS warning: Truncating an access handle failed. Is the file open? Trying again.`);
+              }
+              else {
+                console.log(`FSAFS warning: Truncating an access handle failed with unexpected error ${e.name}. Trying again.`);
+              }
+            }
+            await timeout(waiting_time_ms);
           }
+          console.log(`FSAFS warning: Truncating access handle failed after multiple attempts, aborting`);
+          throw PThreadFS.genericErrors[{{{ cDefine('EBUSY') }}}];
         }
       },
 
