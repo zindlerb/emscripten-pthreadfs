@@ -21,12 +21,27 @@
 #endif // PTHREADFS_FOLDER
 #define PTHREADFS_FOLDER_NAME STR(PTHREADFS_FOLDER)
 
+// Emscripten changed the names of syscalls with version 2.0.31.
+// These macros translate between the old and new names
+#if __EMSCRIPTEN_major__ > 2 || (__EMSCRIPTEN_major__==2 && __EMSCRIPTEN_tiny__ > 31)
+#define SYS_CAPI_DEF(name, number, ...) long __syscall_##name(__VA_ARGS__)
+#define SYNC_JS_SYSCALL(name) __env_syscall_##name
+#define SYS_JS_DEF(name, ...)                                                                     \
+EM_IMPORT(__syscall_##name)  long SYNC_JS_SYSCALL(name)(__VA_ARGS__);
+#else  // __EMSCRIPTEN_major__ > 2 || (__EMSCRIPTEN_major__==2 && __EMSCRIPTEN_tiny__ > 31)
+#define SYS_CAPI_DEF(name, number, ...) long __syscall##number(__VA_ARGS__)
+#define SYNC_JS_SYSCALL(name) __sys_##name
+#define SYS_JS_DEF(name, ...) extern long SYNC_JS_SYSCALL(name)(__VA_ARGS__);
+#endif  // __EMSCRIPTEN_major__ > 2 || (__EMSCRIPTEN_major__==2 && __EMSCRIPTEN_tiny__ > 31)
+
+
+
 // clang-format will incorrectly transform the Javascript code.
 // clang-format off
 #define EM_PTHREADFS_ASM(code)                                                                     \
   g_sync_to_async_helper.invoke([](emscripten::sync_to_async::Callback resume) {                   \
     g_resumeFct = [resume]() { (*resume)(); };                                                     \
-    EM_ASM({ (async() => { code wasmTable.get($0)(); })(); }, &resumeWrapper_v);                  \
+    EM_ASM({ (async() => { code wasmTable.get($0)(); })(); }, &resumeWrapper_v);                   \
   });
 // clang-format on
 
@@ -60,16 +75,13 @@
   return fd_##name(fd);
 
 // Classic Syscalls
-
 #define SYS_JSAPI_DEF(name, ...)                                                                   \
   extern void __sys_##name##_async(__VA_ARGS__, void (*fun)(long));                                \
-  extern long __sys_##name(__VA_ARGS__);
+  SYS_JS_DEF(name, __VA_ARGS__);
 
 #define SYS_JSAPI_NOARGS_DEF(name)                                                                 \
   extern void __sys_##name##_async(void (*fun)(long));                                             \
-  extern long __sys_##name();
-
-#define SYS_CAPI_DEF(name, number, ...) long __syscall##number(__VA_ARGS__)
+  extern long SYNC_JS_SYSCALL(name)();
 
 #define SYS_DEF(name, number, ...)                                                                 \
   SYS_CAPI_DEF(name, number, __VA_ARGS__);                                                         \
@@ -89,7 +101,7 @@
     });                                                                                            \
     return resume_result_long;                                                                     \
   }                                                                                                \
-  return __sys_##name(__VA_ARGS__);
+  return SYNC_JS_SYSCALL(name)(__VA_ARGS__);
 #define SYS_SYNC_TO_ASYNC_PATH(name, ...)                                                          \
   std::string pathname((char*)path);                                                               \
   if (emscripten::is_pthreadfs_file(pathname)) {                                                   \
@@ -99,7 +111,7 @@
     });                                                                                            \
     return resume_result_long;                                                                     \
   }                                                                                                \
-  return __sys_##name(__VA_ARGS__);
+  return SYNC_JS_SYSCALL(name)(__VA_ARGS__);
 
 extern "C" {
 // Helpers
@@ -165,11 +177,24 @@ SYS_JSAPI_DEF(fchdir, long fd)
 SYS_CAPI_DEF(fdatasync, 148, long fd);
 SYS_JSAPI_DEF(fdatasync, long fd)
 
+// Special handling for truncate64 and ftruncate64, since the `zero` parameter
+// was removed.
+#if __EMSCRIPTEN_major__ > 2 || (__EMSCRIPTEN_major__==2 && __EMSCRIPTEN_tiny__ > 31)
+SYS_CAPI_DEF(truncate64, 193, long path, long low, long high);
+SYS_JSAPI_DEF(truncate64, long path, long low, long high)
+
+SYS_CAPI_DEF(ftruncate64, 194, long fd, long low, long high);
+SYS_JSAPI_DEF(ftruncate64, long fd, long low, long high)
+#else  // __EMSCRIPTEN_major__ > 2 || (__EMSCRIPTEN_major__==2 && __EMSCRIPTEN_tiny__ > 31)
 SYS_CAPI_DEF(truncate64, 193, long path, long zero, long low, long high);
-SYS_JSAPI_DEF(truncate64, long path, long zero, long low, long high)
+extern void __sys_truncate64_async(long path, long low, long high, void (*fun)(long)); 
+SYS_JS_DEF(truncate64, long path, long zero, long low, long high);
 
 SYS_CAPI_DEF(ftruncate64, 194, long fd, long zero, long low, long high);
-SYS_JSAPI_DEF(ftruncate64, long fd, long zero, long low, long high)
+extern void __sys_ftruncate64_async(long fd, long low, long high, void (*fun)(long));
+ SYS_JS_DEF(ftruncate64, long fd, long zero, long low, long high);
+
+#endif  // __EMSCRIPTEN_major__ > 2 || (__EMSCRIPTEN_major__==2 && __EMSCRIPTEN_tiny__ > 31)
 
 SYS_CAPI_DEF(stat64, 195, long path, long buf);
 SYS_JSAPI_DEF(stat64, long path, long buf)
