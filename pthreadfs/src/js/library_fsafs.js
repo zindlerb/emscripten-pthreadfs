@@ -8,14 +8,6 @@ mergeInto(LibraryManager.library, {
   $FSAFS__deps: ['$PThreadFS'],
   $FSAFS: {
 
-    /* Debugging */
-
-    debug: function(...args) {
-      // Uncomment to print debug information.
-      //
-      // console.log(args);
-    },
-
     /* Helper functions */
 
     // This function mantains backwards compatibility with Chrome versions
@@ -31,7 +23,6 @@ mergeInto(LibraryManager.library, {
     /* Filesystem implementation (public interface) */
 
     createNode: function (parent, name, mode, dev) {
-      FSAFS.debug('createNode', arguments);
       if (!PThreadFS.isDir(mode) && !PThreadFS.isFile(mode)) {
         throw new PThreadFS.ErrnoError({{{ cDefine('EINVAL') }}});
       }
@@ -51,7 +42,6 @@ mergeInto(LibraryManager.library, {
     },
 
     mount: async function (mount) {
-      FSAFS.debug('mount', arguments);
       let node = FSAFS.createNode(null, '/', {{{ cDefine('S_IFDIR') }}} | 511 /* 0777 */, 0);
       FSAFS.root = await navigator.storage.getDirectory();
       node.localReference = FSAFS.root;
@@ -62,7 +52,6 @@ mergeInto(LibraryManager.library, {
 
     node_ops: {
       getattr: async function(node) {
-        FSAFS.debug('getattr', arguments);
         var attr = {};
         // device numbers reuse inode numbers.
         attr.dev = PThreadFS.isChrdev(node.mode) ? node.id : 1;
@@ -101,7 +90,6 @@ mergeInto(LibraryManager.library, {
       },
 
       setattr: async function(node, attr) {
-        FSAFS.debug('setattr', arguments);
         if (attr.mode !== undefined) {
           node.mode = attr.mode;
         }
@@ -158,7 +146,6 @@ mergeInto(LibraryManager.library, {
       },
 
       lookup: async function (parent, name) {
-        FSAFS.debug('lookup', arguments);
         let childLocalReference = null;
         let mode = null;
         try {
@@ -183,7 +170,6 @@ mergeInto(LibraryManager.library, {
       },
 
       mknod: async function (parent, name, mode, dev) {
-        FSAFS.debug('mknod', arguments);
         let node = FSAFS.createNode(parent, name, mode, dev);
         try {
           if (PThreadFS.isDir(mode)) {
@@ -202,7 +188,6 @@ mergeInto(LibraryManager.library, {
       },
 
       rename: async function (oldNode, newParentNode, newName) {
-        FSAFS.debug('rename', arguments);
         if (PThreadFS.isDir(oldNode.mode)) {
           console.log('Rename error: File System Access does not support renaming directories');
           throw new PThreadFS.ErrnoError({{{ cDefine('EXDEV') }}});
@@ -236,7 +221,6 @@ mergeInto(LibraryManager.library, {
       },
 
       unlink: async function(parent, name) {
-        FSAFS.debug('unlink', arguments);
         let res = await parent.localReference.removeEntry(name);
 
         if ('contents' in parent) {
@@ -247,7 +231,6 @@ mergeInto(LibraryManager.library, {
       },
 
       rmdir: async function(parent, name) {
-        FSAFS.debug('rmdir', arguments);
         let res;
         try{
           res = await parent.localReference.removeEntry(name);
@@ -268,7 +251,6 @@ mergeInto(LibraryManager.library, {
       },
 
       readdir: async function(node) {
-        FSAFS.debug('readdir', arguments);
         let entries = ['.', '..'];
         // Do not use `for await` yet, since it's not supported by Emscripten's minifier.
         // for await (let [name, handle] of node.localReference) {
@@ -298,7 +280,6 @@ mergeInto(LibraryManager.library, {
 
     stream_ops: {
       open: async function (stream) {
-        FSAFS.debug('open', arguments);
         if (PThreadFS.isDir(stream.node.mode)) {
           // Everything is correctly set up already
           return;
@@ -324,7 +305,6 @@ mergeInto(LibraryManager.library, {
       },
 
       close: async function (stream) {
-        FSAFS.debug('close', arguments);
         if (PThreadFS.isDir(stream.node.mode)) {
           // Everything is correctly set up already
           return;
@@ -346,7 +326,6 @@ mergeInto(LibraryManager.library, {
       },
 
       fsync: async function(stream) {
-        FSAFS.debug('fsync', arguments);
         if (stream.handle == null) {
           throw new PThreadFS.ErrnoError({{{ cDefine('EBADF') }}});
         }
@@ -359,7 +338,6 @@ mergeInto(LibraryManager.library, {
       },
 
       read: async function (stream, buffer, offset, length, position) {
-        FSAFS.debug('read', arguments);
         let data = buffer.subarray(offset, offset+length);
         let readBytes;
         if (ENVIRONMENT_IS_WEB) {
@@ -378,7 +356,6 @@ mergeInto(LibraryManager.library, {
       },
 
       write: async function (stream, buffer, offset, length, position) {
-        FSAFS.debug('write', arguments);
         stream.node.timestamp = Date.now();
         let data = buffer.subarray(offset, offset+length);
         let writtenBytes;
@@ -397,7 +374,6 @@ mergeInto(LibraryManager.library, {
       },
 
       llseek: async function (stream, offset, whence) {
-        FSAFS.debug('llseek', arguments);
         let position = offset;
         if (whence === {{{ cDefine('SEEK_CUR') }}}) {
           position += stream.position;
@@ -419,21 +395,6 @@ mergeInto(LibraryManager.library, {
           throw new PThreadFS.ErrnoError({{{ cDefine('EINVAL') }}});
         }
         return position;
-      },
-
-      mmap: function(stream, buffer, offset, length, position, prot, flags) {
-        FSAFS.debug('mmap', arguments);
-        throw new PThreadFS.ErrnoError({{{ cDefine('EOPNOTSUPP') }}});
-      },
-
-      msync: function(stream, buffer, offset, length, mmapFlags) {
-        FSAFS.debug('msync', arguments);
-        throw new PThreadFS.ErrnoError({{{ cDefine('EOPNOTSUPP') }}});
-      },
-
-      munmap: function(stream) {
-        FSAFS.debug('munmap', arguments);
-        throw new PThreadFS.ErrnoError({{{ cDefine('EOPNOTSUPP') }}});
       },
     }
   }

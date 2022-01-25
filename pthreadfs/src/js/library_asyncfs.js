@@ -1146,41 +1146,6 @@
       }
       await stream.stream_ops.allocate(stream, offset, length);
    },
-    mmap: async function(stream, address, length, position, prot, flags) {
-#if CAN_ADDRESS_2GB
-      address >>>= 0;
-#endif
-      // User requests writing to file (prot & PROT_WRITE != 0).
-      // Checking if we have permissions to write to the file unless
-      // MAP_PRIVATE flag is set. According to POSIX spec it is possible
-      // to write to file opened in read-only mode with MAP_PRIVATE flag,
-      // as all modifications will be visible only in the memory of
-      // the current process.
-      if ((prot & {{{ cDefine('PROT_WRITE') }}}) !== 0
-          && (flags & {{{ cDefine('MAP_PRIVATE')}}}) === 0
-          && (stream.flags & {{{ cDefine('O_ACCMODE') }}}) !== {{{ cDefine('O_RDWR')}}}) {
-        throw new PThreadFS.ErrnoError({{{ cDefine('EACCES') }}});
-      }
-      if ((stream.flags & {{{ cDefine('O_ACCMODE') }}}) === {{{ cDefine('O_WRONLY')}}}) {
-        throw new PThreadFS.ErrnoError({{{ cDefine('EACCES') }}});
-      }
-      if (!stream.stream_ops.mmap) {
-        throw new PThreadFS.ErrnoError({{{ cDefine('ENODEV') }}});
-      }
-      return await stream.stream_ops.mmap(stream, address, length, position, prot, flags);
-    },
-    msync: async function(stream, buffer, offset, length, mmapFlags) {
-#if CAN_ADDRESS_2GB
-      offset >>>= 0;
-#endif
-      if (!stream || !stream.stream_ops.msync) {
-        return 0;
-      }
-      return await stream.stream_ops.msync(stream, buffer, offset, length, mmapFlags);
-    },
-    munmap: function(stream) {
-      return 0;
-    },
     ioctl: async function(stream, cmd, arg) {
       if (!stream.stream_ops.ioctl) {
         throw new PThreadFS.ErrnoError({{{ cDefine('ENOTTY') }}});
