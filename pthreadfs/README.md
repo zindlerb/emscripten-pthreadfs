@@ -8,7 +8,7 @@ The code is still prototype quality and **should not be used in a production env
 
 ## Enable OPFS Access Handles in Chrome
 
-OPFS Access Handles are available as [origin trial](https://developer.chrome.com/origintrials/) in Chrome 96.
+OPFS Access Handles are available as [origin trial](https://developer.chrome.com/origintrials/#/view_trial/3378825620434714625) since Chrome 96.
 
 Alternatively, OPFS Access Handles can be enabled by turning on "Experimental Web Platform Features" in [chrome://flags](chrome://flags).
 
