@@ -2,26 +2,19 @@
 
 The Emscripten Pthread File System (PThreadFS) unlocks using (partly) asynchronous storage APIs such as [OPFS Access Handles](https://docs.google.com/document/d/121OZpRk7bKSF7qU3kQLqAEUVSNxqREnE98malHYwWec/edit#heading=h.gj2fudnvy982) through the Emscripten File System API. This enables C++ applications compiled through Emscripten to use persistent storage without using [Asyncify](https://emscripten.org/docs/porting/asyncify.html). PThreadFS requires only minimal modifications to the C++ code and nearly achieves feature parity with the Emscripten's classic File System API.
 
-PThreadFS works by replacing Emscripten's file system API with a new API that proxies all file system operations to a dedicated pthread. This dedicated thread maintains a virtual file system that can use different APIs as backend (very similar to the way Emscripten's VFS is designed). In particular, PThreadFS comes with built-in support for asynchronous backends such as [OPFS Access Handles](https://docs.google.com/document/d/121OZpRk7bKSF7qU3kQLqAEUVSNxqREnE98malHYwWec/edit#heading=h.gj2fudnvy982).
-Although the underlying storage API is asynchronous, PThreadFS makes it appear synchronous to the C++ application.
-
-If OPFS Access Handles are not available, PThreadFS will use an in-memory file system.
+PThreadFS replaces Emscripten's internal file system layer with a system that proxies all file system operations to a dedicated thread. PThreadFS then stores the file contents using a suitable Chrome storage API. In particular, PThreadFS comes with built-in support for [OPFS Access Handles](https://docs.google.com/document/d/121OZpRk7bKSF7qU3kQLqAEUVSNxqREnE98malHYwWec/edit#heading=h.gj2fudnvy982). If OPFS Access Handles are not available, PThreadFS will use an in-memory file system.
 
 The code is still prototype quality and **should not be used in a production environment** for the time being.
 
 ## Enable OPFS Access Handles in Chrome
 
-OPFS Access Handles require Google Chrome 96. "Experimental Web Platform Features" must be enabled in [chrome://flags](chrome://flags).
+OPFS Access Handles are available as [origin trial](https://developer.chrome.com/origintrials/) in Chrome 96.
 
-Alternatively, you may enable the API with Chrome's " --enable-runtime-features=FileSystemAccessAccessHandle". On MacOS, this can be done through
-```
-open -a /Applications/Google\ Chrome\ Canary.app --args --enable-runtime-features=FileSystemAccessAccessHandle
-```
+Alternatively, OPFS Access Handles can be enabled by turning on "Experimental Web Platform Features" in [chrome://flags](chrome://flags).
 
-OPFS Access Handles are available as [origin trial](https://developer.chrome.com/origintrials/) in Chrome 95.
 ## Getting the code
 
-PthreadFS is available on Github in the [emscripten-pthreadfs](https://github.com/rstz/emscripten-pthreadfs) repository. All code resides in the `pthreadfs` folder. It should be usable with any up-to-date Emscripten version. 
+PthreadFS is available on Github in the [emscripten-pthreadfs](https://github.com/rstz/emscripten-pthreadfs) repository. All code resides in the `pthreadfs` folder. It has been tested with Emscripten 3.1.1
 
 There is **no need** to use a fork of Emscripten itself since all code operates in user-space.
 
@@ -55,7 +48,7 @@ emcc -pthread -s PROXY_TO_PTHREAD -O2 --js-library=library_pthreadfs.js myprojec
 
 ### Advanced Usage
 
-If you want to modify the PThreadFS file system directly, you may use the macro `EM_PTHREADFS_ASM()` defined in `pthreadfs.h`. The macro allows you to run asynchrononous Javascript on the Pthread hosting the PThreadFS file system. For example, you may create a folder in the virtual file system by calling
+If you want to modify the PThreadFS file system directly, you may use the macro `EM_PTHREADFS_ASM()` defined in `pthreadfs.h`. The macro allows you to run asynchrononous Javascript on the thread hosting the PThreadFS file system. For example, you may create a folder in the virtual file system by calling
 ```
 EM_PTHREADFS_ASM(
   await PThreadFS.mkdir('mydirectory');
@@ -63,6 +56,7 @@ EM_PTHREADFS_ASM(
 ```
 See `pthreadfs/examples/emscripten-tests/fsafs.cpp` for exemplary usage.
 
+PThreadFS supports pre-loading files through the file packager. More information is available in `file_packager_readme.md`.
 
 ## Known Limitations
 
@@ -72,7 +66,6 @@ See `pthreadfs/examples/emscripten-tests/fsafs.cpp` for exemplary usage.
 - PThreadFS requires PROXY_TO_PTHREAD to be active. In particular, no system calls interacting with the file system should be called from the main thread.
 - Some functionality of the Emscripten File System API is missing, such as sockets, IndexedDB integration and support for XHRequests.
 - PThreadFS depends on C++ libraries. `EM_PTHREADFS_ASM()` cannot be used within C files.
-- Performance is good if and only if optimizations (compiler option `-O2`) are enabled and DevTools are closed.
 - Accessing the file system before `main()` requires linker option `PTHREAD_POOL_SIZE=<expression>` to be active. Doing so may lead to some blocking of the main thread, which is risky. Check out `examples/early_syscall.cpp` for an example.
 - Compiling with the Closure Compiler is not supported.
 - Compiling with optimization `-O3` is not yet supported and may lead to a faulty build.
@@ -91,14 +84,14 @@ The Makefile downloads the source of the speedtest and sqlite3 directly from <ht
 To compile, navigate to the `pthreadfs/examples/` directory and run
 
 ```shell
-make sqlite-speedtest
-cd dist/sqlite-speedtest
+make sqlite
+cd dist/sqlite
 python3 -m http.server 8888
 ```
 Then open the following link in a Chrome instance with the
 _OPFS Access Handles_ [enabled](#enable-and-detect-opfs-in-chrome):
 
-[localhost:8888/sqlite-speedtest](http://localhost:8888/sqlite-speedtest).
+[localhost:8888/sqlite](http://localhost:8888/sqlite-speedtest).
 
 ### Other tests
 
@@ -114,7 +107,7 @@ python3 -m http.server 8888
 Then open the following link in a Chrome instance with the
 _OPFS Access Handles_ [enabled](#enable-and-detect-opfs-in-chrome):
 
-[localhost:8888](http://localhost:8888) and choose a test. The results of the test can be found in the DevTools console.
+[localhost:8888](http://localhost:8888) and choose a test.
 
 ## Authors
 - Richard Stotz (<rstz@chromium.org>)
