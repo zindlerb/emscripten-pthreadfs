@@ -581,10 +581,16 @@ var SyscallsLibrary = {
         var id;
         var type;
         var name = stream.getdents[idx];
-        if (name[0] === '.') {
-          id = 1;
+        if (name === '.') {
+          id = stream.node.id;
           type = 4; // DT_DIR
-        } else {
+        }
+        else if (name === '..') {
+          var lookup = await PThreadFS.lookupPath(stream.path, { parent: true });
+          id = lookup.node.id;
+          type = 4; // DT_DIR
+        }
+        else {
           var child = await PThreadFS.lookupNode(stream.node, name);
           id = child.id;
           type = PThreadFS.isChrdev(child.mode) ? 2 :  // DT_CHR, character device.
@@ -592,6 +598,9 @@ var SyscallsLibrary = {
                  PThreadFS.isLink(child.mode) ? 10 :   // DT_LNK, symbolic link.
                  8;                             // DT_REG, regular file.
         }
+  #if ASSERTIONS
+        assert(id);
+  #endif
         {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_ino, 'id', 'i64') }}};
         {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_off, '(idx + 1) * struct_size', 'i64') }}};
         {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_reclen, C_STRUCTS.dirent.__size__, 'i16') }}};

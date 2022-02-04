@@ -125,7 +125,7 @@ SyscallWrappers['utime_async'] = function(path, times, resume) {
       wasmTable.get(resume)(0);
     });
   } catch (e) {
-    if (!(e instanceof FS.ErrnoError)) throw e + ' : ' + stackTrace();
+    if (!(e instanceof PThreadFS.ErrnoError)) throw e + ' : ' + stackTrace();
     setErrNo(e.errno);
     wasmTable.get(resume)(-1);
   }
@@ -726,10 +726,16 @@ var SyscallsLibrary = {
         var id;
         var type;
         var name = stream.getdents[idx];
-        if (name[0] === '.') {
-          id = 1;
+        if (name === '.') {
+          id = stream.node.id;
           type = 4; // DT_DIR
-        } else {
+        }
+        else if (name === '..') {
+          var lookup = await PThreadFS.lookupPath(stream.path, { parent: true });
+          id = lookup.node.id;
+          type = 4; // DT_DIR
+        }
+        else {
           var child = await PThreadFS.lookupNode(stream.node, name);
           id = child.id;
           type = PThreadFS.isChrdev(child.mode) ? 2 :  // DT_CHR, character device.
@@ -737,6 +743,9 @@ var SyscallsLibrary = {
                  PThreadFS.isLink(child.mode) ? 10 :   // DT_LNK, symbolic link.
                  8;                             // DT_REG, regular file.
         }
+  #if ASSERTIONS
+        assert(id);
+  #endif
         {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_ino, 'id', 'i64') }}};
         {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_off, '(idx + 1) * struct_size', 'i64') }}};
         {{{ makeSetValue('dirp + pos', C_STRUCTS.dirent.d_reclen, C_STRUCTS.dirent.__size__, 'i16') }}};
@@ -1001,9 +1010,8 @@ mergeInto(LibraryManager.library, SyscallsLibrary);
     //
     // paths
     //
-    lookupPath: async function(path, opts) {
+    lookupPath: async function(path, opts = {}) {
       path = PATH_FS.resolve(PThreadFS.cwd(), path);
-      opts = opts || {};
 
       if (!path) return { path: '', node: null };
 
@@ -1318,11 +1326,7 @@ mergeInto(LibraryManager.library, SyscallsLibrary);
         };
       }
       // clone it, so we can return an instance of FSStream
-      var newStream = new PThreadFS.FSStream();
-      for (var p in stream) {
-        newStream[p] = stream[p];
-      }
-      stream = newStream;
+      stream = Object.assign(new PThreadFS.FSStream(), stream);
       var fd = PThreadFS.nextfd(fd_start, fd_end);
       stream.fd = fd;
       PThreadFS.streams[fd] = stream;
@@ -1732,6 +1736,9 @@ mergeInto(LibraryManager.library, SyscallsLibrary);
     unlink: async function(path) {
       var lookup = await PThreadFS.lookupPath(path, { parent: true });
       var parent = lookup.node;
+      if (!parent) {
+        throw new PThreadFS.ErrnoError({{{ cDefine('ENOENT') }}});
+      }
       var name = PATH.basename(path);
       var node = await PThreadFS.lookupNode(parent, name);
       var errCode = await PThreadFS.mayDelete(parent, name, false);
@@ -2114,8 +2121,7 @@ mergeInto(LibraryManager.library, SyscallsLibrary);
       }
       return await stream.stream_ops.ioctl(stream, cmd, arg);
     },
-    readFile: async function(path, opts) {
-      opts = opts || {};
+    readFile: async function(path, opts = {}) {
       opts.flags = opts.flags || {{{ cDefine('O_RDONLY') }}};
       opts.encoding = opts.encoding || 'binary';
       if (opts.encoding !== 'utf8' && opts.encoding !== 'binary') {
@@ -2135,8 +2141,7 @@ mergeInto(LibraryManager.library, SyscallsLibrary);
       await PThreadFS.close(stream);
       return ret;
     },
-    writeFile: async function(path, data, opts) {
-      opts = opts || {};
+    writeFile: async function(path, data, opts = {}) {
       opts.flags = opts.flags || {{{ cDefine('O_TRUNC') | cDefine('O_CREAT') | cDefine('O_WRONLY') }}};
       var stream = await PThreadFS.open(path, opts.flags, opts.mode);
       if (typeof data === 'string') {
@@ -3199,9 +3204,9 @@ mergeInto(LibraryManager.library, {
           let it = parent.localReference.values();
           let res = await it.next();
           if (!res.done) {
-            throw new FS.ErrnoError({{{ cDefine('ENOTEMPTY') }}});
+            throw new PThreadFS.ErrnoError({{{ cDefine('ENOTEMPTY') }}});
           }
-          throw new FS.ErrnoError({{{ cDefine('EINVAL') }}});
+          throw new PThreadFS.ErrnoError({{{ cDefine('EINVAL') }}});
         }
         if ('contents' in parent) {
           delete parent.contents[name];
