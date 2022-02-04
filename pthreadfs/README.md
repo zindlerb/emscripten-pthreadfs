@@ -65,6 +65,8 @@ PThreadFS supports pre-loading files through the file packager. More information
 - The code is still prototype quality and **should not be used in a production environment** yet. It is possible that the use of PThreadFS might lead to subtle bugs in other libraries.
 - PThreadFS requires PROXY_TO_PTHREAD to be active. In particular, no system calls interacting with the file system should be called from the main thread.
 - Some functionality of the Emscripten File System API is missing, such as sockets, IndexedDB integration and support for XHRequests.
+- PThreadFS does not support symlinks.
+- Changing the current working directory might not work in some cases.
 - PThreadFS depends on C++ libraries. `EM_PTHREADFS_ASM()` cannot be used within C files.
 - Accessing the file system before `main()` requires linker option `PTHREAD_POOL_SIZE=<expression>` to be active. Doing so may lead to some blocking of the main thread, which is risky. Check out `examples/early_syscall.cpp` for an example.
 - Compiling with the Closure Compiler is not supported.
