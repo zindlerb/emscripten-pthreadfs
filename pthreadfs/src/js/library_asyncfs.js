@@ -39,9 +39,8 @@
     //
     // paths
     //
-    lookupPath: async function(path, opts) {
+    lookupPath: async function(path, opts = {}) {
       path = PATH_FS.resolve(PThreadFS.cwd(), path);
-      opts = opts || {};
 
       if (!path) return { path: '', node: null };
 
@@ -356,11 +355,7 @@
         };
       }
       // clone it, so we can return an instance of FSStream
-      var newStream = new PThreadFS.FSStream();
-      for (var p in stream) {
-        newStream[p] = stream[p];
-      }
-      stream = newStream;
+      stream = Object.assign(new PThreadFS.FSStream(), stream);
       var fd = PThreadFS.nextfd(fd_start, fd_end);
       stream.fd = fd;
       PThreadFS.streams[fd] = stream;
@@ -770,6 +765,9 @@
     unlink: async function(path) {
       var lookup = await PThreadFS.lookupPath(path, { parent: true });
       var parent = lookup.node;
+      if (!parent) {
+        throw new PThreadFS.ErrnoError({{{ cDefine('ENOENT') }}});
+      }
       var name = PATH.basename(path);
       var node = await PThreadFS.lookupNode(parent, name);
       var errCode = await PThreadFS.mayDelete(parent, name, false);
@@ -1152,8 +1150,7 @@
       }
       return await stream.stream_ops.ioctl(stream, cmd, arg);
     },
-    readFile: async function(path, opts) {
-      opts = opts || {};
+    readFile: async function(path, opts = {}) {
       opts.flags = opts.flags || {{{ cDefine('O_RDONLY') }}};
       opts.encoding = opts.encoding || 'binary';
       if (opts.encoding !== 'utf8' && opts.encoding !== 'binary') {
@@ -1173,8 +1170,7 @@
       await PThreadFS.close(stream);
       return ret;
     },
-    writeFile: async function(path, data, opts) {
-      opts = opts || {};
+    writeFile: async function(path, data, opts = {}) {
       opts.flags = opts.flags || {{{ cDefine('O_TRUNC') | cDefine('O_CREAT') | cDefine('O_WRONLY') }}};
       var stream = await PThreadFS.open(path, opts.flags, opts.mode);
       if (typeof data === 'string') {

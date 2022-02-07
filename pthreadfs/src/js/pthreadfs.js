@@ -125,7 +125,7 @@ SyscallWrappers['utime_async'] = function(path, times, resume) {
       wasmTable.get(resume)(0);
     });
   } catch (e) {
-    if (!(e instanceof FS.ErrnoError)) throw e + ' : ' + stackTrace();
+    if (!(e instanceof PThreadFS.ErrnoError)) throw e + ' : ' + stackTrace();
     setErrNo(e.errno);
     wasmTable.get(resume)(-1);
   }

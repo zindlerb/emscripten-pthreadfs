@@ -239,9 +239,9 @@ mergeInto(LibraryManager.library, {
           let it = parent.localReference.values();
           let res = await it.next();
           if (!res.done) {
-            throw new FS.ErrnoError({{{ cDefine('ENOTEMPTY') }}});
+            throw new PThreadFS.ErrnoError({{{ cDefine('ENOTEMPTY') }}});
           }
-          throw new FS.ErrnoError({{{ cDefine('EINVAL') }}});
+          throw new PThreadFS.ErrnoError({{{ cDefine('EINVAL') }}});
         }
         if ('contents' in parent) {
           delete parent.contents[name];
