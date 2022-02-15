@@ -3234,11 +3234,6 @@ mergeInto(LibraryManager.library, {
         console.log('FSAFS error: symlink is not implemented')
         throw new PThreadFS.ErrnoError({{{ cDefine('EXDEV') }}});
       },
-
-      readlink: function(node) {
-        console.log('FSAFS error: readlink is not implemented')
-        throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
-      },
     },
 
     /* Operations on file streams (i.e., file handles) */
