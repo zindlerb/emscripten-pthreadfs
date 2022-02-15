@@ -3230,14 +3230,12 @@ mergeInto(LibraryManager.library, {
         return entries;
       },
 
+      // No readlink support: Since PThreadFS does not support links, there is
+      // no need for readlink at this time.
+
       symlink: function(parent, newName, oldPath) {
         console.log('FSAFS error: symlink is not implemented')
         throw new PThreadFS.ErrnoError({{{ cDefine('EXDEV') }}});
-      },
-
-      readlink: function(node) {
-        console.log('FSAFS error: readlink is not implemented')
-        throw new PThreadFS.ErrnoError({{{ cDefine('ENOSYS') }}});
       },
     },
 
