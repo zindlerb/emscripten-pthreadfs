@@ -47,10 +47,12 @@ EM_IMPORT(__syscall_##name)  long SYNC_JS_SYSCALL(name)(__VA_ARGS__);
 
 #define WASI_JSAPI_DEF(name, ...)                                                                  \
   extern void __fd_##name##_async(__wasi_fd_t fd, __VA_ARGS__, void (*fun)(__wasi_errno_t));       \
-  extern __wasi_errno_t fd_##name(__wasi_fd_t fd, __VA_ARGS__);
+  __attribute__((__import_module__("wasi_snapshot_preview1"), __import_name__(QUOTE(fd_##name))))  \
+  EM_IMPORT(fd_##name) __wasi_errno_t fd_##name(__wasi_fd_t fd, __VA_ARGS__);
 #define WASI_JSAPI_NOARGS_DEF(name)                                                                \
   extern void __fd_##name##_async(__wasi_fd_t fd, void (*fun)(__wasi_errno_t));                    \
-  extern __wasi_errno_t fd_##name(__wasi_fd_t fd);
+  __attribute__((__import_module__("wasi_snapshot_preview1"), __import_name__(QUOTE(fd_##name))))  \
+  EM_IMPORT(fd_##name) __wasi_errno_t fd_##name(__wasi_fd_t fd);
 
 #define WASI_CAPI_DEF(name, ...) __wasi_errno_t __wasi_fd_##name(__wasi_fd_t fd, __VA_ARGS__)
 #define WASI_CAPI_NOARGS_DEF(name) __wasi_errno_t __wasi_fd_##name(__wasi_fd_t fd)
