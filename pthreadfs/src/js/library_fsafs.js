@@ -64,7 +64,7 @@ mergeInto(LibraryManager.library, {
         if (PThreadFS.isDir(node.mode)) {
           attr.size = 4096;
         } else if (PThreadFS.isFile(node.mode)) {
-          if (node.handle){
+          if (node.handle && !ENVIRONMENT_IS_WEB){
             attr.size = await node.handle.getSize();
           }
           else {
