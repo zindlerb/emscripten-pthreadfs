@@ -141,7 +141,7 @@ mergeInto(LibraryManager.library, {
             await timeout(waiting_time_ms);
           }
           console.log(`FSAFS warning: Truncating access handle failed after multiple attempts, aborting`);
-          throw PThreadFS.genericErrors[{{{ cDefine('EBUSY') }}}];
+          throw new PThreadFS.ErrnoError({{{ cDefine('EDQUOT') }}});
         }
       },
 
