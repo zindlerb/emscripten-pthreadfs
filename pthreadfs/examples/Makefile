@@ -20,7 +20,7 @@ SQLITE_SRC = ../../tests/third_party/sqlite
 SQLITE_BENCHMARK_SRC = ../../tests/sqlite
 
 
-.PHONY: all 
+.PHONY: all
 all: sqlite emscripten-tests packager-tests jsops-tests
 
 
@@ -34,6 +34,8 @@ CFLAGS = \
 	-$(OPTIMIZATION_LEVEL) \
 	-Wall \
 	-pthread \
+	-DSQLITE_ENABLE_FTS3 \
+	-DSQLITE_ENABLE_FTS3_PARENTHESIS \
 	-I..
 
 # Allocate 128 MiB to prevent OOM errors in some tests.
@@ -68,7 +70,7 @@ $(OBJ)/sqlite/%.o : $(SQLITE_BENCHMARK_SRC)/%.c
 	mkdir -p $(OBJ)/sqlite/
 	$(EMCC) -c $(CFLAGS) -I$(SQLITE_SRC) $< -o $@
 
-dist/sqlite/%.html : $(OBJ)/sqlite/%.o $(OBJ)/pthreadfs.o $(OBJ)/sqlite3.o sqlite/sqlite-prejs.js $(PTHREADFS_JS) 
+dist/sqlite/%.html : $(OBJ)/sqlite/%.o $(OBJ)/pthreadfs.o $(OBJ)/sqlite3.o sqlite/sqlite-prejs.js $(PTHREADFS_JS)
 	mkdir -p dist/sqlite/
 	$(EMCC) $(LINK_FLAGS) --js-library=$(PTHREADFS_JS) --pre-js=$(word 4,$^) $< $(word 2,$^) $(word 3,$^) -o $@
 
@@ -95,7 +97,7 @@ emscripten-tests-nodejs: $(addprefix dist/$(NODEJSTESTS)/, $(notdir $(addsuffix 
 dist/$(NODEJSTESTS)/%.js : $(OBJ)/%.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
 	mkdir -p dist/$(NODEJSTESTS)
 	$(EMCC) $(LINK_FLAGS) --js-library=$(PTHREADFS_JS) $< $(word 2,$^) -o $@
-	
+
 
 # Compiling the packager tests requires manual creation of the following files
 # - $(PACKAGERTESTS)/input/small/smallfile.txt: Size 188 bytes, first line "These are the contents of a very small file."
@@ -119,14 +121,14 @@ dist/$(PACKAGERTESTS)/pkg_intermediate_mediumlarge.js: $(PACKAGER_INPUT_MEDIUMLA
 	mkdir -p dist/$(PACKAGERTESTS)/
 	python3 $(FILE_PACKAGER) $(addsuffix .data, $(basename $@)) --preload ./$(PACKAGERTESTS)/input/mediumlarge@/persistent/intermediate_loading --use_pthreadfs --js-output=$@
 
-	
+
 dist/$(PACKAGERTESTS)/preloading_without_pthreadfs.html: $(OBJ)/preloading.o $(PACKAGER_INPUT)
 	mkdir -p dist/$(PACKAGERTESTS)
 	$(EMCC) $(LINK_FLAGS) -o $@ --preload-file $(PACKAGERTESTS)/input/small@/persistent --preload-file $(PACKAGERTESTS)/input/mediumlarge@/persistent $<
 
 dist/$(PACKAGERTESTS)/preloading.html: $(OBJ)/preloading.o $(OBJ)/pthreadfs.o dist/$(PACKAGERTESTS)/pkg_preload_small.js dist/$(PACKAGERTESTS)/pkg_preload_mediumlarge.js $(PTHREADFS_JS)
 	mkdir -p dist/$(PACKAGERTESTS)
-	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS)  --pre-js $(word 3,$^) --pre-js $(word 4,$^)  $< $(word 2,$^) 
+	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS)  --pre-js $(word 3,$^) --pre-js $(word 4,$^)  $< $(word 2,$^)
 
 dist/$(PACKAGERTESTS)/load_package_sync.html: $(OBJ)/load_package_sync.o $(OBJ)/pthreadfs.o dist/$(PACKAGERTESTS)/pkg_intermediate_small.js dist/$(PACKAGERTESTS)/pkg_intermediate_mediumlarge.js $(PTHREADFS_JS)
 	mkdir -p dist/$(PACKAGERTESTS)
@@ -150,4 +152,4 @@ dist/$(JSOPSTESTS)/write_from_main_thread.html: $(OBJ)/write_from_main_thread.o 
 
 dist/$(JSOPSTESTS)/read_from_main_thread.html: $(OBJ)/read_from_main_thread.o $(OBJ)/pthreadfs.o $(PTHREADFS_JS)
 	mkdir -p dist/$(JSOPSTESTS)
-	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS) $< $(word 2,$^)  
+	$(EMCC) $(LINK_FLAGS) -o $@ --js-library=$(PTHREADFS_JS) $< $(word 2,$^)
