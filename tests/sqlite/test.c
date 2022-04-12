@@ -37,7 +37,10 @@ int main(){
     "CREATE TABLE modifiers (id INTEGER PRIMARY KEY, name TEXT, queue_name TEXT NOT NULL, json TEXT NOT NULL, session_id TEXT, replace_id TEXT, created_at INTEGER, updated_at INTEGER, started_at INTEGER, completed_at INTEGER)",
     "CREATE TABLE profiles (email TEXT PRIMARY KEY NOT NULL, insights TEXT, threads TEXT, twitter TEXT)",
     "CREATE TABLE sync (id TEXT PRIMARY KEY NOT NULL, value TEXT)",
+    "CREATE VIRTUAL TABLE thread_search USING fts3 (thread_id, subject, content, from, to, cc, bcc, replyto, deliveredto, attachments, labels, list, rfc822msgid, meta, tokenize=porter)",
     "CREATE TABLE threads (thread_id TEXT PRIMARY KEY NOT NULL, json TEXT, sort INTEGER, in_spam_trash BOOLEAN, has_attachments BOOLEAN, superhuman_data TEXT, needs_render INTEGER DEFAULT 1)",
+
+
     "CREATE INDEX calendar_accounts_email ON calendar_accounts (email)",
     "CREATE INDEX calendars_account_id ON calendars (account, id)",
     "CREATE INDEX contacts_score ON contacts (score)",
@@ -49,8 +52,16 @@ int main(){
     "CREATE INDEX threads_needs_render ON threads (needs_render)",
     "CREATE INDEX threads_sort ON threads (sort)",
 
-    "INSERT INTO labels VALUES(1,'test','test', 'test');",
-    "SELECT * FROM labels;",
+    // auto merge query fails for some reason.
+    //"INSERT INTO thread_search(thread_search) VALUES('automerge=2')",
+
+    "INSERT INTO thread_search ('rowid','thread_id','subject','labels','content','to','from','cc','bcc','replyto','deliveredto','attachments','rfc822msgid','list','meta') VALUES ('3536250474305728112', '17f66aae1f11b995', 'test no header', 'SENT  SH_ALL  SH_ARCHIVED  SH_NO_REPLY', '  ', 'superhumantester2@outlook.com  superhumantesteroutlookcom', 'brian@superhuman.com  Brian Zindler  briansuperhumancom', '', '', '', '', '', '<CAG9ManSbEiX58aE3BBE+H2tmgriW7-rxWbn5F=YhfuHCkkfhpg@mail.gmail.com>', '', '');",
+
+
+    "SELECT count(*) FROM thread_search WHERE subject MATCH '%test%';",
+
+    "INSERT INTO bulk_actions VALUES(1,'test');",
+    "SELECT * FROM bulk_actions;",
     NULL
   };
 
