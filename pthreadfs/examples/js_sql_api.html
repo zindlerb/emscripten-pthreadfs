@@ -1,0 +1,12 @@
+<html>
+  <head>
+    <script src='/dist/sqlite/test.js'></script>
+    <script>
+      const queryDatabase = Module.cwrap('query_database', 'number', ['string'])
+      const pthreadExample = Module.cwrap('pthread_example', 'number', [])
+
+      window.pthreadExample = pthreadExample
+      window.queryDatabase = queryDatabase
+    </script>
+  </head>
+</html>

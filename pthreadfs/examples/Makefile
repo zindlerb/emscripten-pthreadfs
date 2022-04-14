@@ -41,9 +41,10 @@ CFLAGS = \
 # Allocate 128 MiB to prevent OOM errors in some tests.
 LINK_FLAGS =  \
 	-pthread \
-	-s PROXY_TO_PTHREAD \
 	-$(OPTIMIZATION_LEVEL) \
 	-s INITIAL_MEMORY=134217728 \
+	-s EXPORTED_FUNCTIONS=_query_database,_callback,_pthread_example \
+	-s EXPORTED_RUNTIME_METHODS=ccall,cwrap \
 	$(DEBUGGING_FLAGS)
 
 .PHONY: clean
@@ -59,7 +60,7 @@ $(OBJ)/pthreadfs.o : $(PTHREADFS_CPP) $(PTHREADFS_H)
 	$(EMCC) -c $(CFLAGS) $< -o $@
 
 .PHONY: sqlite
-sqlite: $(addprefix dist/sqlite/, $(addsuffix .html, $(notdir $(basename $(wildcard $(SQLITE_BENCHMARK_SRC)/*.c)))))
+sqlite: dist/sqlite/test.html
 	@echo 'Building SQLite Tests' $?
 
 $(OBJ)/sqlite3.o: $(SQLITE_SRC)/sqlite3.c
